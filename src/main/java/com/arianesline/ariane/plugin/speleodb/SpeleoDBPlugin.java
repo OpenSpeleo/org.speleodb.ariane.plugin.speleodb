@@ -9,6 +9,7 @@ import com.arianesline.cavelib.api.CaveSurveyInterface;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.image.Image;
@@ -73,6 +74,22 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     @Override
+    public Node getUINode() {
+        SpeleoDBController controller = new SpeleoDBController();
+        controller.parentPlugin = this;
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
+        fxmlLoader.setController(controller);
+        Parent root1 = null;
+        try {
+            root1 = fxmlLoader.load();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return root1;
+    }
+
+    @Override
     public Image getIcon() {
         return new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png")));
     }
@@ -88,7 +105,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public PluginInterface getInterfaceType() {
-        return PluginInterface.WINDOW;
+        return PluginInterface.LEFT_TAB;
     }
 
     @Override
