@@ -13,6 +13,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -25,6 +26,7 @@ import java.util.ResourceBundle;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
 import jakarta.json.JsonArray;
@@ -40,7 +42,7 @@ import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ON
 public class SpeleoDBController implements Initializable {
 
     //TODO: Find alternative   private final CoreContext core = CoreContext.getInstance();
-
+    public static AtomicInteger messageIndexCounter = new AtomicInteger(0);
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
     public TextArea serverTextArea;
@@ -97,7 +99,7 @@ public class SpeleoDBController implements Initializable {
     private static final String DEFAULT_INSTANCE = "www.speleoDB.org";
 
     // Internal Controller Data
-    private JsonArray projectList = null;
+
     private JsonObject currentProject = null;
 
     // ========================= UTILITY FUNCTIONS ========================= //
@@ -108,7 +110,10 @@ public class SpeleoDBController implements Initializable {
      * @param message the message to log.
      */
     private void logMessage(String message) {
-        serverLog.appendText(message + System.lineSeparator());
+        final int messageIndex = messageIndexCounter.incrementAndGet();
+        Platform.runLater(() -> {
+            serverLog.appendText(messageIndex + "-" + message + System.lineSeparator());
+        });
     }
 
     /**
@@ -121,29 +126,27 @@ public class SpeleoDBController implements Initializable {
             try {
 
                 String SDB_projectId = project.getString("id");
-
                 String SDB_mainCaveFileId = parentPlugin.getSurvey().getExtraData();
 
-                Platform.runLater(() -> {
 
-                    if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
-                        logMessage("Adding SpeleoDB ID: " + SDB_projectId);
-                        //speleoDBService.updateFileSpeleoDBId(SDB_projectId);
-                        parentPlugin.getSurvey().setExtraData(SDB_projectId);
-                        return;
-                    }
+                if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
+                    logMessage("Adding SpeleoDB ID: " + SDB_projectId);
+                    speleoDBService.updateFileSpeleoDBId(SDB_projectId);
+                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
+                    return;
+                }
 
-                    if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
-                        logMessage("Incoherent File ID detected.");
-                        logMessage("\t- Previous Value: " + SDB_mainCaveFileId);
-                        logMessage("\t- New Value: " + SDB_projectId);
-                        parentPlugin.getSurvey().setExtraData(SDB_projectId);
-                        logMessage("SpeleoDB ID updated successfully.");
-                    }
-                });
+                if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
+                    logMessage("Incoherent File ID detected.");
+                    logMessage("\t- Previous Value: " + SDB_mainCaveFileId);
+                    logMessage("\t- New Value: " + SDB_projectId);
+                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
+                    logMessage("SpeleoDB ID updated successfully.");
+                }
+
 
             } catch (Exception e) {
-                Platform.runLater(() -> logMessage("Error checking/updating SpeleoDB ID: " + e.getMessage()));
+                logMessage("Error checking/updating SpeleoDB ID: " + e.getMessage());
             }
         });
     }
@@ -244,17 +247,19 @@ public class SpeleoDBController implements Initializable {
         executorService.execute(() -> {
             try {
                 speleoDBService.authenticate(email, password, oauthtoken, instance);
+                logMessage("Connected successfully.");
+                savePreferences();
+
                 Platform.runLater(() -> {
-                    logMessage("Connected successfully.");
-                    savePreferences();
                     projectsTitlePane.setVisible(true);
                     projectsTitlePane.setExpanded(true);
                     connectionButton.setText("DISCONNECT");
-                    listProjects();
                 });
+
+                listProjects();
+
             } catch (Exception e) {
-                Platform.runLater(() -> logMessage("Connection failed: " + e.getMessage()));
-            } finally {
+                logMessage("Connection failed: " + e.getMessage());
                 Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
         });
@@ -370,38 +375,29 @@ public class SpeleoDBController implements Initializable {
      */
     private void handleProjectListResponse(JsonArray projectList) {
         logMessage("Project listing successful on " + speleoDBService.getSDBInstance());
-        projectListView.getItems().clear();
-        for (JsonValue jsonValue : projectList) {
-            JsonObject projectItem = jsonValue.asJsonObject();
-            VBox card = createProjectCard(projectItem);
-            Button button = createProjectButton(card, projectItem);
-            projectListView.getItems().add(button);
-        }
+        Platform.runLater(() -> {
+            projectListView.getItems().clear();
+            for (JsonValue jsonValue : projectList) {
+                JsonObject projectItem = jsonValue.asJsonObject();
+                VBox card = createProjectCard(projectItem);
+                Button button = createProjectButton(card, projectItem);
+                projectListView.getItems().add(button);
+            }
+        });
 
-        // TODO: Validate code removal
-        serverProgressIndicator.setVisible(false);
     }
 
     private void listProjects() {
         logMessage("Listing Projects on " + speleoDBService.getSDBInstance());
-        // TODO: Validate code removal
-        serverProgressIndicator.setVisible(true);
 
         executorService.execute(() -> {
             try {
                 JsonArray projectList = speleoDBService.listProjects();
-                Platform.runLater(() -> handleProjectListResponse(projectList));
+                handleProjectListResponse(projectList);
             } catch (Exception e) {
-                Platform.runLater(() -> {
-                    logMessage("Failed to list projects: " + e.getMessage());
-                });
+                logMessage("Failed to list projects: " + e.getMessage());
             } finally {
-                // TODO: Validate code removal
-
-                Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                });
-
+                Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
         });
     }
@@ -423,35 +419,29 @@ public class SpeleoDBController implements Initializable {
                     //    - Create a UI confirmation window: "Are you modifying the project": Yes / No
 
                     logMessage("Locking " + project.getString("name"));
-                    serverProgressIndicator.setVisible(true);
 
                     if (speleoDBService.acquireOrRefreshProjectMutex(project)) {
-                        Platform.runLater(() -> {
-                            logMessage("Lock successful on  " + project.getString("name"));
-                            lockIsAcquired.set(true);
-                        });
+                        logMessage("Lock successful on  " + project.getString("name"));
+                        lockIsAcquired.set(true);
                     } else {
-                        Platform.runLater(() -> {
-                            logMessage("Lock failed on  " + project.getString("name"));
-                        });
+                        logMessage("Lock failed on  " + project.getString("name"));
                     }
                 }
 
                 logMessage("Downloading projects " + project.getString("name"));
-                serverProgressIndicator.setVisible(true);
 
                 Path tml_filepath = speleoDBService.downloadProject(project);
+
                 if (Files.exists(tml_filepath)) {
 
                     parentPlugin.loadSurvey(tml_filepath.toFile());
+                    logMessage("Download successful of " + project.getString("name"));
+                    currentProject = project;
+                    checkAndUpdateSpeleoDBId(project);
 
                     Platform.runLater(() -> {
-                        logMessage("Download successful of " + project.getString("name"));
+
                         serverProgressIndicator.setVisible(false);
-                        currentProject = project;
-
-                        checkAndUpdateSpeleoDBId(project);
-
                         actionsTitlePane.setVisible(true);
                         actionsTitlePane.setExpanded(true);
                         actionsTitlePane.setText("Actions on " + currentProject.getString("name"));
@@ -466,10 +456,11 @@ public class SpeleoDBController implements Initializable {
                     });
 
                 } else {
+                    logMessage("Download failed");
+                    currentProject = null;
+
                     Platform.runLater(() -> {
-                        logMessage("Download failed");
                         serverProgressIndicator.setVisible(false);
-                        currentProject = null;
                         actionsTitlePane.setVisible(false);
                         actionsTitlePane.setExpanded(false);
                         actionsTitlePane.setText("Actions");
@@ -481,11 +472,10 @@ public class SpeleoDBController implements Initializable {
             } catch (IOException | InterruptedException | URISyntaxException ex) {
                 throw new RuntimeException(ex);
             } finally {
-
                 Platform.runLater(() -> {
+                    projectListView.setDisable(false);
                     serverProgressIndicator.setVisible(false);
                 });
-
             }
         });
     }
@@ -500,17 +490,15 @@ public class SpeleoDBController implements Initializable {
         // Prevent double click
         projectListView.setDisable(true);
 
-        executorService.execute(() -> {
-            try {
-                Platform.runLater(() -> logMessage("Selected project: " + projectItem.getString("name")));
-                clickSpeleoDBProject(event);
-                Platform.runLater(() -> projectListView.setDisable(false));
-            } catch (Exception e) {
-                Platform.runLater(() -> logMessage("Error handling project action: " + e.getMessage()));
-            } finally {
+        try {
+            logMessage("Selected project: " + projectItem.getString("name"));
+            clickSpeleoDBProject(event);
 
-            }
-        });
+        } catch (Exception e) {
+            logMessage("Error handling project action: " + e.getMessage());
+            Platform.runLater(() -> projectListView.setDisable(false));
+        }
+
     }
 
     // ---------------------- Project Mutex Management --------------------- //
@@ -529,23 +517,18 @@ public class SpeleoDBController implements Initializable {
         executorService.execute(() -> {
             try {
                 if (speleoDBService.releaseProjectMutex(currentProject)) {
+                    logMessage("Project " + currentProject.getString("name") + " unlocked");
+                    currentProject = null;
 
                     Platform.runLater(() -> {
-                        logMessage("Project " + currentProject.getString("name") + " unlocked");
-                        currentProject = null;
                         actionsTitlePane.setVisible(false);
                         actionsTitlePane.setExpanded(false);
                         projectsTitlePane.setExpanded(true);
-                        serverProgressIndicator.setVisible(false);
-                        listProjects();
                     });
+
+                    listProjects();
                 }
             } catch (Exception e) {
-                Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                });
-                throw new RuntimeException(e);
-            } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
                 });
@@ -581,7 +564,6 @@ public class SpeleoDBController implements Initializable {
         }
 
         logMessage("Uploading project " + currentProject.getString("name") + " ...");
-        // TODO: Validate code removal
         serverProgressIndicator.setVisible(true);
         uploadButton.setDisable(true);
         unlockButton.setDisable(true);
@@ -589,12 +571,11 @@ public class SpeleoDBController implements Initializable {
         executorService.execute(() -> {
             try {
                 speleoDBService.uploadProject(message, currentProject);
-                Platform.runLater(() -> logMessage("Upload successful."));
+                logMessage("Upload successful.");
             } catch (Exception e) {
-                Platform.runLater(() -> logMessage("Upload failed: " + e.getMessage()));
+                logMessage("Upload failed: " + e.getMessage());
             } finally {
                 Platform.runLater(() -> {
-                    //TODO: Validate code removal
                     serverProgressIndicator.setVisible(false);
                     uploadButton.setDisable(false);
                 });
