@@ -168,8 +168,10 @@ public class SpeleoDBService {
                 .setHeader("Authorization", "Token " + authToken)
                 .build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
 
         if (response.statusCode() != 200) {
             // TODO: Improve Error management
@@ -221,10 +223,12 @@ public class SpeleoDBService {
          .setHeader("Authorization", "Token " + authToken)
          .build();
 
-         HttpClient client = HttpClient.newHttpClient();
-         HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        }
 
-         if (response.statusCode() != 200) {
+        if (response.statusCode() != 200) {
          // TODO: Improve error management
          throw new Exception("Upload failed with status code: " + response.statusCode());
          }
@@ -259,8 +263,10 @@ public class SpeleoDBService {
                 .setHeader("Authorization", "token " + authToken).
                 build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        }
 
 
         Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
@@ -277,15 +283,7 @@ public class SpeleoDBService {
             // Clean any old version
 
             if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
-/*
-            core.mainController.loadEmptyProject();
-            core.mainCaveFile.url = tml_filepath.toString();
-            core.mainController.saveTML(false);
- */
-            Platform.runLater(() -> {
-                controller.serverProgressIndicator.setVisible(false);
-            });
-            //  Files.createFile(tml_filepath);
+
             return tml_filepath;
         }
 
@@ -313,8 +311,10 @@ public class SpeleoDBService {
                 build();
 
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
 
         // TODO: Add error management
         return (response.statusCode() == 200);
@@ -337,8 +337,10 @@ public class SpeleoDBService {
                 .setHeader("Authorization", "Token " + authToken).
                 build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
 
         // TODO: Add error management
         return (response.statusCode() == 200);
