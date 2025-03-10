@@ -31,7 +31,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private final StringProperty commandProperty = new SimpleStringProperty();
     private CaveSurveyInterface survey;
     private File surveyFile;
-    private final ReentrantLock lock = new ReentrantLock();
+    private final AtomicBoolean lock = new AtomicBoolean(false);
 
     @Override
     public File getSurveyFile() {
@@ -41,6 +41,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public void setSurveyFile(File file) {
         surveyFile = file;
+
     }
 
     @Override
@@ -56,6 +57,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public void setSurvey(CaveSurveyInterface survey) {
         this.survey = survey;
+        lock.set(false);
     }
 
     @Override
@@ -106,15 +108,15 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     public void loadSurvey(File file) {
-        lock.lock();
+        lock.set(true);
         survey = null;
         surveyFile = file;
         commandProperty.set(DataServerCommands.LOAD.name());
         var start = LocalDateTime.now();
-        while (lock.isLocked() && Duration.between(start, LocalDateTime.now()).toMillis() < 10000) {
+        while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < 10000) {
 
         }
-        lock.unlock();
+        lock.set(false);
         commandProperty.set(DataServerCommands.DONE.name());
     }
 
