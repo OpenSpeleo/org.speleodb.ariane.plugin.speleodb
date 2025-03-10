@@ -18,6 +18,7 @@ import javafx.stage.StageStyle;
 
 import java.io.*;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class SpeleoDBPlugin implements DataServerPlugin {
@@ -25,6 +26,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private final StringProperty commandProperty = new SimpleStringProperty();
     private CaveSurveyInterface survey;
     private File surveyFile;
+    private AtomicBoolean lock = new AtomicBoolean(false);
 
     @Override
     public File getSurveyFile() {
@@ -49,7 +51,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public void setSurvey(CaveSurveyInterface survey) {
         this.survey = survey;
-
+        lock.set(false);
     }
 
     @Override
@@ -98,9 +100,15 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     public void saveSurvey() {
         commandProperty.set(DataServerCommands.SAVE.name());
     }
+
     public void loadSurvey(File file) {
-        surveyFile=file;
+        lock.set(true);
+        survey = null;
+        surveyFile = file;
         commandProperty.set(DataServerCommands.LOAD.name());
+        while (lock.get()) {
+
+        }
     }
 
     @Override
@@ -122,5 +130,10 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     public void showSettings() {
 
 
+    }
+
+    @Override
+    public AtomicBoolean getLock() {
+        return lock;
     }
 }
