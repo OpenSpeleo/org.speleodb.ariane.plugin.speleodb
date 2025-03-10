@@ -17,8 +17,13 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 
 import java.io.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 
 public class SpeleoDBPlugin implements DataServerPlugin {
@@ -26,7 +31,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private final StringProperty commandProperty = new SimpleStringProperty();
     private CaveSurveyInterface survey;
     private File surveyFile;
-    private AtomicBoolean lock = new AtomicBoolean(false);
+    private final ReentrantLock lock = new ReentrantLock();
 
     @Override
     public File getSurveyFile() {
@@ -51,7 +56,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public void setSurvey(CaveSurveyInterface survey) {
         this.survey = survey;
-        lock.set(false);
     }
 
     @Override
@@ -102,13 +106,15 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     public void loadSurvey(File file) {
-        lock.set(true);
+        lock.lock();
         survey = null;
         surveyFile = file;
         commandProperty.set(DataServerCommands.LOAD.name());
-        while (lock.get()) {
-        //Not so elegant
+        var start = LocalDateTime.now();
+        while (lock.isLocked() && Duration.between(start, LocalDateTime.now()).toMillis() < 10000) {
+
         }
+        lock.unlock();
         commandProperty.set(DataServerCommands.DONE.name());
     }
 
