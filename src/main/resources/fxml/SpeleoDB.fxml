@@ -20,217 +20,266 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane fx:id="speleoDBAnchorPane" prefHeight="600.0" prefWidth="320.0" styleClass="aggregator" xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1" >
+<?import javafx.scene.web.WebView?>
+<AnchorPane fx:id="speleoDBAnchorPane" prefHeight="600.0" prefWidth="320.0" styleClass="aggregator"
+            xmlns="http://javafx.com/javafx/22" xmlns:fx="http://javafx.com/fxml/1">
     <stylesheets>
-        <URL value="@../css/fxmlmain.css" />
+        <URL value="@../css/fxmlmain.css"/>
     </stylesheets>
 
     <padding>
-        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0" />
+        <Insets bottom="8.0" left="8.0" right="8.0" top="8.0"/>
     </padding>
-   <children>
-      <Accordion layoutX="31.0" layoutY="273.0" AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
-        <panes>
-          <TitledPane fx:id="connectionTitlePane" animated="false" text="Connection">
-            <content>
-              <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" styleClass="aggregator">
-                     <children>
-                        <GridPane AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
-                           <columnConstraints>
-                              <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
-                           </columnConstraints>
-                           <rowConstraints>
-                              <RowConstraints minHeight="50.0" vgrow="SOMETIMES" />  <!-- Row 0 -->
-                              <RowConstraints minHeight="20.0" vgrow="SOMETIMES" />  <!-- Row 1 -->
-                              <RowConstraints minHeight="25.0" vgrow="SOMETIMES" />  <!-- Row 2 -->
-                              <RowConstraints minHeight="50.0" vgrow="SOMETIMES" />  <!-- Row 3 -->
-                              <RowConstraints minHeight="50.0" vgrow="SOMETIMES" />  <!-- Row 4 -->
-                              <RowConstraints minHeight="20.0" vgrow="SOMETIMES" />  <!-- Row 5 -->
-                              <RowConstraints minHeight="50.0" vgrow="SOMETIMES" />  <!-- Row 6 -->
-                              <RowConstraints minHeight="20.0" vgrow="SOMETIMES" />  <!-- Row 7 -->
-                              <RowConstraints minHeight="35.0" vgrow="SOMETIMES" />  <!-- Row 8 -->
-                              <RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 9 -->
-                              <!-- <RowConstraints /> -->
-                           </rowConstraints>
-                           <children>
+    <children>
+        <Accordion layoutX="31.0" layoutY="273.0" AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0"
+                   AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
+            <panes>
+                <TitledPane fx:id="connectionTitlePane" animated="false" text="Connection">
+                    <content>
+                        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0"
+                                    styleClass="aggregator">
+                            <children>
+                                <GridPane AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0"
+                                          AnchorPane.topAnchor="8.0">
+                                    <columnConstraints>
+                                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0"/>
+                                    </columnConstraints>
+                                    <rowConstraints>
+                                        <RowConstraints minHeight="50.0" vgrow="SOMETIMES"/>  <!-- Row 0 -->
+                                        <RowConstraints minHeight="20.0" vgrow="SOMETIMES"/>  <!-- Row 1 -->
+                                        <RowConstraints minHeight="25.0" vgrow="SOMETIMES"/>  <!-- Row 2 -->
+                                        <RowConstraints minHeight="50.0" vgrow="SOMETIMES"/>  <!-- Row 3 -->
+                                        <RowConstraints minHeight="50.0" vgrow="SOMETIMES"/>  <!-- Row 4 -->
+                                        <RowConstraints minHeight="20.0" vgrow="SOMETIMES"/>  <!-- Row 5 -->
+                                        <RowConstraints minHeight="50.0" vgrow="SOMETIMES"/>  <!-- Row 6 -->
+                                        <RowConstraints minHeight="20.0" vgrow="SOMETIMES"/>  <!-- Row 7 -->
+                                        <RowConstraints minHeight="35.0" vgrow="SOMETIMES"/>  <!-- Row 8 -->
+                                        <RowConstraints fillHeight="false" minHeight="50.0"
+                                                        valignment="CENTER"/>  <!-- Row 9 -->
+                                        <!-- <RowConstraints /> -->
+                                    </rowConstraints>
+                                    <children>
 
-                              <Label contentDisplay="BOTTOM" text="Instance" GridPane.halignment="CENTER" GridPane.rowIndex="0" GridPane.valignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                                 <padding>
-                                    <Insets left="10.0" />
-                                 </padding>
-                                 <graphic>
-                                    <TextField fx:id="instanceTextField" minWidth="200.0" prefHeight="25.0" />
-                                 </graphic>
-                              </Label>
+                                        <Label contentDisplay="BOTTOM" text="Instance" GridPane.halignment="CENTER"
+                                               GridPane.rowIndex="0" GridPane.valignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                            <padding>
+                                                <Insets left="10.0"/>
+                                            </padding>
+                                            <graphic>
+                                                <TextField fx:id="instanceTextField" minWidth="200.0"
+                                                           prefHeight="25.0"/>
+                                            </graphic>
+                                        </Label>
 
-                              <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER" />
+                                        <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="1"
+                                                   GridPane.valignment="CENTER"/>
 
-                              <Label text="Provide Email &amp; Password or OAuth Token" GridPane.halignment="CENTER" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
+                                        <Label text="Provide Email &amp; Password or OAuth Token"
+                                               GridPane.halignment="CENTER" GridPane.rowIndex="2"
+                                               GridPane.valignment="CENTER"/>
 
-                              <Label contentDisplay="BOTTOM" text="Email" GridPane.halignment="CENTER" GridPane.rowIndex="3" GridPane.valignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                                 <padding>
-                                    <Insets left="10.0" />
-                                 </padding>
-                                 <graphic>
-                                    <TextField fx:id="emailTextField" minWidth="200.0" prefHeight="25.0" />
-                                 </graphic>
-                                 <GridPane.margin>
-                                    <Insets top="4.0" />
-                                 </GridPane.margin>
-                              </Label>
+                                        <Label contentDisplay="BOTTOM" text="Email" GridPane.halignment="CENTER"
+                                               GridPane.rowIndex="3" GridPane.valignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                            <padding>
+                                                <Insets left="10.0"/>
+                                            </padding>
+                                            <graphic>
+                                                <TextField fx:id="emailTextField" minWidth="200.0" prefHeight="25.0"/>
+                                            </graphic>
+                                            <GridPane.margin>
+                                                <Insets top="4.0"/>
+                                            </GridPane.margin>
+                                        </Label>
 
-                              <Label contentDisplay="BOTTOM" text="Password" GridPane.halignment="CENTER" GridPane.rowIndex="4" GridPane.valignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                                 <padding>
-                                    <Insets left="10.0" />
-                                 </padding>
-                                 <graphic>
-                                    <PasswordField fx:id="passwordPasswordField" minWidth="200.0" />
-                                 </graphic>
-                                 <GridPane.margin>
-                                    <Insets top="4.0" />
-                                 </GridPane.margin>
-                              </Label>
+                                        <Label contentDisplay="BOTTOM" text="Password" GridPane.halignment="CENTER"
+                                               GridPane.rowIndex="4" GridPane.valignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                            <padding>
+                                                <Insets left="10.0"/>
+                                            </padding>
+                                            <graphic>
+                                                <PasswordField fx:id="passwordPasswordField" minWidth="200.0"/>
+                                            </graphic>
+                                            <GridPane.margin>
+                                                <Insets top="4.0"/>
+                                            </GridPane.margin>
+                                        </Label>
 
-                              <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="5" GridPane.valignment="CENTER" />
+                                        <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="5"
+                                                   GridPane.valignment="CENTER"/>
 
-                              <Label contentDisplay="BOTTOM" text="OAuth Token" GridPane.halignment="CENTER" GridPane.rowIndex="6" GridPane.valignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                                 <padding>
-                                    <Insets left="10.0" />
-                                 </padding>
-                                 <graphic>
-                                    <PasswordField fx:id="oauthtokenPasswordField" minWidth="200.0" />
-                                 </graphic>
-                                 <GridPane.margin>
-                                    <Insets top="4.0" />
-                                 </GridPane.margin>
-                              </Label>
+                                        <Label contentDisplay="BOTTOM" text="OAuth Token" GridPane.halignment="CENTER"
+                                               GridPane.rowIndex="6" GridPane.valignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                            <padding>
+                                                <Insets left="10.0"/>
+                                            </padding>
+                                            <graphic>
+                                                <PasswordField fx:id="oauthtokenPasswordField" minWidth="200.0"/>
+                                            </graphic>
+                                            <GridPane.margin>
+                                                <Insets top="4.0"/>
+                                            </GridPane.margin>
+                                        </Label>
 
-                              <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="7" GridPane.valignment="CENTER" />
+                                        <Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="7"
+                                                   GridPane.valignment="CENTER"/>
 
-                              <CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false" text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="8" GridPane.valignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                                 <GridPane.margin>
-                                    <Insets left="12.0" right="12.0" top="4.0" />
-                                 </GridPane.margin>
-                              </CheckBox>
+                                        <CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false"
+                                                  text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="8"
+                                                  GridPane.valignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                            <GridPane.margin>
+                                                <Insets left="12.0" right="12.0" top="4.0"/>
+                                            </GridPane.margin>
+                                        </CheckBox>
 
-                              <GridPane AnchorPane.topAnchor="8.0" GridPane.halignment="CENTER" GridPane.rowIndex="9" GridPane.valignment="CENTER">
-                                 <columnConstraints>
-                                    <ColumnConstraints percentWidth="45.0" />
-                                    <ColumnConstraints percentWidth="10.0" />
-                                    <ColumnConstraints percentWidth="45.0" />
-                                 </columnConstraints>
-                                 <children>
+                                        <GridPane AnchorPane.topAnchor="8.0" GridPane.halignment="CENTER"
+                                                  GridPane.rowIndex="9" GridPane.valignment="CENTER">
+                                            <columnConstraints>
+                                                <ColumnConstraints percentWidth="45.0"/>
+                                                <ColumnConstraints percentWidth="10.0"/>
+                                                <ColumnConstraints percentWidth="45.0"/>
+                                            </columnConstraints>
+                                            <children>
 
-                                    <Button fx:id="connectionButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onHandleAuthentication" styleClass="bold" text="CONNECT" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
-                                       <font>
-                                          <Font name="System Bold" size="12.0" />
-                                       </font>
-                                    </Button>
+                                                <Button fx:id="connectionButton" alignment="CENTER"
+                                                        contentDisplay="BOTTOM" maxWidth="Infinity"
+                                                        mnemonicParsing="false" onAction="#onHandleAuthentication"
+                                                        styleClass="bold" text="CONNECT" textAlignment="CENTER"
+                                                        GridPane.columnIndex="0" GridPane.halignment="CENTER"
+                                                        GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
+                                                    <font>
+                                                        <Font name="System Bold" size="12.0"/>
+                                                    </font>
+                                                </Button>
 
-                                    <Button fx:id="signupButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSignupSpeleoDB" styleClass="bold" text="SIGNUP" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
-                                       <font>
-                                          <Font name="System Bold" size="12.0" />
-                                       </font>
-                                    </Button>
+                                                <Button fx:id="signupButton" alignment="CENTER" contentDisplay="BOTTOM"
+                                                        maxWidth="Infinity" mnemonicParsing="false"
+                                                        onAction="#onSignupSpeleoDB" styleClass="bold" text="SIGNUP"
+                                                        textAlignment="CENTER" GridPane.columnIndex="2"
+                                                        GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS"
+                                                        GridPane.valignment="CENTER">
+                                                    <font>
+                                                        <Font name="System Bold" size="12.0"/>
+                                                    </font>
+                                                </Button>
 
-                                 </children>
-                                 <rowConstraints>
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                    <RowConstraints />
-                                 </rowConstraints>
-                              </GridPane>
+                                            </children>
+                                            <rowConstraints>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                                <RowConstraints/>
+                                            </rowConstraints>
+                                        </GridPane>
 
-                           </children>
-                        </GridPane>
-                     </children>
-                  </AnchorPane>
-            </content>
-          </TitledPane>
-          <TitledPane fx:id="projectsTitlePane" animated="false" text="Projects">
-            <content>
-              <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" styleClass="aggregator">
-                     <children>
-                        <ListView fx:id="projectListView" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0" />
-                     </children></AnchorPane>
-            </content>
-          </TitledPane>
-            <TitledPane fx:id="actionsTitlePane" animated="false" text="Save Project">
-               <content>
-                  <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" styleClass="aggregator">
-                     <children>
-                        <GridPane AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="8.0">
-                          <columnConstraints>
-                            <!-- <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-                              <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-                            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" /> -->
+                                    </children>
+                                </GridPane>
+                            </children>
+                        </AnchorPane>
+                    </content>
+                </TitledPane>
+                <TitledPane fx:id="projectsTitlePane" animated="false" text="Projects">
+                    <content>
+                        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0"
+                                    styleClass="aggregator">
+                            <children>
+                                <ListView fx:id="projectListView" prefHeight="200.0" prefWidth="200.0"
+                                          AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0"
+                                          AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0"/>
+                            </children>
+                        </AnchorPane>
+                    </content>
+                </TitledPane>
+                <TitledPane fx:id="actionsTitlePane" animated="false" text="Save Project">
+                    <content>
+                        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0"
+                                    styleClass="aggregator">
+                            <children>
+                                <GridPane AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0"
+                                          AnchorPane.topAnchor="8.0">
+                                    <columnConstraints>
+                                        <!-- <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                                          <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" /> -->
 
-                              <ColumnConstraints percentWidth="45.0" />
-                              <ColumnConstraints percentWidth="10.0" />
-                              <ColumnConstraints percentWidth="45.0" />
-                          </columnConstraints>
-                          <rowConstraints>
-                              <RowConstraints minHeight="10.0" prefHeight="20.0" vgrow="SOMETIMES" />
-                              <RowConstraints minHeight="50.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                              <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                          </rowConstraints>
-                           <children>
+                                        <ColumnConstraints percentWidth="45.0"/>
+                                        <ColumnConstraints percentWidth="10.0"/>
+                                        <ColumnConstraints percentWidth="45.0"/>
+                                    </columnConstraints>
+                                    <rowConstraints>
+                                        <RowConstraints minHeight="10.0" prefHeight="20.0" vgrow="SOMETIMES"/>
+                                        <RowConstraints minHeight="50.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                    </rowConstraints>
+                                    <children>
 
-                              <Label text="Enter a description of your changes" GridPane.columnSpan="3" GridPane.halignment="CENTER">
-                                 <styleClass>
-                                    <String fx:value="small" />
-                                    <String fx:value="textheader" />
-                                 </styleClass>
-                              </Label>
-                              
-                              <TextField fx:id="uploadMessageTextField" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.rowIndex="1" />
+                                        <Label text="Enter a description of your changes" GridPane.columnSpan="3"
+                                               GridPane.halignment="CENTER">
+                                            <styleClass>
+                                                <String fx:value="small"/>
+                                                <String fx:value="textheader"/>
+                                            </styleClass>
+                                        </Label>
 
-                              <Button fx:id="unlockButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUnlockSpeleoDB" styleClass="bold" text="Unlock" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
+                                        <TextField fx:id="uploadMessageTextField" GridPane.columnSpan="3"
+                                                   GridPane.halignment="CENTER" GridPane.rowIndex="1"/>
 
-                              <Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB" styleClass="bold" text="Upload" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
+                                        <Button fx:id="unlockButton" alignment="CENTER" contentDisplay="BOTTOM"
+                                                maxWidth="Infinity" mnemonicParsing="false" onAction="#onUnlockSpeleoDB"
+                                                styleClass="bold" text="Unlock" textAlignment="CENTER"
+                                                GridPane.columnIndex="0" GridPane.halignment="CENTER"
+                                                GridPane.hgrow="ALWAYS" GridPane.rowIndex="2"
+                                                GridPane.valignment="CENTER"/>
 
-                           </children>
-                        </GridPane>
-                     </children>
-                  </AnchorPane>
-               </content>
-            </TitledPane>
-            <TitledPane fx:id="aboutTitlePane" animated="false" text="About SpeleoDB">
-               <content>
+                                        <Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM"
+                                                maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB"
+                                                styleClass="bold" text="Upload" textAlignment="CENTER"
+                                                GridPane.columnIndex="2" GridPane.halignment="CENTER"
+                                                GridPane.hgrow="ALWAYS" GridPane.rowIndex="2"
+                                                GridPane.valignment="CENTER"/>
 
-               </content>
-            </TitledPane>
-        </panes>
-      </Accordion>
-      <TextArea fx:id="serverLog" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
-      <ProgressIndicator fx:id="serverProgressIndicator" visible="false" AnchorPane.bottomAnchor="12.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
-   </children>
+                                    </children>
+                                </GridPane>
+                            </children>
+                        </AnchorPane>
+                    </content>
+                </TitledPane>
+                <TitledPane fx:id="aboutTitlePane" animated="false" text="About SpeleoDB">
+                    <content>
+                        <WebView fx:id="aboutWebView" prefHeight="-1.0" prefWidth="-1.0"/>
+                    </content>
+                </TitledPane>
+            </panes>
+        </Accordion>
+        <TextArea fx:id="serverLog" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="8.0"
+                  AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0"/>
+        <ProgressIndicator fx:id="serverProgressIndicator" visible="false" AnchorPane.bottomAnchor="12.0"
+                           AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0"/>
+    </children>
 </AnchorPane>

@@ -32,6 +32,8 @@ import java.util.prefs.Preferences;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
+import javafx.scene.web.WebView;
+
 
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ONLY;
 
@@ -83,6 +85,9 @@ public class SpeleoDBController implements Initializable {
     //private TitledPane connectionTitlePane;
     @FXML
     private TitledPane projectsTitlePane;
+
+    @FXML
+    private WebView aboutWebView;
 
     // Executor service for managing background tasks.
     private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -203,6 +208,9 @@ public class SpeleoDBController implements Initializable {
         // On purpose - use the main URL, not the instance one.
         // TODO (low priority): Find a way to redirect to `http://localhost:<some_port>/webview/ariane` to
         //       allow development (maybe a sort of `if (source_distribution)` or `if (debug)`)
+
+
+        aboutWebView.getEngine().load("https://www.speleodb.org/webview/ariane/");
         //TODO: WebView has been removed. Create directly in UI elements describing the about
 
         serverLog.textProperty().addListener(new ChangeListener<Object>() {
