@@ -107,8 +107,9 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         surveyFile = file;
         commandProperty.set(DataServerCommands.LOAD.name());
         while (lock.get()) {
-
+        //Not so elegant
         }
+        commandProperty.set(DataServerCommands.DONE.name());
     }
 
     @Override
