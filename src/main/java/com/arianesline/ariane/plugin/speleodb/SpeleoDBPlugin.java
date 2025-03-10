@@ -130,11 +130,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public void showSettings() {
 
-
     }
 
-    @Override
-    public AtomicBoolean getLock() {
-        return lock;
-    }
 }
