@@ -20,6 +20,8 @@ import java.io.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
@@ -33,6 +35,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private CaveSurveyInterface survey;
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
+    // Executor service for managing background tasks.
+    final ExecutorService executorService = Executors.newCachedThreadPool();
 
     @Override
     public synchronized File getSurveyFile() {
@@ -101,6 +105,11 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     @Override
     public Image getIcon() {
         return new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png")));
+    }
+
+    @Override
+    public void closeUI() {
+        executorService.shutdownNow();
     }
 
 

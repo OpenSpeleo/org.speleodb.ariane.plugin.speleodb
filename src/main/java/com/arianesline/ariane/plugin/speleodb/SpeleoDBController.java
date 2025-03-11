@@ -89,8 +89,7 @@ public class SpeleoDBController implements Initializable {
     @FXML
     private WebView aboutWebView;
 
-    // Executor service for managing background tasks.
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+
 
     // SpeleoDBService instance for handling server communication.
     private final SpeleoDBService speleoDBService = new SpeleoDBService(this);
@@ -127,7 +126,7 @@ public class SpeleoDBController implements Initializable {
      * @param project A JsonObject representing the project metadata.
      */
     private void checkAndUpdateSpeleoDBId(JsonObject project) {
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
             try {
 
                 String SDB_projectId = project.getString("id");
@@ -252,7 +251,7 @@ public class SpeleoDBController implements Initializable {
         logMessage("Connecting to " + instance);
         serverProgressIndicator.setVisible(true);
 
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
             try {
                 speleoDBService.authenticate(email, password, oauthtoken, instance);
                 logMessage("Connected successfully.");
@@ -398,7 +397,7 @@ public class SpeleoDBController implements Initializable {
     private void listProjects() {
         logMessage("Listing Projects on " + speleoDBService.getSDBInstance());
 
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
             try {
                 JsonArray projectList = speleoDBService.listProjects();
                 handleProjectListResponse(projectList);
@@ -415,7 +414,7 @@ public class SpeleoDBController implements Initializable {
     private void clickSpeleoDBProject(ActionEvent e) throws URISyntaxException, IOException, InterruptedException {
         var project = (JsonObject) ((Button) e.getSource()).getUserData();
 
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
 
             AtomicBoolean lockIsAcquired = new AtomicBoolean(false);
 
@@ -522,7 +521,7 @@ public class SpeleoDBController implements Initializable {
         uploadButton.setDisable(true);
         unlockButton.setDisable(true);
 
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
             try {
                 if (speleoDBService.releaseProjectMutex(currentProject)) {
                     logMessage("Project " + currentProject.getString("name") + " unlocked");
@@ -576,7 +575,7 @@ public class SpeleoDBController implements Initializable {
         uploadButton.setDisable(true);
         unlockButton.setDisable(true);
 
-        executorService.execute(() -> {
+        parentPlugin.executorService.execute(() -> {
             try {
                 speleoDBService.uploadProject(message, currentProject);
                 logMessage("Upload successful.");
