@@ -28,18 +28,19 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class SpeleoDBPlugin implements DataServerPlugin {
 
+    public static final int TIMEOUT = 10000;
     private final StringProperty commandProperty = new SimpleStringProperty();
     private CaveSurveyInterface survey;
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
 
     @Override
-    public File getSurveyFile() {
+    public synchronized File getSurveyFile() {
         return surveyFile;
     }
 
     @Override
-    public void setSurveyFile(File file) {
+    public synchronized void setSurveyFile(File file) {
         surveyFile = file;
 
     }
@@ -50,12 +51,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     @Override
-    public CaveSurveyInterface getSurvey() {
+    public synchronized CaveSurveyInterface getSurvey() {
         return survey;
     }
 
     @Override
-    public void setSurvey(CaveSurveyInterface survey) {
+    public synchronized void setSurvey(CaveSurveyInterface survey) {
         this.survey = survey;
         lock.set(false);
     }
@@ -105,6 +106,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     public void saveSurvey() {
         commandProperty.set(DataServerCommands.SAVE.name());
+        commandProperty.set(DataServerCommands.DONE.name());
     }
 
     public void loadSurvey(File file) {
@@ -113,8 +115,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         surveyFile = file;
         commandProperty.set(DataServerCommands.LOAD.name());
         var start = LocalDateTime.now();
-        while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < 10000) {
-
+        while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < TIMEOUT) {
         }
         lock.set(false);
         commandProperty.set(DataServerCommands.DONE.name());
