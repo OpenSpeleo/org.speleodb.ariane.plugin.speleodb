@@ -29,6 +29,11 @@ public class AllTestsRunner {
             SpeleoDBControllerStateTest.main(args);
             System.out.println();
             
+            // Run SpeleoDBPlugin tests
+            System.out.println("5. Running SpeleoDBPlugin tests...");
+            SpeleoDBPluginTest.main(args);
+            System.out.println();
+            
             System.out.println("=== ALL TESTS PASSED SUCCESSFULLY! ===");
             
         } catch (AssertionError e) {

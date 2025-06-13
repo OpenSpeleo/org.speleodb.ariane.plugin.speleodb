@@ -139,10 +139,24 @@ tasks.register('runControllerStateTests', JavaExec) {
     dependsOn compileJava, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBControllerStateTest'
+    mainClass = 'com.arianesline.ariana.plugin.speleodb.SpeleoDBControllerStateTest'
     
     doLast {
         println 'SpeleoDBController state tests completed successfully!'
+    }
+}
+
+tasks.register('runPluginTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs SpeleoDBPlugin tests only'
+    
+    dependsOn compileJava, compileTestJava
+    
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBPluginTest'
+    
+    doLast {
+        println 'SpeleoDBPlugin tests completed successfully!'
     }
 }
 
