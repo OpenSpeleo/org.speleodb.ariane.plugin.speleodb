@@ -78,7 +78,21 @@ test {
 
 tasks.register('runTests', JavaExec) {
     group = 'verification'
-    description = 'Runs the HTTPRequestMultipartBody tests'
+    description = 'Runs all unit tests'
+    
+    dependsOn compileJava, compileTestJava
+    
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'com.arianesline.ariane.plugin.speleodb.AllTestsRunner'
+    
+    doLast {
+        println 'All unit tests completed successfully!'
+    }
+}
+
+tasks.register('runHttpTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs HTTPRequestMultipartBody tests only'
     
     dependsOn compileJava, compileTestJava
     
@@ -87,6 +101,20 @@ tasks.register('runTests', JavaExec) {
     
     doLast {
         println 'HTTPRequestMultipartBody tests completed successfully!'
+    }
+}
+
+tasks.register('runServiceTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs SpeleoDBService tests only'
+    
+    dependsOn compileJava, compileTestJava
+    
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBServiceTest'
+    
+    doLast {
+        println 'SpeleoDBService tests completed successfully!'
     }
 }
 
