@@ -1,4 +1,3 @@
-
 plugins {
     id 'java-library'
 }
@@ -11,4 +10,54 @@ dependencies {
     implementation("jakarta.json:jakarta.json-api:2.1.3")
     implementation ('org.eclipse.parsson:parsson:1.1.4')
     implementation("org.glassfish:jakarta.json:2.0.1")
+}
+
+tasks.register('buildDebug') {
+    group = 'build'
+    description = 'Builds the SpeleoDB plugin with debug information enabled and localhost URLs'
+    
+    doFirst {
+        println 'Starting SpeleoDB plugin debug build with localhost configuration...'
+        
+        // Create debug configuration file
+        def debugConfigDir = file("src/main/resources")
+        debugConfigDir.mkdirs()
+        def debugConfigFile = new File(debugConfigDir, "debug.properties")
+        debugConfigFile.text = "debug.mode=true\n"
+        
+        // Configure debug settings for compilation
+        tasks.withType(JavaCompile) {
+            options.debug = true
+            options.debugOptions.debugLevel = "source,lines,vars"
+            options.compilerArgs += ['-g', '-Xlint:all', '-parameters']
+        }
+    }
+    
+    dependsOn 'build'
+    
+    doLast {
+        println 'SpeleoDB plugin debug build completed with localhost URLs enabled'
+        println 'Debug configuration file created at: src/main/resources/debug.properties'
+    }
+}
+
+tasks.register('buildProduction') {
+    group = 'build'
+    description = 'Builds the SpeleoDB plugin for production with remote URLs'
+    
+    doFirst {
+        println 'Starting SpeleoDB plugin production build...'
+        
+        // Remove debug configuration file if it exists
+        def debugConfigFile = file("src/main/resources/debug.properties")
+        if (debugConfigFile.exists()) {
+            debugConfigFile.delete()
+        }
+    }
+    
+    dependsOn 'build'
+    
+    doLast {
+        println 'SpeleoDB plugin production build completed'
+    }
 }

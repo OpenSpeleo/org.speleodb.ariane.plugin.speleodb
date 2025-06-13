@@ -199,6 +199,33 @@ public class SpeleoDBController implements Initializable {
     // ==================== UI INITIALIZATION FUNCTIONS ==================== //
 
     /**
+     * Determines if the application is running in debug mode.
+     * Checks multiple sources: debug properties file, system properties, and environment variables.
+     */
+    private boolean isDebugMode() {
+        // First, check for debug.properties file in resources
+        try {
+            var debugPropsStream = getClass().getResourceAsStream("/debug.properties");
+            if (debugPropsStream != null) {
+                java.util.Properties props = new java.util.Properties();
+                props.load(debugPropsStream);
+                if (Boolean.parseBoolean(props.getProperty("debug.mode", "false"))) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            // If loading properties fails, continue with other checks
+        }
+        
+        // Check system property
+        if (Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"))) {
+            return true;
+        }
+
+        return Boolean.parseBoolean(System.getenv("SPELEODB_DEBUG_MODE"));
+    }
+
+    /**
      * Sets up default UI configurations.
      */
     private void setupUI() {
@@ -208,11 +235,17 @@ public class SpeleoDBController implements Initializable {
         serverProgressIndicator.setVisible(false);
         connectionButton.setText("CONNECT");
         // On purpose - use the main URL, not the instance one.
-        // TODO (low priority): Find a way to redirect to `http://localhost:<some_port>/webview/ariane` to
-        //       allow development (maybe a sort of `if (source_distribution)` or `if (debug)`)
+        // Use localhost URL when in debug mode, production URL otherwise
+        String aboutUrl;
+        boolean isDebugMode = isDebugMode();
+        
+        if (isDebugMode) {
+            aboutUrl = "http://localhost:8000/webview/ariane/";
+        } else {
+            aboutUrl = "https://www.speleodb.org/webview/ariane/";
+        }
 
-
-        aboutWebView.getEngine().load("https://www.speleodb.org/webview/ariane/");
+        aboutWebView.getEngine().load(aboutUrl);
         //TODO: WebView has been removed. Create directly in UI elements describing the about
 
         serverLog.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {

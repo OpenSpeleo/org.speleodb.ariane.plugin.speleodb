@@ -20,8 +20,6 @@ import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
 
 
-
-
 /**
  * Service class for handling SpeleoDB server communication.
  */
