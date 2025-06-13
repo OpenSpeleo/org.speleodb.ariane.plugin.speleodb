@@ -11,6 +11,7 @@ module com.arianesline.ariane.plugin.speleoDB {
     requires javafx.web;
     requires java.prefs;
     requires javafx.fxml;
+    requires java.desktop;
     requires jakarta.xml.bind;
     requires transitive jakarta.json;
     requires java.net.http;

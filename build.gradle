@@ -25,6 +25,10 @@ dependencies {
     testImplementation 'org.junit.platform:junit-platform-suite-api:1.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'org.junit.platform:junit-platform-suite-engine:1.10.1'
+    
+    // JavaFX testing support
+    testImplementation 'org.testfx:testfx-core:4.0.16-alpha'
+    testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
 }
 
 tasks.register('buildDebug') {

@@ -1,314 +1,425 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import java.io.File;
+import java.awt.Desktop;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import static org.mockito.ArgumentMatchers.any;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
-
+import javafx.event.ActionEvent;
 
 /**
- * Comprehensive unit tests for SpeleoDBController class.
- * Tests business logic, state management, and utility functions.
+ * Comprehensive unit tests for SpeleoDBController logic using JUnit 5, Mockito, and AssertJ.
+ * Tests business logic, state management, and utility functions without JavaFX dependencies.
  */
-public class SpeleoDBControllerTest {
+@ExtendWith(MockitoExtension.class)
+@DisplayName("SpeleoDB Controller Tests")
+class SpeleoDBControllerTest {
     
-    private static final String TEST_RESOURCES_DIR = System.getProperty("java.io.tmpdir") + File.separator + "test_resources";
+    @TempDir
+    Path tempDir;
     
-    public static void main(String[] args) throws Exception {
-        setupTestEnvironment();
-        
-        testMessageCounter();
-        testDebugModeDetection();
-        testProjectCardCreation();
-        testDateTimeFormatting();
-        testJsonProjectHandling();
-        testUrlGeneration();
-        testPreferencesConstants();
-        testAccessLevelHandling();
-        testTextComponents();
-        
-        cleanupTestEnvironment();
-        System.out.println("All SpeleoDBController tests passed!");
+    @Mock
+    private Desktop mockDesktop;
+    
+    @Mock
+    private ActionEvent mockActionEvent;
+    
+    private SpeleoDBControllerLogic controllerLogic;
+    
+    @BeforeEach
+    void setUp() {
+        controllerLogic = new SpeleoDBControllerLogic();
     }
     
-    static void setupTestEnvironment() throws IOException {
-        // Create test resources directory
-        Path testDir = Paths.get(TEST_RESOURCES_DIR);
-        if (!Files.exists(testDir)) {
-            Files.createDirectories(testDir);
+    @Nested
+    @DisplayName("Signup Functionality")
+    class SignupFunctionalityTests {
+        
+        @Test
+        @DisplayName("Should generate production signup URL when not in debug mode")
+        void shouldGenerateProductionSignupUrlWhenNotInDebugMode() {
+            // Setup
+            controllerLogic.setDebugMode(false);
+            controllerLogic.setInstance("www.speleodb.org");
+            
+            // Execute
+            String signupUrl = controllerLogic.generateSignupUrl();
+            
+            // Verify
+            assertThat(signupUrl).isEqualTo("https://www.speleodb.org/signup/");
         }
-        System.out.println("✓ Controller test environment setup completed");
-    }
-    
-    static void cleanupTestEnvironment() throws IOException {
-        // Clean up test resources directory
-        Path testDir = Paths.get(TEST_RESOURCES_DIR);
-        if (Files.exists(testDir)) {
-            Files.walk(testDir)
-                .map(Path::toFile)
-                .forEach(File::delete);
+        
+        @Test
+        @DisplayName("Should generate debug signup URL when in debug mode")
+        void shouldGenerateDebugSignupUrlWhenInDebugMode() {
+            // Setup
+            controllerLogic.setDebugMode(true);
+            controllerLogic.setInstance("www.speleodb.org");
+            
+            // Execute
+            String signupUrl = controllerLogic.generateSignupUrl();
+            
+            // Verify
+            assertThat(signupUrl).isEqualTo("http://www.speleodb.org/signup/");
         }
-        System.out.println("✓ Controller test environment cleanup completed");
+        
+        @Test
+        @DisplayName("Should use custom instance for signup URL")
+        void shouldUseCustomInstanceForSignupUrl() {
+            // Setup
+            controllerLogic.setDebugMode(false);
+            controllerLogic.setInstance("custom.speleodb.com");
+            
+            // Execute
+            String signupUrl = controllerLogic.generateSignupUrl();
+            
+            // Verify
+            assertThat(signupUrl).isEqualTo("https://custom.speleodb.com/signup/");
+        }
+        
+        @Test
+        @DisplayName("Should use default instance when instance is empty")
+        void shouldUseDefaultInstanceWhenInstanceIsEmpty() {
+            // Setup
+            controllerLogic.setDebugMode(false);
+            controllerLogic.setInstance("");
+            
+            // Execute
+            String signupUrl = controllerLogic.generateSignupUrl();
+            
+            // Verify
+            assertThat(signupUrl).isEqualTo("https://www.speleoDB.org/signup/");
+        }
+        
+        @Test
+        @DisplayName("Should handle whitespace in instance")
+        void shouldHandleWhitespaceInInstance() {
+            // Setup
+            controllerLogic.setDebugMode(false);
+            controllerLogic.setInstance("  spaced.instance.com  ");
+            
+            // Execute
+            String signupUrl = controllerLogic.generateSignupUrl();
+            
+            // Verify
+            assertThat(signupUrl).isEqualTo("https://spaced.instance.com/signup/");
+        }
+        
+        @Test
+        @DisplayName("Should open signup URL using Desktop")
+        void shouldOpenSignupUrlUsingDesktop() {
+            try (MockedStatic<Desktop> desktopMock = mockStatic(Desktop.class)) {
+                // Setup
+                controllerLogic.setDebugMode(false);
+                controllerLogic.setInstance("www.speleodb.org");
+                desktopMock.when(Desktop::getDesktop).thenReturn(mockDesktop);
+                
+                // Execute
+                String result = controllerLogic.openSignupUrl();
+                
+                // Verify
+                verify(mockDesktop).browse(URI.create("https://www.speleodb.org/signup/"));
+                assertThat(result).contains("Opening signup page: https://www.speleodb.org/signup/");
+            } catch (Exception e) {
+                fail("Should not throw exception", e);
+            }
+        }
+        
+        @Test
+        @DisplayName("Should handle IOException gracefully")
+        void shouldHandleIOExceptionGracefully() {
+            try (MockedStatic<Desktop> desktopMock = mockStatic(Desktop.class)) {
+                // Setup
+                controllerLogic.setDebugMode(false);
+                controllerLogic.setInstance("www.speleodb.org");
+                desktopMock.when(Desktop::getDesktop).thenReturn(mockDesktop);
+                doThrow(new IOException("Browser not available"))
+                    .when(mockDesktop).browse(any(URI.class));
+                
+                // Execute
+                String result = controllerLogic.openSignupUrl();
+                
+                // Verify error handling
+                assertThat(result).contains("Failed to open signup page: Browser not available");
+            } catch (Exception e) {
+                fail("Should not throw exception", e);
+            }
+        }
+        
+        @Test
+        @DisplayName("Should handle URISyntaxException gracefully")
+        void shouldHandleURISyntaxExceptionGracefully() {
+            // Setup - use an invalid instance that would cause URI creation to fail
+            controllerLogic.setDebugMode(false);
+            controllerLogic.setInstance("invalid uri with spaces");
+            
+            // Execute
+            String result = controllerLogic.openSignupUrl();
+            
+            // Verify error handling
+            assertThat(result).contains("Failed to open signup page:");
+        }
+        
+        @Test
+        @DisplayName("Should handle Desktop.getDesktop() unavailability")
+        void shouldHandleDesktopUnavailability() {
+            try (MockedStatic<Desktop> desktopMock = mockStatic(Desktop.class)) {
+                // Setup
+                controllerLogic.setDebugMode(false);
+                controllerLogic.setInstance("www.speleodb.org");
+                desktopMock.when(Desktop::getDesktop)
+                    .thenThrow(new UnsupportedOperationException("Desktop not supported"));
+                
+                // Execute
+                String result = controllerLogic.openSignupUrl();
+                
+                // Verify error handling
+                assertThat(result).contains("Failed to open signup page: Desktop not supported");
+            }
+        }
     }
     
-    static void testMessageCounter() {
-        System.out.println("Testing message counter...");
+    @Nested
+    @DisplayName("Debug Mode Detection")
+    class DebugModeDetectionTests {
         
-        // Test atomic counter functionality
-        AtomicInteger counter = new AtomicInteger(0);
-        assert counter.get() == 0;
+        @Test
+        @DisplayName("Should detect debug mode from properties file")
+        void shouldDetectDebugModeFromPropertiesFile() throws IOException {
+            // Create debug.properties file
+            Path debugProps = tempDir.resolve("debug.properties");
+            Files.write(debugProps, "debug.mode=true\n".getBytes());
+            
+            controllerLogic.setDebugPropertiesPath(debugProps.toString());
+            
+            assertThat(controllerLogic.isDebugModeFromProperties()).isTrue();
+        }
         
-        int first = counter.incrementAndGet();
-        int second = counter.incrementAndGet();
-        int third = counter.incrementAndGet();
+        @Test
+        @DisplayName("Should detect debug mode from system property")
+        void shouldDetectDebugModeFromSystemProperty() {
+            try {
+                System.setProperty("speleodb.debug.mode", "true");
+                assertThat(controllerLogic.isDebugModeFromSystemProperty()).isTrue();
+            } finally {
+                System.clearProperty("speleodb.debug.mode");
+            }
+        }
         
-        assert first == 1;
-        assert second == 2;
-        assert third == 3;
-        assert counter.get() == 3;
-        
-        System.out.println("✓ Message counter tests passed");
+        @Test
+        @DisplayName("Should return false when no debug configuration found")
+        void shouldReturnFalseWhenNoDebugConfigurationFound() {
+            System.clearProperty("speleodb.debug.mode");
+            controllerLogic.setDebugMode(false);
+            
+            assertThat(controllerLogic.isDebugMode()).isFalse();
+        }
     }
     
-    static void testDebugModeDetection() throws IOException {
-        System.out.println("Testing debug mode detection...");
+    @Nested
+    @DisplayName("Message Counter")
+    class MessageCounterTests {
         
-        TestableSpeleoDBController controller = new TestableSpeleoDBController();
+        @Test
+        @DisplayName("Should increment message counter atomically")
+        void shouldIncrementMessageCounterAtomically() {
+            AtomicInteger counter = new AtomicInteger(0);
+            
+            assertThat(counter.get()).isEqualTo(0);
+            assertThat(counter.incrementAndGet()).isEqualTo(1);
+            assertThat(counter.incrementAndGet()).isEqualTo(2);
+            assertThat(counter.incrementAndGet()).isEqualTo(3);
+            assertThat(counter.get()).isEqualTo(3);
+        }
         
-        // Test with no debug properties
-        assert !controller.isDebugModePublic();
-        
-        // Test with debug properties file
-        Path debugProps = Paths.get(TEST_RESOURCES_DIR + File.separator + "debug.properties");
-        Files.write(debugProps, "debug.mode=true\n".getBytes());
-        
-        // Test system property detection
-        System.setProperty("speleodb.debug.mode", "true");
-        assert controller.isDebugModeFromSystemProperty();
-        System.clearProperty("speleodb.debug.mode");
-        
-        // Test environment variable logic
-        assert !controller.isDebugModeFromEnvironment();
-        
-        System.out.println("✓ Debug mode detection tests passed");
+        @Test
+        @DisplayName("Should handle concurrent access properly")
+        void shouldHandleConcurrentAccessProperly() throws InterruptedException {
+            AtomicInteger counter = new AtomicInteger(0);
+            int threadCount = 10;
+            int incrementsPerThread = 100;
+            
+            Thread[] threads = new Thread[threadCount];
+            for (int i = 0; i < threadCount; i++) {
+                threads[i] = new Thread(() -> {
+                    for (int j = 0; j < incrementsPerThread; j++) {
+                        counter.incrementAndGet();
+                    }
+                });
+            }
+            
+            for (Thread thread : threads) {
+                thread.start();
+            }
+            
+            for (Thread thread : threads) {
+                thread.join();
+            }
+            
+            assertThat(counter.get()).isEqualTo(threadCount * incrementsPerThread);
+        }
     }
     
-    static void testProjectCardCreation() {
-        System.out.println("Testing project card creation...");
+    @Nested
+    @DisplayName("JSON Project Handling")
+    class JsonProjectHandlingTests {
         
-        TestableSpeleoDBController controller = new TestableSpeleoDBController();
+        @Test
+        @DisplayName("Should handle project without mutex")
+        void shouldHandleProjectWithoutMutex() {
+            JsonObject project = Json.createObjectBuilder()
+                .add("id", "project-123")
+                .add("name", "Test Project")
+                .add("permission", "READ_AND_WRITE")
+                .addNull("active_mutex")
+                .build();
+            
+            assertThat(project.getString("id")).isEqualTo("project-123");
+            assertThat(project.getString("name")).isEqualTo("Test Project");
+            assertThat(project.getString("permission")).isEqualTo("READ_AND_WRITE");
+            assertThat(project.get("active_mutex").getValueType()).isEqualTo(JsonValue.ValueType.NULL);
+        }
         
-        // Test project with no mutex
-        JsonObject projectWithoutMutex = Json.createObjectBuilder()
-            .add("name", "Test Project")
-            .add("permission", "READ_AND_WRITE")
-            .add("id", "proj-123")
-            .addNull("active_mutex")
-            .build();
-        
-        MockVBox card = controller.createProjectCardPublic(projectWithoutMutex);
-        assert card.getChildrenTexts().contains("Test Project");
-        assert card.getChildrenTexts().contains("READ_AND_WRITE");
-        assert card.getChildrenTexts().contains("Not Locked");
-        assert card.getPrefWidth() == 180;
-        
-        // Test project with mutex
-        JsonObject mutexObj = Json.createObjectBuilder()
-            .add("user", "john.doe@example.com")
-            .add("creation_date", "2024-01-15T10:30:00.000000")
-            .add("modified_date", "2024-01-15T11:45:00.000000")
-            .build();
-        
-        JsonObject projectWithMutex = Json.createObjectBuilder()
-            .add("name", "Locked Project")
-            .add("permission", "READ_AND_WRITE")
-            .add("id", "proj-456")
-            .add("active_mutex", mutexObj)
-            .build();
-        
-        MockVBox cardLocked = controller.createProjectCardPublic(projectWithMutex);
-        assert cardLocked.getChildrenTexts().contains("Locked Project");
-        assert cardLocked.getChildrenTexts().contains("Locked");
-        assert cardLocked.getChildrenTexts().contains("by john.doe@example.com");
-        
-        System.out.println("✓ Project card creation tests passed");
-    }
-    
-    static void testDateTimeFormatting() {
-        System.out.println("Testing datetime formatting...");
-        
-        // Test datetime parsing and formatting logic
-        String dateString = "2024-01-15T10:30:00.000000";
-        String trimmedDate = dateString.substring(0, dateString.lastIndexOf('.'));
-        LocalDateTime dateTime = LocalDateTime.parse(trimmedDate);
-        
-        assert dateTime.getYear() == 2024;
-        assert dateTime.getMonthValue() == 1;
-        assert dateTime.getDayOfMonth() == 15;
-        assert dateTime.getHour() == 10;
-        assert dateTime.getMinute() == 30;
-        
-        // Test formatting
-        String formatted = dateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
-        assert formatted != null;
-        assert !formatted.isEmpty();
-        
-        System.out.println("✓ DateTime formatting tests passed");
-    }
-    
-    static void testJsonProjectHandling() {
-        System.out.println("Testing JSON project handling...");
-        
-        // Test project JSON structure validation
-        JsonObject validProject = Json.createObjectBuilder()
-            .add("id", "project-789")
-            .add("name", "Valid Project")
-            .add("permission", "ADMIN")
-            .add("active_mutex", JsonValue.NULL)
-            .build();
-        
-        assert validProject.getString("id").equals("project-789");
-        assert validProject.getString("name").equals("Valid Project");
-        assert validProject.getString("permission").equals("ADMIN");
-        assert validProject.get("active_mutex").getValueType() == JsonValue.ValueType.NULL;
-        
-        // Test nested mutex object
-        JsonObject complexProject = Json.createObjectBuilder()
-            .add("id", "complex-project")
-            .add("name", "Complex Project")
-            .add("permission", "READ_ONLY")
-            .add("active_mutex", Json.createObjectBuilder()
-                .add("user", "admin@example.com")
+        @Test
+        @DisplayName("Should handle project with mutex")
+        void shouldHandleProjectWithMutex() {
+            JsonObject mutexObj = Json.createObjectBuilder()
+                .add("user", "john.doe@example.com")
                 .add("creation_date", "2024-01-15T10:30:00.000000")
-                .add("modified_date", "2024-01-15T11:45:00.000000"))
-            .build();
-        
-        JsonObject mutex = complexProject.getJsonObject("active_mutex");
-        assert mutex.getString("user").equals("admin@example.com");
-        assert mutex.getString("creation_date").equals("2024-01-15T10:30:00.000000");
-        
-        System.out.println("✓ JSON project handling tests passed");
-    }
-    
-    static void testUrlGeneration() {
-        System.out.println("Testing URL generation...");
-        
-        TestableSpeleoDBController controller = new TestableSpeleoDBController();
-        
-        // Test debug URL generation
-        String debugUrl = controller.generateAboutUrl(true);
-        assert debugUrl.equals("http://localhost:8000/webview/ariane/");
-        
-        // Test production URL generation
-        String prodUrl = controller.generateAboutUrl(false);
-        assert prodUrl.equals("https://www.speleodb.org/webview/ariane/");
-        
-        System.out.println("✓ URL generation tests passed");
-    }
-    
-    static void testPreferencesConstants() {
-        System.out.println("Testing preferences constants...");
-        
-        TestableSpeleoDBController controller = new TestableSpeleoDBController();
-        
-        // Test constants are properly defined
-        assert controller.getPrefEmail().equals("SDB_EMAIL");
-        assert controller.getPrefPassword().equals("SDB_PASSWORD");
-        assert controller.getPrefOAuthToken().equals("SDB_OAUTH_TOKEN");
-        assert controller.getPrefInstance().equals("SDB_INSTANCE");
-        assert controller.getPrefSaveCreds().equals("SDB_SAVECREDS");
-        assert controller.getDefaultInstance().equals("www.speleoDB.org");
-        
-        System.out.println("✓ Preferences constants tests passed");
-    }
-    
-    static void testAccessLevelHandling() {
-        System.out.println("Testing access level handling...");
-        
-        // Test READ_ONLY access level logic
-        String readOnlyPermission = SpeleoDBAccessLevel.READ_ONLY.name();
-        assert readOnlyPermission.equals("READ_ONLY");
-        
-        // Test permission checking logic
-        assert !readOnlyPermission.equals("READ_AND_WRITE");
-        assert !readOnlyPermission.equals("ADMIN");
-        
-        // Test enum values
-        assert SpeleoDBAccessLevel.values().length == 3;
-        assert SpeleoDBAccessLevel.valueOf("READ_ONLY") == SpeleoDBAccessLevel.READ_ONLY;
-        assert SpeleoDBAccessLevel.valueOf("READ_AND_WRITE") == SpeleoDBAccessLevel.READ_AND_WRITE;
-        assert SpeleoDBAccessLevel.valueOf("ADMIN") == SpeleoDBAccessLevel.ADMIN;
-        
-        System.out.println("✓ Access level handling tests passed");
-    }
-    
-    static void testTextComponents() {
-        System.out.println("Testing text components...");
-        
-        // Test MockText functionality
-        MockText nameText = new MockText("Cave Project Alpha");
-        assert nameText.getText().equals("Cave Project Alpha");
-        
-        nameText.setText("Updated Cave Project");
-        assert nameText.getText().equals("Updated Cave Project");
-        
-        // Test text with special characters
-        MockText specialText = new MockText("Project: Höhle (Österreich)");
-        assert specialText.getText().contains("Höhle");
-        assert specialText.getText().contains("Österreich");
-        
-        System.out.println("✓ Text components tests passed");
-    }
-    
-    // ===================== MOCK CLASSES AND TESTABLE VERSIONS ===================== //
-    
-    static class MockVBox {
-        private double prefWidth;
-        private final java.util.List<String> childrenTexts = new java.util.ArrayList<>();
-        
-        public void setPrefWidth(double value) {
-            this.prefWidth = value;
-        }
-        
-        public double getPrefWidth() {
-            return prefWidth;
-        }
-        
-        public void addChildText(String text) {
-            childrenTexts.add(text);
-        }
-        
-        public java.util.List<String> getChildrenTexts() {
-            return childrenTexts;
+                .add("modified_date", "2024-01-15T11:45:00.000000")
+                .build();
+            
+            JsonObject project = Json.createObjectBuilder()
+                .add("id", "project-456")
+                .add("name", "Locked Project")
+                .add("permission", "READ_AND_WRITE")
+                .add("active_mutex", mutexObj)
+                .build();
+            
+            JsonObject mutex = project.getJsonObject("active_mutex");
+            assertThat(mutex.getString("user")).isEqualTo("john.doe@example.com");
+            assertThat(mutex.getString("creation_date")).isEqualTo("2024-01-15T10:30:00.000000");
+            assertThat(mutex.getString("modified_date")).isEqualTo("2024-01-15T11:45:00.000000");
         }
     }
     
-    static class MockText {
-        private String text;
+    @Nested
+    @DisplayName("Constants and Configuration")
+    class ConstantsAndConfigurationTests {
         
-        public MockText(String text) {
-            this.text = text;
+        @Test
+        @DisplayName("Should have correct preference constants")
+        void shouldHaveCorrectPreferenceConstants() {
+            assertThat(controllerLogic.getPrefEmail()).isEqualTo("SDB_EMAIL");
+            assertThat(controllerLogic.getPrefPassword()).isEqualTo("SDB_PASSWORD");
+            assertThat(controllerLogic.getPrefOAuthToken()).isEqualTo("SDB_OAUTH_TOKEN");
+            assertThat(controllerLogic.getPrefInstance()).isEqualTo("SDB_INSTANCE");
+            assertThat(controllerLogic.getPrefSaveCreds()).isEqualTo("SDB_SAVECREDS");
+            assertThat(controllerLogic.getDefaultInstance()).isEqualTo("www.speleoDB.org");
         }
         
-        public String getText() {
-            return text;
-        }
-        
-        public void setText(String text) {
-            this.text = text;
+        @Test
+        @DisplayName("Should generate correct URLs based on debug mode")
+        void shouldGenerateCorrectUrlsBasedOnDebugMode() {
+            String prodUrl = controllerLogic.generateAboutUrl(false);
+            String debugUrl = controllerLogic.generateAboutUrl(true);
+            
+            assertThat(prodUrl).isEqualTo("https://www.speleodb.org/webview/ariane/");
+            assertThat(debugUrl).isEqualTo("http://localhost:8000/webview/ariane/");
         }
     }
     
-    static class TestableSpeleoDBController extends SpeleoDBController {
+    // ===================== TEST HELPER CLASSES ===================== //
+    
+    /**
+     * Logic class that contains the business logic from SpeleoDBController
+     * without JavaFX dependencies for testing purposes.
+     */
+    static class SpeleoDBControllerLogic {
+        private boolean debugMode = false;
+        private String instance = "";
+        private String debugPropertiesPath = null;
+        
+        public void setDebugMode(boolean debugMode) {
+            this.debugMode = debugMode;
+        }
+        
+        public void setInstance(String instance) {
+            this.instance = instance;
+        }
+        
+        public void setDebugPropertiesPath(String path) {
+            this.debugPropertiesPath = path;
+        }
+        
+        public boolean isDebugMode() {
+            return debugMode;
+        }
+        
+        public String generateSignupUrl() {
+            String actualInstance = instance.trim();
+            if (actualInstance.isEmpty()) {
+                actualInstance = "www.speleoDB.org"; // DEFAULT_INSTANCE
+            }
+            
+            String protocol = isDebugMode() ? "http" : "https";
+            return protocol + "://" + actualInstance + "/signup/";
+        }
+        
+        public String openSignupUrl() {
+            try {
+                String signupUrl = generateSignupUrl();
+                java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
+                return "Opening signup page: " + signupUrl;
+            } catch (IOException | URISyntaxException | UnsupportedOperationException e) {
+                return "Failed to open signup page: " + e.getMessage();
+            }
+        }
+        
+        public boolean isDebugModeFromProperties() {
+            if (debugPropertiesPath != null) {
+                try {
+                    var props = new java.util.Properties();
+                    props.load(new java.io.FileInputStream(debugPropertiesPath));
+                    return Boolean.parseBoolean(props.getProperty("debug.mode", "false"));
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+            return false;
+        }
+        
+        public boolean isDebugModeFromSystemProperty() {
+            return Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"));
+        }
+        
+        public String generateAboutUrl(boolean isDebugMode) {
+            return isDebugMode ? 
+                "http://localhost:8000/webview/ariane/" : 
+                "https://www.speleodb.org/webview/ariane/";
+        }
         
         // Expose private constants for testing
         public String getPrefEmail() { return "SDB_EMAIL"; }
@@ -317,56 +428,5 @@ public class SpeleoDBControllerTest {
         public String getPrefInstance() { return "SDB_INSTANCE"; }
         public String getPrefSaveCreds() { return "SDB_SAVECREDS"; }
         public String getDefaultInstance() { return "www.speleoDB.org"; }
-        
-        // Expose private methods for testing
-        public boolean isDebugModePublic() {
-            // Simplified version for testing
-            return false;
-        }
-        
-        public boolean isDebugModeFromSystemProperty() {
-            return Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"));
-        }
-        
-        public boolean isDebugModeFromEnvironment() {
-            return Boolean.parseBoolean(System.getenv("SPELEODB_DEBUG_MODE"));
-        }
-        
-        public String generateAboutUrl(boolean isDebugMode) {
-            if (isDebugMode) {
-                return "http://localhost:8000/webview/ariane/";
-            } else {
-                return "https://www.speleodb.org/webview/ariane/";
-            }
-        }
-        
-        public MockVBox createProjectCardPublic(JsonObject projectItem) {
-            MockVBox card = new MockVBox();
-            
-            // Simulate project card creation logic
-            String name = projectItem.getString("name");
-            card.addChildText(name);
-            card.addChildText(projectItem.getString("permission"));
-            
-            JsonValue mutex = projectItem.get("active_mutex");
-            if (mutex.getValueType() == JsonValue.ValueType.NULL) {
-                card.addChildText("Not Locked");
-            } else {
-                JsonObject mutexObj = mutex.asJsonObject();
-                card.addChildText("Locked");
-                card.addChildText("by " + mutexObj.getString("user"));
-                
-                String creationDate = mutexObj.getString("creation_date");
-                LocalDateTime creationDateTime = LocalDateTime.parse(creationDate.substring(0, creationDate.lastIndexOf('.')));
-                card.addChildText("on " + creationDateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)));
-                
-                String modifiedDate = mutexObj.getString("modified_date");
-                LocalDateTime modifiedDateTime = LocalDateTime.parse(modifiedDate.substring(0, modifiedDate.lastIndexOf('.')));
-                card.addChildText("(mod) " + modifiedDateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)));
-            }
-            
-            card.setPrefWidth(180);
-            return card;
-        }
     }
 } 

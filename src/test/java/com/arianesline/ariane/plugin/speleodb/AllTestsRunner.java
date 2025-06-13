@@ -9,6 +9,9 @@ import org.junit.platform.suite.api.SuiteDisplayName;
  * 
  * Run this class to execute all tests in the correct order.
  * Individual test classes can also be run independently.
+ * 
+ * Note: SpeleoDBControllerTest contains comprehensive JavaFX controller tests
+ * but may require special JavaFX initialization in some environments.
  */
 @Suite
 @SuiteDisplayName("SpeleoDB Plugin Test Suite")

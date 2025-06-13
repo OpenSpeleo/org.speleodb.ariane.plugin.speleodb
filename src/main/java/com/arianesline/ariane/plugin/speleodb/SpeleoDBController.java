@@ -625,6 +625,19 @@ public class SpeleoDBController implements Initializable {
     }
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
-        //TODO: Implement method
+        try {
+            String instance = instanceTextField.getText().trim();
+            if (instance.isEmpty()) {
+                instance = DEFAULT_INSTANCE;
+            }
+            
+            String protocol = isDebugMode() ? "http" : "https";
+            String signupUrl = protocol + "://" + instance + "/signup/";
+            
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
+            logMessage("Opening signup page: " + signupUrl);
+        } catch (IOException | URISyntaxException e) {
+            logMessage("Failed to open signup page: " + e.getMessage());
+        }
     }
 }
