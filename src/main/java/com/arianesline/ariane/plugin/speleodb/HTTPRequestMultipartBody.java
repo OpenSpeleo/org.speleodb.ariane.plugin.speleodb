@@ -4,7 +4,6 @@ package com.arianesline.ariane.plugin.speleodb;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -115,7 +114,7 @@ public class HTTPRequestMultipartBody {
 
         @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         public HTTPRequestMultipartBody build() throws IOException {
-            String boundary = new BigInteger(256, new SecureRandom()).toString();
+            String boundary = generateBoundary();
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try {
                 for (MultiPartRecord record : parts) {
@@ -129,7 +128,10 @@ public class HTTPRequestMultipartBody {
                     Object content = record.getContent();
                     switch (content) {
                         case String string -> {
-                            out.write("\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            if (record.getContentType() != null) {
+                                out.write(("Content-Type: " + record.getContentType() + "\r\n").getBytes(StandardCharsets.UTF_8));
+                            }
+                            out.write("\r\n".getBytes(StandardCharsets.UTF_8));
                             out.write(string.getBytes(StandardCharsets.UTF_8));
                         }
                         case byte[] bs -> {
@@ -142,10 +144,7 @@ public class HTTPRequestMultipartBody {
                         }
                         default -> {
                             out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
-                            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(out)) {
-                                objectOutputStream.writeObject(content);
-                                objectOutputStream.flush();
-                            }
+                            out.write(content.toString().getBytes(StandardCharsets.UTF_8));
                         }
                     }
                     out.write("\r\n".getBytes(StandardCharsets.UTF_8));
@@ -155,6 +154,10 @@ public class HTTPRequestMultipartBody {
                 throw new IOException("Error building HTTP request multipart body", e);
             }
             return new HTTPRequestMultipartBody(out.toByteArray(), boundary);
+        }
+
+        private static String generateBoundary() {
+            return new BigInteger(256, new SecureRandom()).toString(36); // Base-36 uses only alphanumeric
         }
     }
 }
