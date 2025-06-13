@@ -1,11 +1,21 @@
 package com.arianesline.ariane.plugin.speleodb;
 
 
+import java.io.File;
+import java.io.IOException;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.ariane.plugin.api.DataServerPlugin;
 import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
+
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
@@ -15,17 +25,6 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-
-import java.io.*;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
 
 
 public class SpeleoDBPlugin implements DataServerPlugin {

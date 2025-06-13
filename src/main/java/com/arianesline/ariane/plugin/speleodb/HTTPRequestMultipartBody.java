@@ -14,7 +14,7 @@ import java.util.List;
 
 public class HTTPRequestMultipartBody {
 
-    private byte[] bytes;
+    private final byte[] bytes;
 
     public String getBoundary() {
         return boundary;
@@ -113,40 +113,48 @@ public class HTTPRequestMultipartBody {
             return this;
         }
 
+        @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
         public HTTPRequestMultipartBody build() throws IOException {
             String boundary = new BigInteger(256, new SecureRandom()).toString();
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            for (MultiPartRecord record : parts) {
-                StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.append("--" + boundary + "\r\n" + "Content-Disposition: form-data; name=\"" + record.getFieldName());
-                if (record.getFilename() != null) {
-                    stringBuilder.append("\"; filename=\"" + record.getFilename());
+            try {
+                for (MultiPartRecord record : parts) {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    stringBuilder.append("--" + boundary + "\r\n" + "Content-Disposition: form-data; name=\"" + record.getFieldName());
+                    if (record.getFilename() != null) {
+                        stringBuilder.append("\"; filename=\"" + record.getFilename());
+                    }
+                    out.write(stringBuilder.toString().getBytes(StandardCharsets.UTF_8));
+                    out.write("\"\r\n".getBytes(StandardCharsets.UTF_8));
+                    Object content = record.getContent();
+                    switch (content) {
+                        case String string -> {
+                            out.write("\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(string.getBytes(StandardCharsets.UTF_8));
+                        }
+                        case byte[] bs -> {
+                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(bs);
+                        }
+                        case File file -> {
+                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            Files.copy(file.toPath(), out);
+                        }
+                        default -> {
+                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(out)) {
+                                objectOutputStream.writeObject(content);
+                                objectOutputStream.flush();
+                            }
+                        }
+                    }
+                    out.write("\r\n".getBytes(StandardCharsets.UTF_8));
                 }
-                out.write(stringBuilder.toString().getBytes(StandardCharsets.UTF_8));
-                out.write(("\"\r\n").getBytes(StandardCharsets.UTF_8));
-                Object content = record.getContent();
-                if (content instanceof String) {
-                    out.write(("\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    out.write(((String) content).getBytes(StandardCharsets.UTF_8));
-                }
-                else if (content instanceof byte[]) {
-                    out.write(("Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    out.write((byte[]) content);
-                } else if (content instanceof File) {
-                    out.write(("Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    Files.copy(((File) content).toPath(), out);
-                }else {
-                    out.write(("Content-Type: application/octet-stream\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                    ObjectOutputStream objectOutputStream = new ObjectOutputStream(out);
-                    objectOutputStream.writeObject(content);
-                    objectOutputStream.flush();
-                }
-                out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                throw new IOException("Error building HTTP request multipart body", e);
             }
-            out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-
-            HTTPRequestMultipartBody httpRequestMultipartBody = new HTTPRequestMultipartBody(out.toByteArray(), boundary);
-            return httpRequestMultipartBody;
+            return new HTTPRequestMultipartBody(out.toByteArray(), boundary);
         }
     }
 }
