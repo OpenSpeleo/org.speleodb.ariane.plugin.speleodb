@@ -118,6 +118,34 @@ tasks.register('runServiceTests', JavaExec) {
     }
 }
 
+tasks.register('runControllerTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs SpeleoDBController tests only'
+    
+    dependsOn compileJava, compileTestJava
+    
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBControllerTest'
+    
+    doLast {
+        println 'SpeleoDBController tests completed successfully!'
+    }
+}
+
+tasks.register('runControllerStateTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs SpeleoDBController state management tests only'
+    
+    dependsOn compileJava, compileTestJava
+    
+    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBControllerStateTest'
+    
+    doLast {
+        println 'SpeleoDBController state tests completed successfully!'
+    }
+}
+
 tasks.register('testDebug', JavaExec) {
     group = 'verification'
     description = 'Runs tests with debug mode enabled'
