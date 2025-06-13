@@ -1,48 +1,25 @@
 package com.arianesline.ariane.plugin.speleodb;
 
+import org.junit.platform.suite.api.SelectClasses;
+import org.junit.platform.suite.api.Suite;
+import org.junit.platform.suite.api.SuiteDisplayName;
+
 /**
- * Test runner that executes all unit tests.
+ * JUnit 5 Test Suite for all SpeleoDB Plugin tests.
+ * 
+ * Run this class to execute all tests in the correct order.
+ * Individual test classes can also be run independently.
  */
-public class AllTestsRunner {
-    
-    public static void main(String[] args) throws Exception {
-        System.out.println("=== Running All SpeleoDB Plugin Tests ===\n");
-        
-        try {
-            // Run HTTPRequestMultipartBody tests
-            System.out.println("1. Running HTTPRequestMultipartBody tests...");
-            HTTPRequestMultipartBodyTest.main(args);
-            System.out.println();
-            
-            // Run SpeleoDBService tests
-            System.out.println("2. Running SpeleoDBService tests...");
-            SpeleoDBServiceTest.main(args);
-            System.out.println();
-            
-            // Run SpeleoDBController tests
-            System.out.println("3. Running SpeleoDBController tests...");
-            SpeleoDBControllerTest.main(args);
-            System.out.println();
-            
-            // Run SpeleoDBController state tests
-            System.out.println("4. Running SpeleoDBController state tests...");
-            SpeleoDBControllerStateTest.main(args);
-            System.out.println();
-            
-            // Run SpeleoDBPlugin tests
-            System.out.println("5. Running SpeleoDBPlugin tests...");
-            SpeleoDBPluginTest.main(args);
-            System.out.println();
-            
-            System.out.println("=== ALL TESTS PASSED SUCCESSFULLY! ===");
-            
-        } catch (AssertionError e) {
-            System.err.println("❌ Test assertion failed: " + e.getMessage());
-            System.exit(1);
-        } catch (Exception e) {
-            System.err.println("❌ Test execution failed: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
-        }
-    }
+@Suite
+@SuiteDisplayName("SpeleoDB Plugin Test Suite")
+@SelectClasses({
+    HTTPRequestMultipartBodyTest.class,
+    SpeleoDBServiceTest.class,
+    SpeleoDBControllerTest.class,
+    SpeleoDBControllerStateTest.class,
+    SpeleoDBPluginTest.class
+})
+class AllTestsRunner {
+    // This class serves as a test suite runner
+    // No additional code needed - JUnit 5 handles everything
 } 

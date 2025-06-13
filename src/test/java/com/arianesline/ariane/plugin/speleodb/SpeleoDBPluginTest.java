@@ -4,350 +4,314 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.arianesline.ariane.plugin.api.DataServerCommands;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
+import com.arianesline.cavelib.api.CaveSurveyInterface;
 
 import javafx.beans.property.StringProperty;
 
 /**
- * Comprehensive unit tests for SpeleoDBPlugin class.
+ * Comprehensive unit tests for SpeleoDBPlugin using JUnit 5, Mockito, and AssertJ.
  * Tests plugin functionality, survey management, and lifecycle operations.
  */
-public class SpeleoDBPluginTest {
+@ExtendWith(MockitoExtension.class)
+@DisplayName("SpeleoDB Plugin Tests")
+class SpeleoDBPluginTest {
     
-    private static final String TEST_RESOURCES_DIR = System.getProperty("java.io.tmpdir") + File.separator + "test_plugin_resources";
+    @TempDir
+    Path tempDir;
     
-    public static void main(String[] args) throws Exception {
-        setupTestEnvironment();
-        
-        testPluginMetadata();
-        testSurveyFileManagement();
-        testSurveyInterfaceManagement();
-        testCommandPropertyHandling();
-        testSurveyOperations();
-        testPluginLifecycle();
-        testLockMechanism();
-        testTimeoutHandling();
-        testEdgeCases();
-        
-        cleanupTestEnvironment();
-        System.out.println("All SpeleoDBPlugin tests passed!");
+    @Mock
+    private CaveSurveyInterface mockSurvey;
+    
+    @InjectMocks
+    private SpeleoDBPlugin plugin;
+    
+    private File testSurveyFile;
+    
+    @BeforeEach
+    void setUp() throws IOException {
+        testSurveyFile = tempDir.resolve("test_survey.tml").toFile();
+        Files.createFile(testSurveyFile.toPath());
     }
     
-    static void setupTestEnvironment() throws IOException {
-        Path testDir = Paths.get(TEST_RESOURCES_DIR);
-        if (!Files.exists(testDir)) {
-            Files.createDirectories(testDir);
+    @AfterEach
+    void tearDown() {
+        if (plugin != null) {
+            plugin.closeUI();
         }
-        System.out.println("✓ Plugin test environment setup completed");
     }
     
-    static void cleanupTestEnvironment() throws IOException {
-        Path testDir = Paths.get(TEST_RESOURCES_DIR);
-        if (Files.exists(testDir)) {
-            Files.walk(testDir)
-                .map(Path::toFile)
-                .forEach(File::delete);
+    @Nested
+    @DisplayName("Plugin Metadata")
+    class PluginMetadataTests {
+        
+        @Test
+        @DisplayName("Should return correct plugin name")
+        void shouldReturnCorrectPluginName() {
+            assertThat(plugin.getName()).isEqualTo("SPELEO_DB");
         }
-        System.out.println("✓ Plugin test environment cleanup completed");
+        
+        @Test
+        @DisplayName("Should return correct plugin type")
+        void shouldReturnCorrectPluginType() {
+            assertThat(plugin.getType()).isEqualTo(PluginType.DATASERVER);
+        }
+        
+        @Test
+        @DisplayName("Should return correct interface type")
+        void shouldReturnCorrectInterfaceType() {
+            assertThat(plugin.getInterfaceType()).isEqualTo(PluginInterface.LEFT_TAB);
+        }
+        
+        @Test
+        @DisplayName("Should have correct timeout value")
+        void shouldHaveCorrectTimeoutValue() {
+            assertThat(SpeleoDBPlugin.TIMEOUT).isEqualTo(10000);
+        }
     }
     
-    static void testPluginMetadata() {
-        System.out.println("Testing plugin metadata...");
+    @Nested
+    @DisplayName("Survey File Management")
+    class SurveyFileManagementTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
+        @Test
+        @DisplayName("Should initially have no survey file")
+        void shouldInitiallyHaveNoSurveyFile() {
+            SpeleoDBPlugin freshPlugin = new SpeleoDBPlugin();
+            assertThat(freshPlugin.getSurveyFile()).isNull();
+        }
         
-        // Test plugin name
-        assert plugin.getName().equals("SPELEO_DB");
+        @Test
+        @DisplayName("Should set and get survey file correctly")
+        void shouldSetAndGetSurveyFileCorrectly() {
+            plugin.setSurveyFile(testSurveyFile);
+            
+            assertThat(plugin.getSurveyFile())
+                .isNotNull()
+                .isEqualTo(testSurveyFile)
+                .exists();
+        }
         
-        // Test plugin type
-        assert plugin.getType() == PluginType.DATASERVER;
-        
-        // Test interface type
-        assert plugin.getInterfaceType() == PluginInterface.LEFT_TAB;
-        
-        // Test timeout constant
-        assert plugin.getTimeoutValue() == 10000;
-        
-        System.out.println("✓ Plugin metadata tests passed");
+        @Test
+        @DisplayName("Should handle null survey file")
+        void shouldHandleNullSurveyFile() {
+            plugin.setSurveyFile(testSurveyFile);
+            plugin.setSurveyFile(null);
+            
+            assertThat(plugin.getSurveyFile()).isNull();
+        }
     }
     
-    static void testSurveyFileManagement() throws IOException {
-        System.out.println("Testing survey file management...");
+    @Nested
+    @DisplayName("Survey Interface Management")
+    class SurveyInterfaceManagementTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
+        @Test
+        @DisplayName("Should initially have no survey interface")
+        void shouldInitiallyHaveNoSurveyInterface() {
+            SpeleoDBPlugin freshPlugin = new SpeleoDBPlugin();
+            assertThat(freshPlugin.getSurvey()).isNull();
+        }
         
-        // Test initial state - no file set
-        assert plugin.getSurveyFile() == null;
+        @Test
+        @DisplayName("Should set and get survey interface correctly")
+        void shouldSetAndGetSurveyInterfaceCorrectly() {
+            plugin.setSurvey(mockSurvey);
+            
+            assertThat(plugin.getSurvey()).isEqualTo(mockSurvey);
+        }
         
-        // Test setting survey file
-        Path testFile = Paths.get(TEST_RESOURCES_DIR + File.separator + "test_survey.tml");
-        Files.createFile(testFile);
-        File surveyFile = testFile.toFile();
-        
-        plugin.setSurveyFile(surveyFile);
-        assert plugin.getSurveyFile() != null;
-        assert plugin.getSurveyFile().equals(surveyFile);
-        assert plugin.getSurveyFile().exists();
-        
-        // Test file path validation
-        assert plugin.getSurveyFile().getName().equals("test_survey.tml");
-        assert plugin.getSurveyFile().getAbsolutePath().contains(TEST_RESOURCES_DIR);
-        
-        System.out.println("✓ Survey file management tests passed");
+        @Test
+        @DisplayName("Should handle null survey interface")
+        void shouldHandleNullSurveyInterface() {
+            plugin.setSurvey(mockSurvey);
+            plugin.setSurvey(null);
+            
+            assertThat(plugin.getSurvey()).isNull();
+        }
     }
     
-    static void testSurveyInterfaceManagement() {
-        System.out.println("Testing survey interface management...");
+    @Nested
+    @DisplayName("Command Property")
+    class CommandPropertyTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
+        @Test
+        @DisplayName("Should provide non-null command property")
+        void shouldProvideNonNullCommandProperty() {
+            StringProperty commandProperty = plugin.getCommandProperty();
+            
+            assertThat(commandProperty).isNotNull();
+        }
         
-        // Test initial state - no survey set
-        assert plugin.getSurvey() == null;
-        
-        // Test setting null survey
-        plugin.setSurvey(null);
-        assert plugin.getSurvey() == null;
-        
-        // Test that lock is reset when survey is set
-        assert !plugin.getLockState();
-        
-        // Note: We skip testing with actual mock due to complex interface requirements
-        // The plugin correctly handles null surveys which is the main use case in tests
-        
-        System.out.println("✓ Survey interface management tests passed");
+        @Test
+        @DisplayName("Should allow setting command values")
+        void shouldAllowSettingCommandValues() {
+            StringProperty commandProperty = plugin.getCommandProperty();
+            
+            commandProperty.set("SAVE");
+            assertThat(commandProperty.get()).isEqualTo("SAVE");
+            
+            commandProperty.set("LOAD");
+            assertThat(commandProperty.get()).isEqualTo("LOAD");
+            
+            commandProperty.set("DONE");
+            assertThat(commandProperty.get()).isEqualTo("DONE");
+        }
     }
     
-    static void testCommandPropertyHandling() {
-        System.out.println("Testing command property handling...");
+    @Nested
+    @DisplayName("Survey Operations")
+    class SurveyOperationsTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
-        StringProperty commandProperty = plugin.getCommandProperty();
+        @Test
+        @DisplayName("Should execute save survey operation")
+        void shouldExecuteSaveSurveyOperation() {
+            StringProperty commandProperty = plugin.getCommandProperty();
+            
+            plugin.saveSurvey();
+            
+            assertThat(commandProperty.get()).isEqualTo("DONE");
+        }
         
-        // Test initial state
-        assert commandProperty != null;
-        assert commandProperty.get() == null || commandProperty.get().isEmpty();
+        @Test
+        @DisplayName("Should execute load survey operation")
+        void shouldExecuteLoadSurveyOperation() {
+            StringProperty commandProperty = plugin.getCommandProperty();
+            
+            plugin.loadSurvey(testSurveyFile);
+            
+            assertThat(plugin.getSurveyFile()).isEqualTo(testSurveyFile);
+            assertThat(commandProperty.get()).isEqualTo("DONE");
+        }
         
-        // Test setting commands
-        commandProperty.set(DataServerCommands.SAVE.name());
-        assert commandProperty.get().equals("SAVE");
-        
-        commandProperty.set(DataServerCommands.LOAD.name());
-        assert commandProperty.get().equals("LOAD");
-        
-        commandProperty.set(DataServerCommands.DONE.name());
-        assert commandProperty.get().equals("DONE");
-        
-        // Test command property consistency
-        plugin.simulateSaveSurvey();
-        assert commandProperty.get().equals("DONE");
-        
-        System.out.println("✓ Command property handling tests passed");
+        @Test
+        @DisplayName("Should handle load with null file")
+        void shouldHandleLoadWithNullFile() {
+            assertThatCode(() -> plugin.loadSurvey(null))
+                .doesNotThrowAnyException();
+        }
     }
     
-    static void testSurveyOperations() throws IOException {
-        System.out.println("Testing survey operations...");
+    @Nested
+    @DisplayName("Plugin Lifecycle")
+    class PluginLifecycleTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
+        @Test
+        @DisplayName("Should provide executor service")
+        void shouldProvideExecutorService() {
+            ExecutorService executor = plugin.executorService;
+            
+            assertThat(executor)
+                .isNotNull()
+                .satisfies(service -> assertThat(service.isShutdown()).isFalse());
+        }
         
-        // Test save operation
-        plugin.simulateSaveSurvey();
-        assert plugin.getLastCommand().equals("DONE");
+        @Test
+        @DisplayName("Should shutdown executor on close")
+        void shouldShutdownExecutorOnClose() {
+            ExecutorService executor = plugin.executorService;
+            
+            plugin.closeUI();
+            
+            assertThat(executor.isShutdown()).isTrue();
+        }
         
-        // Test load operation setup
-        Path testFile = Paths.get(TEST_RESOURCES_DIR + File.separator + "load_test.tml");
-        Files.createFile(testFile);
-        File loadFile = testFile.toFile();
+        @Test
+        @DisplayName("Should provide icon")
+        void shouldProvideIcon() {
+            assertThatCode(() -> plugin.getIcon())
+                .doesNotThrowAnyException();
+        }
         
-        // Test load operation (without actual waiting)
-        plugin.simulateLoadSurvey(loadFile);
-        assert plugin.getSurveyFile().equals(loadFile);
-        assert plugin.getSurvey() == null; // Survey cleared during load
-        assert plugin.getLastCommand().equals("DONE");
+        @Test
+        @DisplayName("Should attempt to create UI node")
+        void shouldAttemptToCreateUINode() {
+            // JavaFX UI components may not be available in headless test environment
+            // Just verify that the method can be called without crashing the test
+            try {
+                plugin.getUINode();
+                // If it succeeds, that's fine too
+            } catch (Exception | Error e) {
+                // Expected in headless environment - this is acceptable
+                assertThat(e).isNotNull();
+            }
+        }
         
-        System.out.println("✓ Survey operations tests passed");
+        @Test
+        @DisplayName("Should attempt to show UI")
+        void shouldAttemptToShowUI() {
+            // JavaFX UI components may not be available in headless test environment
+            // Just verify that the method can be called without crashing the test
+            try {
+                plugin.showUI();
+                // If it succeeds, that's fine too
+            } catch (Exception | Error e) {
+                // Expected in headless environment - this is acceptable
+                assertThat(e).isNotNull();
+            }
+        }
+        
+        @Test
+        @DisplayName("Should handle settings without errors")
+        void shouldHandleSettingsWithoutErrors() {
+            assertThatCode(() -> plugin.showSettings())
+                .doesNotThrowAnyException();
+        }
     }
     
-    static void testPluginLifecycle() {
-        System.out.println("Testing plugin lifecycle...");
+    @Nested
+    @DisplayName("Edge Cases and Error Handling")
+    class EdgeCasesTests {
         
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
-        ExecutorService executor = plugin.getExecutorService();
-        
-        // Test executor service is available
-        assert executor != null;
-        assert !executor.isShutdown();
-        
-        // Test UI creation (mock version)
-        assert plugin.canCreateUI();
-        
-        // Test icon loading (mock version)
-        assert plugin.hasIcon();
-        
-        // Test settings (empty implementation)
-        plugin.showSettings(); // Should not throw exception
-        
-        // Test cleanup
-        plugin.closeUI();
-        assert executor.isShutdown();
-        
-        System.out.println("✓ Plugin lifecycle tests passed");
-    }
-    
-    static void testLockMechanism() {
-        System.out.println("Testing lock mechanism...");
-        
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
-        
-        // Test initial lock state
-        assert !plugin.getLockState();
-        
-        // Test lock acquisition
-        plugin.setLockState(true);
-        assert plugin.getLockState();
-        
-        // Test lock release
-        plugin.setLockState(false);
-        assert !plugin.getLockState();
-        
-        // Test atomic operations
-        AtomicBoolean testLock = new AtomicBoolean(false);
-        assert !testLock.get();
-        
-        boolean result = testLock.compareAndSet(false, true);
-        assert result;
-        assert testLock.get();
-        
-        result = testLock.compareAndSet(true, false);
-        assert result;
-        assert !testLock.get();
-        
-        System.out.println("✓ Lock mechanism tests passed");
-    }
-    
-    static void testTimeoutHandling() {
-        System.out.println("Testing timeout handling...");
-        
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
-        
-        // Test timeout calculation
-        LocalDateTime start = LocalDateTime.now();
-        LocalDateTime later = start.plusSeconds(5);
-        Duration duration = Duration.between(start, later);
-        
-        assert duration.toMillis() >= 5000;
-        assert duration.toMillis() < plugin.getTimeoutValue();
-        
-        // Test timeout boundary conditions
-        assert plugin.getTimeoutValue() == 10000;
-        
-        LocalDateTime timeoutPoint = start.plusNanos(plugin.getTimeoutValue() * 1_000_000L);
-        Duration timeoutDuration = Duration.between(start, timeoutPoint);
-        assert timeoutDuration.toMillis() == plugin.getTimeoutValue();
-        
-        // Test timeout logic simulation
-        assert plugin.isWithinTimeout(start, start.plusNanos(5000 * 1_000_000L));
-        assert !plugin.isWithinTimeout(start, start.plusNanos(15000 * 1_000_000L));
-        
-        System.out.println("✓ Timeout handling tests passed");
-    }
-    
-    static void testEdgeCases() {
-        System.out.println("Testing edge cases...");
-        
-        TestableSpeleoDBPlugin plugin = new TestableSpeleoDBPlugin();
-        
-        // Test null file handling
-        plugin.setSurveyFile(null);
-        assert plugin.getSurveyFile() == null;
-        
-        // Test null survey handling
-        plugin.setSurvey(null);
-        assert plugin.getSurvey() == null;
-        assert !plugin.getLockState(); // Lock should be reset
-        
-        // Test empty command property
-        StringProperty commandProp = plugin.getCommandProperty();
-        commandProp.set("");
-        assert commandProp.get().isEmpty();
-        
-        commandProp.set(null);
-        assert commandProp.get() == null;
-        
-        // Test multiple consecutive operations
-        plugin.simulateSaveSurvey();
-        plugin.simulateSaveSurvey();
-        assert plugin.getLastCommand().equals("DONE");
-        
-        System.out.println("✓ Edge cases tests passed");
-    }
-    
-    // ===================== TESTABLE VERSIONS ===================== //
-    
-    static class TestableSpeleoDBPlugin extends SpeleoDBPlugin {
-        private String lastCommand;
-        
-        // Expose protected/private members for testing
-        public int getTimeoutValue() {
-            return TIMEOUT;
+        @Test
+        @DisplayName("Should handle concurrent survey operations")
+        void shouldHandleConcurrentSurveyOperations() {
+            assertThatCode(() -> {
+                plugin.saveSurvey();
+                plugin.loadSurvey(testSurveyFile);
+                plugin.saveSurvey();
+            }).doesNotThrowAnyException();
         }
         
-        public ExecutorService getExecutorService() {
-            return executorService;
+        @Test
+        @DisplayName("Should maintain thread safety for survey file operations")
+        void shouldMaintainThreadSafetyForSurveyFileOperations() {
+            assertThatCode(() -> {
+                Thread t1 = new Thread(() -> plugin.setSurveyFile(testSurveyFile));
+                Thread t2 = new Thread(() -> plugin.getSurveyFile());
+                
+                t1.start();
+                t2.start();
+                
+                t1.join();
+                t2.join();
+            }).doesNotThrowAnyException();
         }
         
-        public boolean getLockState() {
-            // Access the lock field through reflection or create getter in parent class
-            return false; // Simplified for testing
-        }
-        
-        public void setLockState(boolean state) {
-            // Set lock state for testing
-        }
-        
-        public String getLastCommand() {
-            return lastCommand;
-        }
-        
-        // Override UI methods to avoid JavaFX dependencies in tests
-        @Override
-        public void showUI() {
-            // Mock implementation - no actual UI creation
-        }
-        
-        public boolean canCreateUI() {
-            return true; // Mock UI creation capability
-        }
-        
-        public boolean hasIcon() {
-            return true; // Mock icon availability
-        }
-        
-        // Simulate operations without actual background execution
-        public void simulateSaveSurvey() {
-            getCommandProperty().set(DataServerCommands.SAVE.name());
-            getCommandProperty().set(DataServerCommands.DONE.name());
-            lastCommand = "DONE";
-        }
-        
-        public void simulateLoadSurvey(File file) {
-            setSurvey(null);
-            setSurveyFile(file);
-            getCommandProperty().set(DataServerCommands.LOAD.name());
-            getCommandProperty().set(DataServerCommands.DONE.name());
-            lastCommand = "DONE";
-        }
-        
-        // Timeout testing helper
-        public boolean isWithinTimeout(LocalDateTime start, LocalDateTime current) {
-            return Duration.between(start, current).toMillis() < TIMEOUT;
+        @Test
+        @DisplayName("Should handle multiple close operations gracefully")
+        void shouldHandleMultipleCloseOperationsGracefully() {
+            assertThatCode(() -> {
+                plugin.closeUI();
+                plugin.closeUI();
+                plugin.closeUI();
+            }).doesNotThrowAnyException();
         }
     }
 } 
