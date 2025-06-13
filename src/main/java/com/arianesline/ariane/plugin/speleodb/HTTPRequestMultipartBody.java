@@ -36,6 +36,12 @@ public class HTTPRequestMultipartBody {
         return this.bytes;
     }
 
+    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] QUOTE_CRLF = "\"\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CONTENT_TYPE_PREFIX = "Content-Type: ".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] DOUBLE_CRLF = "\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] OCTET_STREAM_HEADER = "Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+
     public static class Builder {
         private final String DEFAULT_MIMETYPE = "text/plain";
 
@@ -118,38 +124,42 @@ public class HTTPRequestMultipartBody {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try {
                 for (MultiPartRecord record : parts) {
-                    StringBuilder stringBuilder = new StringBuilder();
-                    stringBuilder.append("--" + boundary + "\r\n" + "Content-Disposition: form-data; name=\"" + record.getFieldName());
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("--").append(boundary).append("\r\n")
+                      .append("Content-Disposition: form-data; name=\"").append(record.getFieldName());
                     if (record.getFilename() != null) {
-                        stringBuilder.append("\"; filename=\"" + record.getFilename());
+                        sb.append("\"; filename=\"").append(record.getFilename());
                     }
-                    out.write(stringBuilder.toString().getBytes(StandardCharsets.UTF_8));
-                    out.write("\"\r\n".getBytes(StandardCharsets.UTF_8));
+                    out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                    out.write(QUOTE_CRLF);
                     Object content = record.getContent();
                     switch (content) {
                         case String string -> {
                             if (record.getContentType() != null) {
-                                out.write(("Content-Type: " + record.getContentType() + "\r\n").getBytes(StandardCharsets.UTF_8));
+                                out.write(CONTENT_TYPE_PREFIX);
+                                out.write(record.getContentType().getBytes(StandardCharsets.UTF_8));
+                                out.write(CRLF);
                             }
-                            out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(DOUBLE_CRLF);
                             out.write(string.getBytes(StandardCharsets.UTF_8));
                         }
                         case byte[] bs -> {
-                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(OCTET_STREAM_HEADER);
                             out.write(bs);
                         }
                         case File file -> {
-                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(OCTET_STREAM_HEADER);
                             Files.copy(file.toPath(), out);
                         }
                         default -> {
-                            out.write("Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+                            out.write(OCTET_STREAM_HEADER);
                             out.write(content.toString().getBytes(StandardCharsets.UTF_8));
                         }
                     }
-                    out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+                    out.write(CRLF);
                 }
-                out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+                out.write(("--" + boundary + "--").getBytes(StandardCharsets.UTF_8));
+                out.write(CRLF);
             } catch (IOException e) {
                 throw new IOException("Error building HTTP request multipart body", e);
             }
