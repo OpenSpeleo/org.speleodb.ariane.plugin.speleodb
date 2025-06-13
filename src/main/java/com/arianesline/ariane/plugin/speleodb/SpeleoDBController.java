@@ -1,19 +1,6 @@
 package com.arianesline.ariane.plugin.speleodb;
 
 
-import javafx.application.Platform;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
-import javafx.fxml.Initializable;
-import javafx.scene.control.*;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.VBox;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
-import javafx.scene.text.Text;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -23,19 +10,35 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.ResourceBundle;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ONLY;
+
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
+import javafx.application.Platform;
+import javafx.beans.value.ObservableValue;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.ListView;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
-
-
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ONLY;
 
 /**
  * Controller for managing the SpeleoDB user interface.
@@ -196,6 +199,33 @@ public class SpeleoDBController implements Initializable {
     // ==================== UI INITIALIZATION FUNCTIONS ==================== //
 
     /**
+     * Determines if the application is running in debug mode.
+     * Checks multiple sources: debug properties file, system properties, and environment variables.
+     */
+    private boolean isDebugMode() {
+        // First, check for debug.properties file in resources
+        try {
+            var debugPropsStream = getClass().getResourceAsStream("/debug.properties");
+            if (debugPropsStream != null) {
+                java.util.Properties props = new java.util.Properties();
+                props.load(debugPropsStream);
+                if (Boolean.parseBoolean(props.getProperty("debug.mode", "false"))) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            // If loading properties fails, continue with other checks
+        }
+        
+        // Check system property
+        if (Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"))) {
+            return true;
+        }
+
+        return Boolean.parseBoolean(System.getenv("SPELEODB_DEBUG_MODE"));
+    }
+
+    /**
      * Sets up default UI configurations.
      */
     private void setupUI() {
@@ -205,19 +235,22 @@ public class SpeleoDBController implements Initializable {
         serverProgressIndicator.setVisible(false);
         connectionButton.setText("CONNECT");
         // On purpose - use the main URL, not the instance one.
-        // TODO (low priority): Find a way to redirect to `http://localhost:<some_port>/webview/ariane` to
-        //       allow development (maybe a sort of `if (source_distribution)` or `if (debug)`)
+        // Use localhost URL when in debug mode, production URL otherwise
+        String aboutUrl;
+        boolean isDebugMode = isDebugMode();
+        
+        if (isDebugMode) {
+            aboutUrl = "http://localhost:8000/webview/ariane/";
+        } else {
+            aboutUrl = "https://www.speleodb.org/webview/ariane/";
+        }
 
-
-        aboutWebView.getEngine().load("https://www.speleodb.org/webview/ariane/");
+        aboutWebView.getEngine().load(aboutUrl);
         //TODO: WebView has been removed. Create directly in UI elements describing the about
 
-        serverLog.textProperty().addListener(new ChangeListener<Object>() {
-            @Override
-            public void changed(ObservableValue<?> observable, Object oldValue, Object newValue) {
-                // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
-                serverLog.setScrollTop(Double.MAX_VALUE);
-            }
+        serverLog.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
+            // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
+            serverLog.setScrollTop(Double.MAX_VALUE);
         });
     }
 
@@ -501,7 +534,7 @@ public class SpeleoDBController implements Initializable {
             logMessage("Selected project: " + projectItem.getString("name"));
             clickSpeleoDBProject(event);
 
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | URISyntaxException e) {
             logMessage("Error handling project action: " + e.getMessage());
             Platform.runLater(() -> projectListView.setDisable(false));
         }
@@ -535,7 +568,7 @@ public class SpeleoDBController implements Initializable {
 
                     listProjects();
                 }
-            } catch (Exception e) {
+            } catch (IOException | InterruptedException | URISyntaxException e) {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
                 });
@@ -592,6 +625,19 @@ public class SpeleoDBController implements Initializable {
     }
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
-        //TODO: Implement method
+        try {
+            String instance = instanceTextField.getText().trim();
+            if (instance.isEmpty()) {
+                instance = DEFAULT_INSTANCE;
+            }
+            
+            String protocol = isDebugMode() ? "http" : "https";
+            String signupUrl = protocol + "://" + instance + "/signup/";
+            
+            java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
+            logMessage("Opening signup page: " + signupUrl);
+        } catch (IOException | URISyntaxException e) {
+            logMessage("Failed to open signup page: " + e.getMessage());
+        }
     }
 }

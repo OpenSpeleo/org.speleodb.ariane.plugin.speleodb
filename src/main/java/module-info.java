@@ -3,15 +3,17 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBPlugin;
 
 
 module com.arianesline.ariane.plugin.speleoDB {
-    requires com.arianesline.ariane.plugin.api;
-    requires com.arianesline.cavelib.api;
+    requires transitive com.arianesline.ariane.plugin.api;
+    requires transitive com.arianesline.cavelib.api;
 
-    requires javafx.controls;
+    requires transitive javafx.base;
+    requires transitive javafx.controls;
     requires javafx.web;
     requires java.prefs;
     requires javafx.fxml;
+    requires java.desktop;
     requires jakarta.xml.bind;
-    requires jakarta.json;
+    requires transitive jakarta.json;
     requires java.net.http;
 
     exports com.arianesline.ariane.plugin.speleodb to javafx.graphics,javafx.fxml,javafx.web;

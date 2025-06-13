@@ -1,8 +1,5 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import com.arianesline.ariane.plugin.speleodb.HTTPRequestMultipartBody;
-import javafx.application.Platform;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
@@ -15,15 +12,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.regex.Pattern;
 
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
-
-
 
 
 /**
