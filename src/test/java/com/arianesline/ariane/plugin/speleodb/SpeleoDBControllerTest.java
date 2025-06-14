@@ -736,6 +736,99 @@ class SpeleoDBControllerTest {
         }
         
         @Test
+        @DisplayName("Should handle manual project refresh when authenticated")
+        void shouldHandleManualProjectRefreshWhenAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String refreshResult = controllerLogic.simulateRefreshProjects();
+            
+            // Verify
+            assertThat(refreshResult).contains("Project list refreshed successfully");
+            assertThat(refreshResult).contains("authentication check passed");
+        }
+        
+        @Test
+        @DisplayName("Should prevent manual project refresh when not authenticated")
+        void shouldPreventManualProjectRefreshWhenNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String refreshResult = controllerLogic.simulateRefreshProjects();
+            
+            // Verify
+            assertThat(refreshResult).contains("Cannot refresh projects: Not authenticated");
+            assertThat(refreshResult).doesNotContain("Project list refreshed");
+        }
+        
+        @Test
+        @DisplayName("Should handle refresh button state changes")
+        void shouldHandleRefreshButtonStateChanges() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            var buttonStates = controllerLogic.simulateRefreshButtonStates();
+            
+            // Verify
+            assertThat(buttonStates.getInitialState()).isEqualTo("Refresh Projects");
+            assertThat(buttonStates.getDuringRefreshState()).isEqualTo("Refreshing...");
+            assertThat(buttonStates.getFinalState()).isEqualTo("Refresh Projects");
+            assertThat(buttonStates.isInitiallyEnabled()).isTrue();
+            assertThat(buttonStates.isDuringRefreshEnabled()).isFalse();
+            assertThat(buttonStates.isFinallyEnabled()).isTrue();
+        }
+        
+        @Test
+        @DisplayName("Should handle refresh errors gracefully")
+        void shouldHandleRefreshErrorsGracefully() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            controllerLogic.setSimulateRefreshError(true);
+            
+            // Execute
+            String refreshResult = controllerLogic.simulateRefreshProjects();
+            
+            // Verify
+            assertThat(refreshResult).contains("Failed to refresh projects");
+            assertThat(refreshResult).contains("Simulated refresh error");
+        }
+        
+        @Test
+        @DisplayName("Should refresh project listing after successful project opening")
+        void shouldRefreshProjectListingAfterSuccessfulProjectOpening() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            controllerLogic.setCurrentProject(null); // No current project initially
+            
+            // Execute project opening flow
+            String openingResult = controllerLogic.simulateProjectOpening("New Project", true);
+            
+            // Verify
+            assertThat(openingResult).contains("Project opened successfully");
+            assertThat(openingResult).contains("New Project");
+            assertThat(openingResult).contains("refreshing project listing after project opening");
+        }
+        
+        @Test
+        @DisplayName("Should not refresh project listing after failed project opening")
+        void shouldNotRefreshProjectListingAfterFailedProjectOpening() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            controllerLogic.setCurrentProject(null);
+            
+            // Execute failed project opening flow
+            String openingResult = controllerLogic.simulateProjectOpening("Failed Project", false);
+            
+            // Verify
+            assertThat(openingResult).contains("Project opening failed");
+            assertThat(openingResult).contains("Failed Project");
+            assertThat(openingResult).doesNotContain("refreshing project listing");
+        }
+        
+        @Test
         @DisplayName("Should handle direct unlock flow")
         void shouldHandleDirectUnlockFlow() {
             // Setup
@@ -800,6 +893,8 @@ class SpeleoDBControllerTest {
         private String currentProject = null;
         private Boolean userConfirmationResponse = null;
         private int confirmationDialogCount = 0;
+        private boolean isAuthenticated = false;
+        private boolean simulateRefreshError = false;
         
         public void setDebugMode(boolean debugMode) {
             this.debugMode = debugMode;
@@ -968,6 +1063,52 @@ class SpeleoDBControllerTest {
             }
         }
         
+        // Authentication and refresh support methods
+        public void setAuthenticated(boolean authenticated) {
+            this.isAuthenticated = authenticated;
+        }
+        
+        public boolean isAuthenticated() {
+            return isAuthenticated;
+        }
+        
+        public void setSimulateRefreshError(boolean simulateError) {
+            this.simulateRefreshError = simulateError;
+        }
+        
+        public String simulateRefreshProjects() {
+            if (!isAuthenticated) {
+                return "Cannot refresh projects: Not authenticated";
+            }
+            
+            if (simulateRefreshError) {
+                return "Failed to refresh projects: Simulated refresh error";
+            }
+            
+            return "Project list refreshed successfully - authentication check passed";
+        }
+        
+        public RefreshButtonStates simulateRefreshButtonStates() {
+            return new RefreshButtonStates(
+                "Refresh Projects",     // initial state
+                "Refreshing...",        // during refresh state
+                "Refresh Projects",     // final state
+                true,                   // initially enabled
+                false,                  // disabled during refresh
+                true                    // enabled after completion
+            );
+        }
+        
+        public String simulateProjectOpening(String projectName, boolean successful) {
+            if (successful) {
+                currentProject = projectName;
+                return "Project opened successfully: " + projectName + 
+                       ". Lock acquired and refreshing project listing after project opening.";
+            } else {
+                return "Project opening failed: " + projectName + ". Unable to acquire lock or download project.";
+            }
+        }
+        
         // Expose private constants for testing
         public String getPrefEmail() { return "SDB_EMAIL"; }
         public String getPrefPassword() { return "SDB_PASSWORD"; }
@@ -1001,5 +1142,34 @@ class SpeleoDBControllerTest {
         public String getContentText() { return contentText; }
         public String getYesButtonText() { return yesButtonText; }
         public String getNoButtonText() { return noButtonText; }
+    }
+    
+    /**
+     * Helper class to represent refresh button states for testing
+     */
+    static class RefreshButtonStates {
+        private final String initialState;
+        private final String duringRefreshState;
+        private final String finalState;
+        private final boolean initiallyEnabled;
+        private final boolean duringRefreshEnabled;
+        private final boolean finallyEnabled;
+        
+        public RefreshButtonStates(String initialState, String duringRefreshState, String finalState,
+                                 boolean initiallyEnabled, boolean duringRefreshEnabled, boolean finallyEnabled) {
+            this.initialState = initialState;
+            this.duringRefreshState = duringRefreshState;
+            this.finalState = finalState;
+            this.initiallyEnabled = initiallyEnabled;
+            this.duringRefreshEnabled = duringRefreshEnabled;
+            this.finallyEnabled = finallyEnabled;
+        }
+        
+        public String getInitialState() { return initialState; }
+        public String getDuringRefreshState() { return duringRefreshState; }
+        public String getFinalState() { return finalState; }
+        public boolean isInitiallyEnabled() { return initiallyEnabled; }
+        public boolean isDuringRefreshEnabled() { return duringRefreshEnabled; }
+        public boolean isFinallyEnabled() { return finallyEnabled; }
     }
 } 

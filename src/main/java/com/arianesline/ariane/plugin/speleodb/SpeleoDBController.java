@@ -68,6 +68,8 @@ public class SpeleoDBController implements Initializable {
     @FXML
     private ListView<Button> projectListView;
     @FXML
+    private Button refreshProjectsButton;
+    @FXML
     private PasswordField oauthtokenPasswordField;
     @FXML
     private PasswordField passwordPasswordField;
@@ -234,6 +236,7 @@ public class SpeleoDBController implements Initializable {
         actionsTitlePane.setVisible(false);
         aboutTitlePane.setExpanded(true);
         projectsTitlePane.setVisible(false);
+        refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
         connectionButton.setText("CONNECT");
         // On purpose - use the main URL, not the instance one.
@@ -295,6 +298,7 @@ public class SpeleoDBController implements Initializable {
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
                     projectsTitlePane.setExpanded(true);
+                    refreshProjectsButton.setDisable(false); // Enable refresh button
                     connectionButton.setText("DISCONNECT");
                 });
 
@@ -317,6 +321,7 @@ public class SpeleoDBController implements Initializable {
         projectListView.getItems().clear();
         actionsTitlePane.setVisible(false);
         projectsTitlePane.setVisible(false);
+        refreshProjectsButton.setDisable(true); // Disable refresh button
         connectionButton.setText("CONNECT");
         if (!rememberCredentialsCheckBox.isSelected())
             passwordPasswordField.clear();
@@ -443,6 +448,41 @@ public class SpeleoDBController implements Initializable {
             }
         });
     }
+    
+    /**
+     * Handles the refresh projects button click event.
+     * Refreshes the project listing with visual feedback to the user.
+     */
+    @FXML
+    public void onRefreshProjects(ActionEvent actionEvent) {
+        if (!speleoDBService.isAuthenticated()) {
+            logMessage("Cannot refresh projects: Not authenticated");
+            return;
+        }
+        
+        logMessage("User requested project list refresh");
+        
+        // Provide visual feedback
+        refreshProjectsButton.setDisable(true);
+        refreshProjectsButton.setText("Refreshing...");
+        serverProgressIndicator.setVisible(true);
+        
+        parentPlugin.executorService.execute(() -> {
+            try {
+                JsonArray projectList = speleoDBService.listProjects();
+                handleProjectListResponse(projectList);
+                Platform.runLater(() -> logMessage("Project list refreshed successfully"));
+            } catch (Exception e) {
+                logMessage("Failed to refresh projects: " + e.getMessage());
+            } finally {
+                Platform.runLater(() -> {
+                    serverProgressIndicator.setVisible(false);
+                    refreshProjectsButton.setDisable(false);
+                    refreshProjectsButton.setText("Refresh Projects");
+                });
+            }
+        });
+    }
 
     // -------------------------- Project Opening -------------------------- //
 
@@ -481,8 +521,8 @@ public class SpeleoDBController implements Initializable {
                     currentProject = project;
                     checkAndUpdateSpeleoDBId(project);
 
+                    // Update UI first
                     Platform.runLater(() -> {
-
                         serverProgressIndicator.setVisible(false);
                         actionsTitlePane.setVisible(true);
                         actionsTitlePane.setExpanded(true);
@@ -496,6 +536,16 @@ public class SpeleoDBController implements Initializable {
                             unlockButton.setDisable(true);
                         }
                     });
+                    
+                    // Refresh project listing after all operations are complete
+                    // (no sleep needed - all operations above are now complete)
+                    try {
+                        logMessage("Refreshing project listing after project opening...");
+                        JsonArray projectList = speleoDBService.listProjects();
+                        handleProjectListResponse(projectList);
+                    } catch (Exception refreshEx) {
+                        logMessage("Error refreshing project listing: " + refreshEx.getMessage());
+                    }
 
                 } else {
                     logMessage("Download failed");
@@ -577,16 +627,11 @@ public class SpeleoDBController implements Initializable {
                                     logMessage("Proceeding with new project selection: " + selectedProjectName);
                                     clickSpeleoDBProject(event);
                                     
-                                    // Refresh project listing in background after project switch is complete
+                                    // Refresh project listing after project switch is complete
                                     parentPlugin.executorService.execute(() -> {
                                         try {
-                                            // Small delay to ensure project operations are completed
-                                            Thread.sleep(1000);
                                             logMessage("Refreshing project listing after project switch...");
                                             listProjects();
-                                        } catch (InterruptedException ie) {
-                                            Thread.currentThread().interrupt();
-                                            logMessage("Project listing refresh interrupted");
                                         } catch (Exception e) {
                                             logMessage("Error refreshing project listing: " + e.getMessage());
                                         }
