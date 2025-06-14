@@ -533,7 +533,85 @@ public class SpeleoDBController implements Initializable {
         projectListView.setDisable(true);
 
         try {
-            logMessage("Selected project: " + projectItem.getString("name"));
+            String selectedProjectName = projectItem.getString("name");
+            String selectedProjectId = projectItem.getString("id");
+            
+            // Check if user is trying to switch to a different project while having an active lock
+            if (hasActiveProjectLock()) {
+                String currentProjectId = currentProject.getString("id");
+                
+                // If clicking on the same project, proceed normally
+                if (currentProjectId.equals(selectedProjectId)) {
+                    logMessage("Selected project: " + selectedProjectName);
+                    clickSpeleoDBProject(event);
+                    return;
+                }
+                
+                // Different project selected - show confirmation dialog
+                logMessage("Attempting to switch from locked project: " + getCurrentProjectName() + 
+                          " to: " + selectedProjectName);
+                
+                boolean shouldSwitch = showProjectSwitchConfirmation(selectedProjectName);
+                
+                if (!shouldSwitch) {
+                    logMessage("User cancelled project switch. Staying on: " + getCurrentProjectName());
+                    Platform.runLater(() -> projectListView.setDisable(false));
+                    return;
+                }
+                
+                // User confirmed switch - release current lock first
+                logMessage("User confirmed project switch. Releasing lock on: " + getCurrentProjectName());
+                
+                parentPlugin.executorService.execute(() -> {
+                    try {
+                        if (speleoDBService.releaseProjectMutex(currentProject)) {
+                            logMessage("Successfully released lock on: " + getCurrentProjectName());
+                            currentProject = null;
+                            
+                            Platform.runLater(() -> {
+                                actionsTitlePane.setVisible(false);
+                                actionsTitlePane.setExpanded(false);
+                                
+                                // Now proceed with the new project selection
+                                try {
+                                    logMessage("Proceeding with new project selection: " + selectedProjectName);
+                                    clickSpeleoDBProject(event);
+                                    
+                                    // Refresh project listing in background after project switch is complete
+                                    parentPlugin.executorService.execute(() -> {
+                                        try {
+                                            // Small delay to ensure project operations are completed
+                                            Thread.sleep(1000);
+                                            logMessage("Refreshing project listing after project switch...");
+                                            listProjects();
+                                        } catch (InterruptedException ie) {
+                                            Thread.currentThread().interrupt();
+                                            logMessage("Project listing refresh interrupted");
+                                        } catch (Exception e) {
+                                            logMessage("Error refreshing project listing: " + e.getMessage());
+                                        }
+                                    });
+                                    
+                                } catch (IOException | InterruptedException | URISyntaxException e) {
+                                    logMessage("Error switching to new project: " + e.getMessage());
+                                    Platform.runLater(() -> projectListView.setDisable(false));
+                                }
+                            });
+                        } else {
+                            logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
+                            Platform.runLater(() -> projectListView.setDisable(false));
+                        }
+                    } catch (IOException | InterruptedException | URISyntaxException e) {
+                        logMessage("Error releasing lock: " + e.getMessage());
+                        Platform.runLater(() -> projectListView.setDisable(false));
+                    }
+                });
+                
+                return;
+            }
+            
+            // No active lock - proceed normally
+            logMessage("Selected project: " + selectedProjectName);
             clickSpeleoDBProject(event);
 
         } catch (IOException | InterruptedException | URISyntaxException e) {
@@ -544,6 +622,35 @@ public class SpeleoDBController implements Initializable {
     }
 
     // ---------------------- Project Mutex Management --------------------- //
+
+    /**
+     * Shows a confirmation dialog asking the user if they want to release the current project lock
+     * before switching to a different project.
+     * 
+     * @param newProjectName the name of the project the user wants to switch to
+     * @return true if the user wants to release the lock and switch projects, false otherwise
+     */
+    private boolean showProjectSwitchConfirmation(String newProjectName) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Switch Project");
+        alert.setHeaderText("Current Project is Locked");
+        alert.setContentText("You currently have an active lock on project \"" + 
+                            currentProject.getString("name") + "\".\n\n" +
+                            "To switch to project \"" + newProjectName + "\", you need to release your current lock.\n\n" +
+                            "Do you want to release the lock and switch projects?\n\n" +
+                            "• Yes: Release lock and switch to \"" + newProjectName + "\"\n" +
+                            "• No: Keep current lock and stay on \"" + currentProject.getString("name") + "\"");
+        
+        // Customize button text
+        ButtonType yesButton = new ButtonType("Yes, Switch Projects");
+        ButtonType noButton = new ButtonType("No, Stay Here");
+        alert.getButtonTypes().setAll(yesButton, noButton);
+        
+        // Show dialog and wait for user response
+        return alert.showAndWait()
+                   .map(response -> response == yesButton)
+                   .orElse(false);
+    }
 
     /**
      * Shows a confirmation dialog asking the user if they want to unlock the project.
@@ -740,5 +847,49 @@ public class SpeleoDBController implements Initializable {
         } catch (IOException | URISyntaxException e) {
             logMessage("Failed to open signup page: " + e.getMessage());
         }
+    }
+    
+    // ===================== SHUTDOWN SUPPORT METHODS ===================== //
+    
+    /**
+     * Checks if there is currently an active project with a lock.
+     * 
+     * @return true if there is an active project, false otherwise
+     */
+    public boolean hasActiveProjectLock() {
+        return currentProject != null;
+    }
+    
+    /**
+     * Gets the name of the currently active project.
+     * 
+     * @return the project name, or null if no project is active
+     */
+    public String getCurrentProjectName() {
+        return currentProject != null ? currentProject.getString("name") : null;
+    }
+    
+    /**
+     * Releases the lock on the currently active project.
+     * This method is called during application shutdown.
+     * 
+     * @throws IOException if there's an error releasing the lock
+     * @throws InterruptedException if the operation is interrupted
+     * @throws URISyntaxException if there's a URI syntax error
+     */
+    public void releaseCurrentProjectLock() throws IOException, InterruptedException, URISyntaxException {
+        if (currentProject != null) {
+            speleoDBService.releaseProjectMutex(currentProject);
+            currentProject = null;
+        }
+    }
+    
+    /**
+     * Public accessor for logging messages from the plugin.
+     * 
+     * @param message the message to log
+     */
+    public void logMessageFromPlugin(String message) {
+        logMessage(message);
     }
 }
