@@ -546,10 +546,69 @@ public class SpeleoDBController implements Initializable {
     // ---------------------- Project Mutex Management --------------------- //
 
     /**
+     * Shows a confirmation dialog asking the user if they want to unlock the project.
+     * 
+     * @return true if the user wants to unlock, false otherwise
+     */
+    private boolean showUnlockConfirmation() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Unlock Project");
+        alert.setHeaderText("Confirm Unlock");
+        alert.setContentText("Are you sure you want to unlock project \"" + 
+                            currentProject.getString("name") + "\"?\n\n" +
+                            "This will release your write lock and allow other users to edit the project.\n\n" +
+                            "• Yes: Unlock project (other users can edit)\n" +
+                            "• No: Keep lock (continue editing)");
+        
+        // Customize button text
+        ButtonType yesButton = new ButtonType("Yes, Unlock");
+        ButtonType noButton = new ButtonType("No, Keep Lock");
+        alert.getButtonTypes().setAll(yesButton, noButton);
+        
+        // Show dialog and wait for user response
+        return alert.showAndWait()
+                   .map(response -> response == yesButton)
+                   .orElse(false);
+    }
+    
+    /**
+     * Shows a confirmation dialog asking the user if they want to release the write lock.
+     * 
+     * @return true if the user wants to release the lock, false otherwise
+     */
+    private boolean showReleaseLockConfirmation() {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Release Write Lock");
+        alert.setHeaderText("Upload Successful");
+        alert.setContentText("Do you want to release the write lock for project \"" + 
+                            currentProject.getString("name") + "\"?\n\n" +
+                            "• Yes: Release lock (other users can edit)\n" +
+                            "• No: Keep lock (continue editing)");
+        
+        // Customize button text
+        ButtonType yesButton = new ButtonType("Yes, Release Lock");
+        ButtonType noButton = new ButtonType("No, Keep Lock");
+        alert.getButtonTypes().setAll(yesButton, noButton);
+        
+        // Show dialog and wait for user response
+        return alert.showAndWait()
+                   .map(response -> response == yesButton)
+                   .orElse(false);
+    }
+
+    /**
      * Handles the unlock button click event for SpeleoDB.
      */
     @FXML
     public void onUnlockSpeleoDB(ActionEvent actionEvent) throws IOException, InterruptedException, URISyntaxException {
+        
+        // Show confirmation popup before unlocking
+        boolean shouldUnlock = showUnlockConfirmation();
+        
+        if (!shouldUnlock) {
+            logMessage("User cancelled unlock operation.");
+            return;
+        }
 
         logMessage("Unlocking project " + currentProject.getString("name"));
         serverProgressIndicator.setVisible(true);
@@ -569,10 +628,16 @@ public class SpeleoDBController implements Initializable {
                     });
 
                     listProjects();
+                } else {
+                    logMessage("Failed to release lock for " + currentProject.getString("name"));
                 }
             } catch (IOException | InterruptedException | URISyntaxException e) {
+                logMessage("Error releasing lock: " + e.getMessage());
+            } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
+                    uploadButton.setDisable(false);
+                    unlockButton.setDisable(false);
                 });
             }
         });
@@ -658,31 +723,6 @@ public class SpeleoDBController implements Initializable {
             }
         });
 
-    }
-    
-    /**
-     * Shows a confirmation dialog asking the user if they want to release the write lock.
-     * 
-     * @return true if the user wants to release the lock, false otherwise
-     */
-    private boolean showReleaseLockConfirmation() {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Release Write Lock");
-        alert.setHeaderText("Upload Successful");
-        alert.setContentText("Do you want to release the write lock for project \"" + 
-                            currentProject.getString("name") + "\"?\n\n" +
-                            "• Yes: Release lock (other users can edit)\n" +
-                            "• No: Keep lock (continue editing)");
-        
-        // Customize button text
-        ButtonType yesButton = new ButtonType("Yes, Release Lock");
-        ButtonType noButton = new ButtonType("No, Keep Lock");
-        alert.getButtonTypes().setAll(yesButton, noButton);
-        
-        // Show dialog and wait for user response
-        return alert.showAndWait()
-                   .map(response -> response == yesButton)
-                   .orElse(false);
     }
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
