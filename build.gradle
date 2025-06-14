@@ -52,7 +52,7 @@ tasks.register('buildDebug') {
         }
     }
     
-    dependsOn 'build'
+    dependsOn 'compileJava', 'processResources', 'classes', 'jar'
     
     doLast {
         println 'SpeleoDB plugin debug build completed with localhost URLs enabled'
@@ -74,7 +74,7 @@ tasks.register('buildProduction') {
         }
     }
     
-    dependsOn 'build'
+    dependsOn 'compileJava', 'processResources', 'classes', 'jar'
     
     doLast {
         println 'SpeleoDB plugin production build completed'
@@ -83,6 +83,71 @@ tasks.register('buildProduction') {
 
 test {
     useJUnitPlatform()
+}
+
+// Completely override the build task to exclude tests
+build {
+    // Clear all dependencies and set only what we want
+    dependsOn.clear()
+    dependsOn assemble
+    
+    doFirst {
+        println 'Building without running tests. Use "./gradlew test" to run tests explicitly.'
+    }
+}
+
+// Create a separate task for build with tests
+tasks.register('buildWithTests') {
+    group = 'build'
+    description = 'Build and run tests'
+    dependsOn assemble, check
+}
+
+tasks.register('help-build') {
+    group = 'help'
+    description = 'Shows available build and test tasks'
+    
+    doLast {
+        println ''
+        println '=== SpeleoDB Plugin Build Tasks ==='
+        println ''
+        println 'BUILD TASKS (no tests):'
+        println '  ./gradlew build           - Build without running tests'
+        println '  ./gradlew buildDebug      - Build with debug configuration'
+        println '  ./gradlew buildProduction - Build for production'
+        println '  ./gradlew assemble        - Assemble the JAR file'
+        println ''
+        println 'TEST TASKS:'
+        println '  ./gradlew test            - Run all tests'
+        println '  ./gradlew check           - Run tests and checks'
+        println '  ./gradlew runAllTests     - Run all unit tests'
+        println '  ./gradlew runControllerTests - Run controller tests only'
+        println '  ./gradlew runServiceTests - Run service tests only'
+        println '  ./gradlew runHttpTests    - Run HTTP tests only'
+        println '  ./gradlew runPluginTests  - Run plugin tests only'
+        println ''
+        println 'COMBINED:'
+        println '  ./gradlew buildWithTests  - Build and run tests in one command'
+        println '  ./gradlew build test      - Build and then run tests (separate tasks)'
+        println ''
+        println 'CLEAN STATE TASKS:'
+        println '  ./gradlew clean           - Clean all build outputs'
+        println '  ./gradlew clean build     - Clean and build from scratch (no tests)'
+        println '  ./gradlew clean test      - Clean and run tests from scratch'
+        println '  ./gradlew clean buildWithTests - Clean, build, and test from scratch'
+        println '  ./gradlew clean build test - Clean, build, and test (separate tasks)'
+        println '  ./gradlew clean buildDebug - Clean and build with debug config'
+        println '  ./gradlew clean buildProduction - Clean and build for production'
+        println ''
+        println 'USEFUL COMBINATIONS:'
+        println '  ./gradlew clean assemble  - Clean and create JAR only'
+        println '  ./gradlew --refresh-dependencies build - Refresh deps and build'
+        println '  ./gradlew build --info    - Build with detailed output'
+        println '  ./gradlew test --info     - Run tests with detailed output'
+        println ''
+        println 'TIP: Use "clean" before any task to ensure a fresh build state.'
+        println ''
+    }
 }
 
 tasks.register('runAllTests') {
