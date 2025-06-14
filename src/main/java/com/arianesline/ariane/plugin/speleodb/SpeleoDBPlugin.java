@@ -75,7 +75,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             root1 = fxmlLoader.load();
 
         } catch (IOException e) {
-            e.printStackTrace();
         }
         Stage stage = new Stage();
         stage.initStyle(StageStyle.DECORATED);
@@ -96,7 +95,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             root1 = fxmlLoader.load();
 
         } catch (IOException e) {
-            e.printStackTrace();
         }
         return root1;
     }

@@ -3,10 +3,11 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBPlugin;
 
 
 module com.arianesline.ariane.plugin.speleoDB {
-    requires com.arianesline.ariane.plugin.api;
-    requires com.arianesline.cavelib.api;
+    requires transitive com.arianesline.ariane.plugin.api;
+    requires transitive com.arianesline.cavelib.api;
 
-    requires transitive  javafx.controls;
+    requires transitive javafx.base;
+    requires transitive javafx.controls;
     requires javafx.web;
     requires java.prefs;
     requires javafx.fxml;
