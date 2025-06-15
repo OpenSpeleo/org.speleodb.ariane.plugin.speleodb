@@ -27,11 +27,13 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.PasswordField;
@@ -39,7 +41,14 @@ import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -381,6 +390,93 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
+     * Sets up keyboard shortcuts for the application.
+     */
+    private void setupKeyboardShortcuts() {
+        // Create Ctrl+S (Windows/Linux) / Cmd+S (Mac) key combination
+        // SHORTCUT_DOWN automatically maps to Ctrl on Windows/Linux and Cmd on Mac
+        KeyCombination saveKeyCombination = new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN);
+        
+        // Add key event filter to the main anchor pane
+        speleoDBAnchorPane.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (saveKeyCombination.match(event)) {
+                // Only handle the shortcut if user has an active project lock
+                if (hasActiveProjectLock()) {
+                    event.consume(); // Prevent default behavior
+                    showSaveModal();
+                }
+                // If no active lock, let the key event pass through (don't consume it)
+            }
+        });
+    }
+    
+    /**
+     * Shows a save modal dialog when Ctrl+S / Cmd+S is pressed.
+     * This method assumes an active project with lock exists (gated by keyboard shortcut handler).
+     */
+    private void showSaveModal() {
+        // Create custom dialog with text field
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Save Project on SpeleoDB");
+        dialog.setHeaderText("Save Current Project: \"" + currentProject.getString("name") + "\"");
+        
+        // Set button types
+        ButtonType saveButtonType = new ButtonType("Save Project", ButtonType.OK.getButtonData());
+        ButtonType cancelButtonType = new ButtonType("Cancel", ButtonType.CANCEL.getButtonData());
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
+        
+        // Create the content
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 20, 10, 20));
+        
+        // Set column constraints - column 1 (text field) should grow
+        ColumnConstraints col1 = new ColumnConstraints();
+        ColumnConstraints col2 = new ColumnConstraints();
+        col2.setHgrow(Priority.ALWAYS);
+        col2.setFillWidth(true);
+        grid.getColumnConstraints().addAll(col1, col2);
+        
+        Label messageLabel = new Label("What did you change?");
+        TextField messageField = new TextField();
+        messageField.setText("");
+        messageField.setMaxWidth(Double.MAX_VALUE);
+        
+        grid.add(messageLabel, 0, 0);
+        grid.add(messageField, 1, 0);
+        
+        dialog.getDialogPane().setContent(grid);
+        
+        // Set minimum width for the dialog
+        dialog.getDialogPane().setMinWidth(500);
+        dialog.getDialogPane().setPrefWidth(500);
+        
+        // Focus on the text field when dialog is shown
+        dialog.setOnShown(e -> messageField.requestFocus());
+        
+        // Convert the result when save button is clicked
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                return messageField.getText();
+            }
+            return null;
+        });
+        
+        // Show dialog and handle response
+        dialog.showAndWait().ifPresent(message -> {
+            if (message == null || message.trim().isEmpty()) {
+                logMessage("Upload message cannot be empty.");
+                showErrorAnimation();
+                return;
+            }
+            
+            // Use the shared upload method
+            uploadProjectWithMessage(message.trim());
+        });
+    }
+
+    /**
      * Initializes the controller, setting up default UI states and preferences.
      *
      * @param location  the location of the FXML file.
@@ -390,6 +486,7 @@ public class SpeleoDBController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         loadPreferences();
         setupUI();
+        setupKeyboardShortcuts();
     }
 
 
@@ -1003,12 +1100,12 @@ public class SpeleoDBController implements Initializable {
     // --------------------- Project Saving and Upload --------------------- //
 
     /**
-     * Handles the "Save Project" button click event for SpeleoDB.
+     * Shared method to upload a project with a given commit message.
+     * 
+     * @param commitMessage the commit message for the upload
      */
-    @FXML
-    public void onUploadSpeleoDB(ActionEvent actionEvent) throws IOException, URISyntaxException, InterruptedException {
-
-        //TODO: FInd alternative
+    private void uploadProjectWithMessage(String commitMessage) {
+        //TODO: Find alternative
         parentPlugin.saveSurvey();
 
       /*
@@ -1018,14 +1115,7 @@ public class SpeleoDBController implements Initializable {
             logMessage("No changes to the project detected");
             return;
         }
-
        */
-
-        String message = uploadMessageTextField.getText();
-        if (message.isEmpty()) {
-            logMessage("Upload message cannot be empty.");
-            return;
-        }
 
         logMessage("Uploading project " + currentProject.getString("name") + " ...");
         
@@ -1035,7 +1125,7 @@ public class SpeleoDBController implements Initializable {
 
         parentPlugin.executorService.execute(() -> {
             try {
-                speleoDBService.uploadProject(message, currentProject);
+                speleoDBService.uploadProject(commitMessage, currentProject);
                 logMessage("Upload successful.");
                 
                 // Show success animation
@@ -1085,7 +1175,20 @@ public class SpeleoDBController implements Initializable {
                 });
             }
         });
+    }
 
+    /**
+     * Handles the "Save Project" button click event for SpeleoDB.
+     */
+    @FXML
+    public void onUploadSpeleoDB(ActionEvent actionEvent) throws IOException, URISyntaxException, InterruptedException {
+        String message = uploadMessageTextField.getText();
+        if (message.isEmpty()) {
+            logMessage("Upload message cannot be empty.");
+            return;
+        }
+        
+        uploadProjectWithMessage(message);
     }
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {

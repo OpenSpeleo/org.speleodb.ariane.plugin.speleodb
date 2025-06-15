@@ -8,7 +8,6 @@ import java.util.TreeMap;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
-import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
@@ -70,7 +69,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         });
         
         // Focus on name field when dialog opens
-        Platform.runLater(() -> nameField.requestFocus());
+        setOnShown(e -> nameField.requestFocus());
     }
     
     private VBox createFormContent() {
