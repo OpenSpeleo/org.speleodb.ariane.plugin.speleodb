@@ -6,8 +6,12 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.arianesline.ariane.plugin.api.DataServerCommands;
@@ -16,6 +20,7 @@ import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
@@ -36,6 +41,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private CaveSurveyInterface survey;
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
+    private volatile CountDownLatch loadCompletionLatch;
+    
     // Executor service for managing background tasks.
     final ExecutorService executorService = Executors.newCachedThreadPool();
     
@@ -68,6 +75,76 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     public synchronized void setSurvey(CaveSurveyInterface survey) {
         this.survey = survey;
         lock.set(false);
+        // Signal that loading is complete
+        if (loadCompletionLatch != null) {
+            loadCompletionLatch.countDown();
+        }
+    }
+
+    /**
+     * Shows an error alert to the user when UI loading fails.
+     * 
+     * @param message the error message to display
+     * @param exception the exception that caused the error
+     */
+    private void showUILoadError(String message, Exception exception) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("SpeleoDB Plugin Error");
+            alert.setHeaderText("Failed to Load User Interface");
+            alert.setContentText(message + "\n\nDetails: " + exception.getMessage());
+            alert.showAndWait();
+        });
+    }
+
+    /**
+     * Creates a fallback UI when FXML loading fails.
+     * 
+     * @return a simple text node indicating the error
+     */
+    private Node createFallbackUI() {
+        javafx.scene.control.Label errorLabel = new javafx.scene.control.Label(
+            "SpeleoDB Plugin failed to load properly.\nPlease check the logs for details."
+        );
+        errorLabel.setStyle("-fx-text-fill: red; -fx-padding: 20; -fx-font-size: 14;");
+        return errorLabel;
+    }
+
+    /**
+     * Logs an error message. If controller is available, uses the controller's logging system,
+     * otherwise falls back to console output.
+     * 
+     * @param message the message to log
+     * @param exception the exception to log (optional)
+     */
+    private void logError(String message, Exception exception) {
+        String fullMessage = message + (exception != null ? ": " + exception.getMessage() : "");
+        
+        if (activeController != null) {
+            activeController.logMessageFromPlugin("ERROR: " + fullMessage);
+        } else {
+            System.err.println("SpeleoDBPlugin ERROR: " + fullMessage);
+            if (exception != null) {
+                exception.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Creates the UI content with proper error handling.
+     * 
+     * @return the loaded UI content
+     * @throws IOException if FXML loading fails
+     */
+    private Parent createUIContent() throws IOException {
+        SpeleoDBController controller = new SpeleoDBController();
+        controller.parentPlugin = this;
+        this.activeController = controller;
+        
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
+        fxmlLoader.setController(controller);
+        
+        return fxmlLoader.load();
     }
 
     /**
@@ -98,39 +175,32 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public void showUI() {
-        SpeleoDBController controller = new SpeleoDBController();
-        controller.parentPlugin = this;
-        this.activeController = controller; // Keep reference for shutdown handling
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
-        fxmlLoader.setController(controller);
-        Parent root1 = null;
         try {
-            root1 = fxmlLoader.load();
-
+            Parent root = createUIContent();
+            Stage stage = new Stage();
+            stage.initStyle(StageStyle.DECORATED);
+            stage.setScene(new Scene(root));
+            stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
+            stage.setTitle("SpeleoDB");
+            stage.show();
+            
         } catch (IOException e) {
+            logError("Failed to load FXML for UI window", e);
+            showUILoadError("The SpeleoDB plugin interface could not be loaded.", e);
+            throw new IllegalStateException("UI initialization failed", e);
         }
-        Stage stage = new Stage();
-        stage.initStyle(StageStyle.DECORATED);
-        stage.setScene(new Scene(root1));
-        stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
-        stage.setTitle("SpeleoDB");
-        stage.show();
     }
 
     @Override
     public Node getUINode() {
-        SpeleoDBController controller = new SpeleoDBController();
-        controller.parentPlugin = this;
-        this.activeController = controller; // Keep reference for shutdown handling
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
-        fxmlLoader.setController(controller);
-        Parent root1 = null;
         try {
-            root1 = fxmlLoader.load();
-
+            return createUIContent();
+            
         } catch (IOException e) {
+            logError("Failed to load FXML for UI node", e);
+            // For UI node, return a fallback instead of throwing an exception
+            return createFallbackUI();
         }
-        return root1;
     }
 
     @Override
@@ -175,16 +245,49 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         commandProperty.set(DataServerCommands.DONE.name());
     }
 
+    /**
+     * Loads a survey file with proper synchronization instead of spinning wait.
+     * 
+     * @param file the survey file to load
+     */
     public void loadSurvey(File file) {
         lock.set(true);
         survey = null;
         surveyFile = file;
+        
+        // Create a new latch for this load operation
+        loadCompletionLatch = new CountDownLatch(1);
         commandProperty.set(DataServerCommands.LOAD.name());
-        var start = LocalDateTime.now();
-        while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < TIMEOUT) {
+        
+        try {
+            // Use proper synchronization instead of spinning wait
+            if (!loadCompletionLatch.await(TIMEOUT, TimeUnit.MILLISECONDS)) {
+                logError("Survey loading timed out after " + TIMEOUT + "ms", null);
+                throw new TimeoutException("Survey loading timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logError("Survey loading was interrupted", e);
+            throw new RuntimeException("Survey loading interrupted", e);
+        } catch (TimeoutException e) {
+            logError("Survey loading timed out", e);
+            throw new RuntimeException("Survey loading failed: timeout", e);
+        } finally {
+            lock.set(false);
+            commandProperty.set(DataServerCommands.DONE.name());
         }
-        lock.set(false);
-        commandProperty.set(DataServerCommands.DONE.name());
+    }
+
+    /**
+     * Asynchronous version of loadSurvey for better performance.
+     * 
+     * @param file the survey file to load
+     * @return CompletableFuture that completes when loading is done
+     */
+    public CompletableFuture<Void> loadSurveyAsync(File file) {
+        return CompletableFuture.runAsync(() -> {
+            loadSurvey(file);
+        }, executorService);
     }
 
     @Override
@@ -204,7 +307,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public void showSettings() {
-
+        // TODO: Implement settings dialog or remove this method if not needed
+        if (activeController != null) {
+            activeController.logMessageFromPlugin("Settings functionality not yet implemented");
+        } else {
+            System.out.println("SpeleoDB Plugin: Settings functionality not yet implemented");
+        }
     }
 
 }

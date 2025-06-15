@@ -12,7 +12,6 @@ import java.time.format.FormatStyle;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.prefs.Preferences;
 
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ONLY;
 
@@ -114,20 +113,71 @@ public class SpeleoDBController implements Initializable {
 
 
 
-    // SpeleoDBService instance for handling server communication.
-    private final SpeleoDBService speleoDBService = new SpeleoDBService(this);
-
-    // Constants for Preferences keys and default values.
-    private static final String PREF_EMAIL = "SDB_EMAIL";
-    private static final String PREF_PASSWORD = "SDB_PASSWORD";
-    private static final String PREF_OAUTH_TOKEN = "SDB_OAUTH_TOKEN";
-    private static final String PREF_INSTANCE = "SDB_INSTANCE";
-    private static final String PREF_SAVE_CREDS = "SDB_SAVECREDS";
-    private static final String DEFAULT_INSTANCE = "www.speleoDB.org";
+    // Services for handling different concerns (package-private for testing)
+    final SpeleoDBService speleoDBService = new SpeleoDBService(this);
+    final PreferencesService preferencesService = new PreferencesService();
+    AuthenticationService authenticationService;
 
     // Internal Controller Data
 
     private JsonObject currentProject = null;
+    
+    /**
+     * Implementation of AuthenticationCallback for handling authentication events.
+     */
+    private class AuthenticationCallbackImpl implements AuthenticationService.AuthenticationCallback {
+        @Override
+        public void onAuthenticationStarted() {
+            Platform.runLater(() -> {
+                logMessage("Starting authentication...");
+                serverProgressIndicator.setVisible(true);
+            });
+        }
+        
+        @Override
+        public void onAuthenticationSuccess() {
+            Platform.runLater(() -> {
+                showSuccessAnimation("Connected to SpeleoDB");
+                serverProgressIndicator.setVisible(false);
+                // Update UI state after successful authentication
+                actionsTitlePane.setVisible(true);
+                projectsTitlePane.setVisible(true);
+                createNewProjectButton.setDisable(false);
+                refreshProjectsButton.setDisable(false);
+                connectionButton.setText("DISCONNECT");
+                javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 2);
+                signupButton.setVisible(false);
+            });
+        }
+        
+        @Override
+        public void onAuthenticationFailed(String message) {
+            Platform.runLater(() -> {
+                showErrorAnimation("Authentication Failed");
+                serverProgressIndicator.setVisible(false);
+            });
+        }
+        
+        @Override
+        public void onDisconnected() {
+            Platform.runLater(() -> {
+                showSuccessAnimation("Disconnected");
+                // Update UI state after disconnection
+                actionsTitlePane.setVisible(false);
+                projectsTitlePane.setVisible(false);
+                createNewProjectButton.setDisable(true);
+                refreshProjectsButton.setDisable(true);
+                connectionButton.setText("CONNECT");
+                javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1);
+                signupButton.setVisible(true);
+            });
+        }
+        
+        @Override
+        public void logMessage(String message) {
+            SpeleoDBController.this.logMessage(message);
+        }
+    }
 
     // ========================= UTILITY FUNCTIONS ========================= //
 
@@ -292,36 +342,32 @@ public class SpeleoDBController implements Initializable {
      * Loads user preferences into the UI fields.
      */
     private void loadPreferences() {
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        PreferencesService.UserPreferences prefs = preferencesService.loadPreferences();
 
-        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREF_SAVE_CREDS, false));
-        emailTextField.setText(prefs.get(PREF_EMAIL, ""));
+        rememberCredentialsCheckBox.setSelected(prefs.isSaveCredentials());
+        emailTextField.setText(prefs.getEmail());
 
-        if (rememberCredentialsCheckBox.isSelected()) {
-            passwordPasswordField.setText(prefs.get(PREF_PASSWORD, ""));
-            oauthtokenPasswordField.setText(prefs.get(PREF_OAUTH_TOKEN, ""));
+        if (prefs.isSaveCredentials()) {
+            passwordPasswordField.setText(prefs.getPassword());
+            oauthtokenPasswordField.setText(prefs.getOAuthToken());
         }
 
-        instanceTextField.setText(prefs.get(PREF_INSTANCE, DEFAULT_INSTANCE));
+        instanceTextField.setText(prefs.getInstance());
     }
 
     /**
      * Saves user preferences based on the current UI state.
      */
     private void savePreferences() {
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-        prefs.put(PREF_EMAIL, emailTextField.getText());
-        prefs.put(PREF_INSTANCE, instanceTextField.getText());
-
-        if (rememberCredentialsCheckBox.isSelected()) {
-            prefs.put(PREF_PASSWORD, passwordPasswordField.getText());
-            prefs.put(PREF_OAUTH_TOKEN, oauthtokenPasswordField.getText());
-        } else {
-            prefs.remove(PREF_PASSWORD);
-            prefs.remove(PREF_OAUTH_TOKEN);
-        }
-
-        prefs.putBoolean(PREF_SAVE_CREDS, rememberCredentialsCheckBox.isSelected());
+        PreferencesService.UserPreferences prefs = new PreferencesService.UserPreferences(
+            emailTextField.getText(),
+            rememberCredentialsCheckBox.isSelected() ? passwordPasswordField.getText() : "",
+            rememberCredentialsCheckBox.isSelected() ? oauthtokenPasswordField.getText() : "",
+            instanceTextField.getText(),
+            rememberCredentialsCheckBox.isSelected()
+        );
+        
+        preferencesService.savePreferences(prefs);
     }
 
     // ==================== UI INITIALIZATION FUNCTIONS ==================== //
@@ -484,6 +530,15 @@ public class SpeleoDBController implements Initializable {
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        // Initialize AuthenticationService now that we have all dependencies
+        if (authenticationService == null) {
+            authenticationService = new AuthenticationService(
+                speleoDBService, 
+                parentPlugin != null ? parentPlugin.executorService : null, 
+                new AuthenticationCallbackImpl()
+            );
+        }
+        
         loadPreferences();
         setupUI();
         setupKeyboardShortcuts();
@@ -1195,7 +1250,7 @@ public class SpeleoDBController implements Initializable {
         try {
             String instance = instanceTextField.getText().trim();
             if (instance.isEmpty()) {
-                instance = DEFAULT_INSTANCE;
+                instance = preferencesService.getDefaultInstance();
             }
             
             String protocol = isDebugMode() ? "http" : "https";

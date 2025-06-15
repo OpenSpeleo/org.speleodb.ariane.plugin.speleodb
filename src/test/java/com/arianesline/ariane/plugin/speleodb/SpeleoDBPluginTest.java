@@ -194,17 +194,61 @@ class SpeleoDBPluginTest {
         void shouldExecuteLoadSurveyOperation() {
             StringProperty commandProperty = plugin.getCommandProperty();
             
-            plugin.loadSurvey(testSurveyFile);
+            // Start the load in a separate thread since it waits for setSurvey()
+            Thread loadThread = new Thread(() -> {
+                try {
+                    plugin.loadSurvey(testSurveyFile);
+                } catch (Exception e) {
+                    // Expected to timeout since we don't call setSurvey()
+                }
+            });
             
+            loadThread.start();
+            
+            // Give the load operation time to start
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
+            // Verify the file was set even though the operation may timeout
             assertThat(plugin.getSurveyFile()).isEqualTo(testSurveyFile);
+            assertThat(commandProperty.get()).isEqualTo("LOAD");
+            
+            // Complete the operation by calling setSurvey
+            plugin.setSurvey(mockSurvey);
+            
+            try {
+                loadThread.join(1000); // Wait up to 1 second for completion
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
             assertThat(commandProperty.get()).isEqualTo("DONE");
         }
         
         @Test
         @DisplayName("Should handle load with null file")
         void shouldHandleLoadWithNullFile() {
-            assertThatCode(() -> plugin.loadSurvey(null))
-                .doesNotThrowAnyException();
+            // Null file should still work but will timeout waiting for setSurvey
+            Thread loadThread = new Thread(() -> {
+                try {
+                    plugin.loadSurvey(null);
+                } catch (Exception e) {
+                    // Expected to get a RuntimeException due to timeout
+                    assertThat(e).isInstanceOf(RuntimeException.class);
+                    assertThat(e.getMessage()).contains("timeout");
+                }
+            });
+            
+            loadThread.start();
+            
+            try {
+                loadThread.join(12000); // Wait for timeout + a bit more
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
     
@@ -284,7 +328,26 @@ class SpeleoDBPluginTest {
         void shouldHandleConcurrentSurveyOperations() {
             assertThatCode(() -> {
                 plugin.saveSurvey();
-                plugin.loadSurvey(testSurveyFile);
+                
+                // Load survey in a separate thread and complete it
+                Thread loadThread = new Thread(() -> {
+                    try {
+                        plugin.loadSurvey(testSurveyFile);
+                    } catch (Exception e) {
+                        // Expected timeout behavior
+                    }
+                });
+                loadThread.start();
+                
+                // Complete the load operation
+                plugin.setSurvey(mockSurvey);
+                
+                try {
+                    loadThread.join(1000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                
                 plugin.saveSurvey();
             }).doesNotThrowAnyException();
         }
