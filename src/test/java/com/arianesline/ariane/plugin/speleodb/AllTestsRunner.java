@@ -16,11 +16,21 @@ import org.junit.platform.suite.api.SuiteDisplayName;
 @Suite
 @SuiteDisplayName("SpeleoDB Plugin Test Suite")
 @SelectClasses({
+    // Enum and data structure tests
+    SpeleoDBAccessLevelTest.class,
+    
+    // Service layer tests
     HTTPRequestMultipartBodyTest.class,
     SpeleoDBServiceTest.class,
+    SpeleoDBServiceSimpleTest.class,
+    
+    // Controller tests
     SpeleoDBControllerTest.class,
     SpeleoDBControllerStateTest.class,
-    SpeleoDBPluginTest.class
+    
+    // Plugin tests
+    SpeleoDBPluginTest.class,
+    SpeleoDBPluginExtendedTest.class
 })
 class AllTestsRunner {
     // This class serves as a test suite runner

@@ -64,7 +64,7 @@ class SpeleoDBPluginTest {
         @Test
         @DisplayName("Should return correct plugin name")
         void shouldReturnCorrectPluginName() {
-            assertThat(plugin.getName()).isEqualTo("SPELEO_DB");
+            assertThat(plugin.getName()).isEqualTo("SpeleoDB");
         }
         
         @Test
