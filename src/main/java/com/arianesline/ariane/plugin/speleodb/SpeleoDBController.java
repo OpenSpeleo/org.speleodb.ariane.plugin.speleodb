@@ -61,7 +61,6 @@ import javafx.util.Duration;
  */
 public class SpeleoDBController implements Initializable {
 
-    //TODO: Find alternative   private final CoreContext core = CoreContext.getInstance();
     public static AtomicInteger messageIndexCounter = new AtomicInteger(0);
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
@@ -114,7 +113,7 @@ public class SpeleoDBController implements Initializable {
 
 
     // Services for handling different concerns (package-private for testing)
-    final SpeleoDBService speleoDBService = new SpeleoDBService(this);
+    SpeleoDBService speleoDBService;
     final PreferencesService preferencesService = new PreferencesService();
     AuthenticationService authenticationService;
 
@@ -530,6 +529,11 @@ public class SpeleoDBController implements Initializable {
      */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        // Initialize SpeleoDBService first to avoid this-escape warning
+        if (speleoDBService == null) {
+            speleoDBService = new SpeleoDBService(this);
+        }
+        
         // Initialize AuthenticationService now that we have all dependencies
         if (authenticationService == null) {
             authenticationService = new AuthenticationService(
@@ -1160,17 +1164,20 @@ public class SpeleoDBController implements Initializable {
      * @param commitMessage the commit message for the upload
      */
     private void uploadProjectWithMessage(String commitMessage) {
-        //TODO: Find alternative
+        // Save the survey using the plugin's save mechanism
+        // This delegates to the parent plugin which handles the actual save operation
         parentPlugin.saveSurvey();
 
-      /*
+        // Alternative approach (commented out): 
+        // Direct access to core functionality would require CoreContext dependency
+        /*
         if (UndoRedo.maxActionNumber > 0) {
             core.mainController.saveTML(false);
         } else {
             logMessage("No changes to the project detected");
             return;
         }
-       */
+        */
 
         logMessage("Uploading project " + currentProject.getString("name") + " ...");
         
@@ -1250,7 +1257,7 @@ public class SpeleoDBController implements Initializable {
         try {
             String instance = instanceTextField.getText().trim();
             if (instance.isEmpty()) {
-                instance = preferencesService.getDefaultInstance();
+                instance = PreferencesService.getDefaultInstance();
             }
             
             String protocol = isDebugMode() ? "http" : "https";

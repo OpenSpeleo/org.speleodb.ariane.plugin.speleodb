@@ -34,13 +34,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private TextField latitudeField;
     private TextField longitudeField;
     
+    @SuppressWarnings("this-escape")
     public NewProjectDialog() {
-        setTitle("Create New Project");
-        setHeaderText("Enter project details");
-        
-        // Create the form content
+        // Create the form content first
         VBox content = createFormContent();
-        getDialogPane().setContent(content);
         
         // Add buttons
         ButtonType saveButtonType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
@@ -67,6 +64,11 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             }
             return null;
         });
+        
+        // Set dialog properties
+        setTitle("Create New Project");
+        setHeaderText("Enter project details");
+        getDialogPane().setContent(content);
         
         // Focus on name field when dialog opens
         setOnShown(e -> nameField.requestFocus());

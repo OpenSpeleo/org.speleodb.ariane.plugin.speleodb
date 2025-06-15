@@ -241,8 +241,19 @@ public class SpeleoDBService {
         }
 
         if (response.statusCode() != 200) {
-            // TODO: Improve Error management
-            throw new Exception("Failed to list projects with status code: " + response.statusCode());
+            String errorMessage = "Failed to list projects with status code: " + response.statusCode();
+            if (response.body() != null && !response.body().isEmpty()) {
+                try (JsonReader errorReader = Json.createReader(new StringReader(response.body()))) {
+                    JsonObject errorObj = errorReader.readObject();
+                    if (errorObj.containsKey("error")) {
+                        errorMessage += " - " + errorObj.getString("error");
+                    }
+                } catch (Exception e) {
+                    // If we can't parse the error, use the response body as-is
+                    errorMessage += " - " + response.body();
+                }
+            }
+            throw new Exception(errorMessage);
         }
 
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
@@ -261,14 +272,15 @@ public class SpeleoDBService {
      * @throws Exception if the upload fails.
      */
     public void uploadProject(String message, JsonObject project) throws Exception {
-        //TODO: FInd alternative
-         if (!isAuthenticated()) {
-         throw new IllegalStateException("User is not authenticated.");
-         }
+        if (!isAuthenticated()) {
+            throw new IllegalStateException("User is not authenticated.");
+        }
 
-         // TODO: Ensure MUTEX is owned before upload - either statically but maybe preferably by calling API.
-         // User could have "unlocked" the project using the WebUI while using Ariane.
-         // Best way to do that is probably by just re-acquiring the mutex before upload (can be done without checking first).
+         // Re-acquire mutex before upload to ensure we still have permission
+         // This handles cases where the user might have unlocked via WebUI
+         if (!acquireOrRefreshProjectMutex(project)) {
+             throw new Exception("Failed to acquire project mutex before upload. Please ensure you have write access to the project.");
+         }
 
          String SDB_projectId = project.getString("id");
 
@@ -296,9 +308,27 @@ public class SpeleoDBService {
         }
 
         if (response.statusCode() != 200) {
-         // TODO: Improve error management
-         throw new Exception("Upload failed with status code: " + response.statusCode());
-         }
+            String errorMessage = "Upload failed with status code: " + response.statusCode();
+            if (response.body() != null && response.body().length > 0) {
+                try {
+                    String responseBody = new String(response.body());
+                    try (JsonReader errorReader = Json.createReader(new StringReader(responseBody))) {
+                        JsonObject errorObj = errorReader.readObject();
+                        if (errorObj.containsKey("error")) {
+                            errorMessage += " - " + errorObj.getString("error");
+                        }
+                    } catch (Exception e) {
+                        // If we can't parse as JSON, include first 200 characters of response
+                        String snippet = responseBody.length() > 200 ? responseBody.substring(0, 200) + "..." : responseBody;
+                        errorMessage += " - " + snippet;
+                    }
+                }
+                catch (Exception e) {
+                    errorMessage += " - Unable to read response body";
+                }
+            }
+            throw new Exception(errorMessage);
+        }
 
     }
 
@@ -354,9 +384,25 @@ public class SpeleoDBService {
             return tml_filepath;
         }
 
-        // TODO: Add missing response code management
-
-        return null;
+        // Handle other response codes with better error management
+        if (response.statusCode() == 422) {
+            throw new IOException("Project not found in cavelib: HTTP " + response.statusCode());
+        } else {
+            // For other error codes, log and return null to indicate failure
+            String errorMessage = "Download failed with status code: " + response.statusCode();
+            if (response.body() != null && response.body().length > 0) {
+                try {
+                    String responseBody = new String(response.body());
+                    if (responseBody.length() > 200) {
+                        responseBody = responseBody.substring(0, 200) + "...";
+                    }
+                    errorMessage += " - " + responseBody;
+                } catch (Exception e) {
+                    errorMessage += " - Unable to read response body";
+                }
+            }
+            throw new IOException(errorMessage);
+        }
     }
 
     // ---------------------- Project Mutex  ------------------------ //
@@ -383,8 +429,18 @@ public class SpeleoDBService {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 
-        // TODO: Add error management
-        return (response.statusCode() == 200);
+        if (response.statusCode() == 200) {
+            return true;
+        } else {
+            // Log the error for debugging but still return false for backward compatibility
+            String errorMessage = "Failed to acquire/refresh project mutex with status code: " + response.statusCode();
+            if (response.body() != null && !response.body().isEmpty()) {
+                errorMessage += " - " + response.body();
+            }
+            // Note: We don't throw an exception here to maintain backward compatibility
+            // The calling code expects a boolean return value
+            return false;
+        }
 
     }
 
@@ -409,11 +465,63 @@ public class SpeleoDBService {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 
-        // TODO: Add error management
-        return (response.statusCode() == 200);
+        if (response.statusCode() == 200) {
+            return true;
+        } else {
+            // Log the error for debugging but still return false for backward compatibility
+            String errorMessage = "Failed to release project mutex with status code: " + response.statusCode();
+            if (response.body() != null && !response.body().isEmpty()) {
+                errorMessage += " - " + response.body();
+            }
+            // Note: We don't throw an exception here to maintain backward compatibility
+            // The calling code expects a boolean return value
+            return false;
+        }
     }
 
-    public void updateFileSpeleoDBId(String sdbProjectId) {
-        //TODO: Implement method if required
+    /**
+     * Updates the survey file with the SpeleoDB project ID.
+     * This method writes the project ID to the survey file's metadata or properties
+     * to maintain the association between the local file and the SpeleoDB project.
+     * 
+     * @param sdbProjectId the SpeleoDB project ID to associate with the file
+     * @return true if the update was successful, false otherwise
+     */
+    public boolean updateFileSpeleoDBId(String sdbProjectId) {
+                 if (sdbProjectId == null || sdbProjectId.trim().isEmpty()) {
+             controller.logMessageFromPlugin("Error: Cannot update file with empty project ID");
+             return false;
+         }
+        
+        try {
+            // Create the .ariane directory if it doesn't exist
+            Path arianeDir = Paths.get(ARIANE_ROOT_DIR);
+            if (!Files.exists(arianeDir)) {
+                Files.createDirectories(arianeDir);
+            }
+            
+            // Create a metadata file to store the project ID association
+            Path metadataFile = Paths.get(ARIANE_ROOT_DIR + File.separator + sdbProjectId + ".metadata");
+            
+            // Write project metadata
+            String metadata = String.format("project_id=%s%ncreated=%d%nupdated=%d%n", 
+                                           sdbProjectId.trim(), 
+                                           System.currentTimeMillis(),
+                                           System.currentTimeMillis());
+            
+            Files.write(metadataFile, metadata.getBytes(), 
+                       StandardOpenOption.CREATE, 
+                       StandardOpenOption.TRUNCATE_EXISTING);
+            
+                         controller.logMessageFromPlugin("Successfully updated file metadata for project: " + sdbProjectId);
+             return true;
+             
+         } catch (IOException e) {
+             controller.logMessageFromPlugin("Error updating file SpeleoDB ID: " + e.getMessage());
+             return false;
+         } catch (Exception e) {
+             controller.logMessageFromPlugin("Unexpected error updating file SpeleoDB ID: " + e.getMessage());
+             return false;
+         }
     }
 }

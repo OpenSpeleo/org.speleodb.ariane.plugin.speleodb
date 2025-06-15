@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -28,6 +29,7 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.ButtonType;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
@@ -307,11 +309,117 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public void showSettings() {
-        // TODO: Implement settings dialog or remove this method if not needed
-        if (activeController != null) {
-            activeController.logMessageFromPlugin("Settings functionality not yet implemented");
+        try {
+            // Check if JavaFX Platform is available (not in headless environment)
+            if (isJavaFXAvailable()) {
+                // Create a simple settings dialog for SpeleoDB configuration
+                Platform.runLater(() -> {
+                    try {
+                        showSettingsDialog();
+                    } catch (Exception e) {
+                        handleSettingsError(e);
+                    }
+                });
+            } else {
+                // Headless mode - just log settings information
+                showSettingsHeadless();
+            }
+        } catch (Exception e) {
+            handleSettingsError(e);
+        }
+    }
+    
+    /**
+     * Shows the settings dialog in GUI mode.
+     */
+    private void showSettingsDialog() {
+        Alert settingsDialog = new Alert(Alert.AlertType.INFORMATION);
+        settingsDialog.setTitle("SpeleoDB Plugin Settings");
+        settingsDialog.setHeaderText("SpeleoDB Configuration");
+        
+        // Create settings content
+        StringBuilder settingsInfo = new StringBuilder();
+        settingsInfo.append("Current Settings:\n\n");
+        
+        if (activeController != null && activeController.speleoDBService.isAuthenticated()) {
+            settingsInfo.append("Status: Connected\n");
+            settingsInfo.append("Instance: ").append(activeController.speleoDBService.getSDBInstance()).append("\n");
         } else {
-            System.out.println("SpeleoDB Plugin: Settings functionality not yet implemented");
+            settingsInfo.append("Status: Disconnected\n");
+            settingsInfo.append("Instance: Not connected\n");
+        }
+        
+        settingsInfo.append("\nData Directory: ").append(SpeleoDBService.ARIANE_ROOT_DIR).append("\n");
+        
+        settingsInfo.append("\n• Use the main interface to configure connection settings");
+        settingsInfo.append("\n• Preferences are automatically saved when you connect");
+        settingsInfo.append("\n• Project files are stored in your home directory");
+        
+        settingsDialog.setContentText(settingsInfo.toString());
+        
+        // Add custom buttons
+        ButtonType configureButton = new ButtonType("Open Configuration", ButtonData.OK_DONE);
+        ButtonType closeButton = new ButtonType("Close", ButtonData.CANCEL_CLOSE);
+        settingsDialog.getButtonTypes().setAll(configureButton, closeButton);
+        
+        // Handle button actions
+        Optional<ButtonType> result = settingsDialog.showAndWait();
+        if (result.isPresent() && result.get() == configureButton) {
+            // Show the main UI for configuration
+            showUI();
+        }
+        
+        if (activeController != null) {
+            activeController.logMessageFromPlugin("Settings dialog accessed");
+        }
+    }
+    
+    /**
+     * Shows settings information in headless mode (console output).
+     */
+    private void showSettingsHeadless() {
+        StringBuilder settingsInfo = new StringBuilder();
+        settingsInfo.append("SpeleoDB Plugin Settings:\n");
+        
+        if (activeController != null && activeController.speleoDBService.isAuthenticated()) {
+            settingsInfo.append("Status: Connected\n");
+            settingsInfo.append("Instance: ").append(activeController.speleoDBService.getSDBInstance()).append("\n");
+        } else {
+            settingsInfo.append("Status: Disconnected\n");
+            settingsInfo.append("Instance: Not connected\n");
+        }
+        
+        settingsInfo.append("Data Directory: ").append(SpeleoDBService.ARIANE_ROOT_DIR).append("\n");
+        
+        if (activeController != null) {
+            activeController.logMessageFromPlugin("Settings accessed (headless mode): " + settingsInfo.toString());
+        } else {
+            System.out.println("SpeleoDB Plugin: " + settingsInfo.toString());
+        }
+    }
+    
+    /**
+     * Checks if JavaFX Platform is available (not in headless mode).
+     */
+    private boolean isJavaFXAvailable() {
+        try {
+            // Try to access Platform to see if JavaFX is available
+            Platform.isImplicitExit();
+            return true;
+        } catch (Exception | Error e) {
+            // JavaFX not available (headless mode or not initialized)
+            return false;
+        }
+    }
+    
+    /**
+     * Handles errors in settings display.
+     */
+    private void handleSettingsError(Exception e) {
+        if (activeController != null) {
+            activeController.logMessageFromPlugin("Error showing settings: " + e.getMessage());
+        } else {
+            System.err.println("SpeleoDB Plugin: Error showing settings: " + e.getMessage());
         }
     }
 
