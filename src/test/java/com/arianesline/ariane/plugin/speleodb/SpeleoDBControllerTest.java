@@ -1,6 +1,7 @@
 package com.arianesline.ariane.plugin.speleodb;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.prefs.Preferences;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -15,10 +16,19 @@ import org.junit.jupiter.api.Test;
 @DisplayName("SpeleoDB Controller Tests")
 class SpeleoDBControllerTest {
     
+    /**
+     * Creates a test-specific PreferencesService that doesn't interfere with main application preferences.
+     */
+    private PreferencesService createTestPreferencesService() {
+        // Create a test-specific preferences node to avoid affecting main app preferences
+        Preferences testPreferences = Preferences.userRoot().node("speleodb-test-" + System.currentTimeMillis());
+        return new PreferencesService(testPreferences);
+    }
+    
     @Test
     @DisplayName("Should create PreferencesService successfully")
     void shouldCreatePreferencesServiceSuccessfully() {
-        PreferencesService preferencesService = new PreferencesService();
+        PreferencesService preferencesService = createTestPreferencesService();
         assertThat(preferencesService).isNotNull();
         assertThat(preferencesService.getDefaultInstance()).isEqualTo("www.speleoDB.org");
     }
@@ -26,9 +36,9 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should handle preferences operations")
     void shouldHandlePreferencesOperations() {
-        PreferencesService preferencesService = new PreferencesService();
+        PreferencesService preferencesService = createTestPreferencesService();
         
-        // Clear any existing preferences for clean test
+        // Clear test preferences for clean test (doesn't affect main app)
         preferencesService.clearAllPreferences();
         
         // Test loading default preferences
@@ -45,7 +55,7 @@ class SpeleoDBControllerTest {
         // The goal was to extract services from the God Class SpeleoDBController
         
         // Services should be creatable independently
-        PreferencesService preferencesService = new PreferencesService();
+        PreferencesService preferencesService = createTestPreferencesService();
         assertThat(preferencesService).isNotNull();
         
         // AuthenticationService should be creatable (though we won't test full functionality here)
@@ -65,7 +75,7 @@ class SpeleoDBControllerTest {
         @DisplayName("Should create services without error")
         void shouldCreateServicesWithoutError() {
             // Test that services can be created independently
-            PreferencesService preferencesService = new PreferencesService();
+            PreferencesService preferencesService = createTestPreferencesService();
             assertThat(preferencesService).isNotNull();
             assertThat(preferencesService.getDefaultInstance()).isNotEmpty();
         }
@@ -73,9 +83,9 @@ class SpeleoDBControllerTest {
         @Test
         @DisplayName("Should handle preferences loading and saving")
         void shouldHandlePreferencesLoadingAndSaving() {
-            PreferencesService preferencesService = new PreferencesService();
+            PreferencesService preferencesService = createTestPreferencesService();
             
-            // Clear any existing preferences for clean test
+            // Clear test preferences for clean test (doesn't affect main app)
             preferencesService.clearAllPreferences();
             
             // Test that we can load default preferences
@@ -89,7 +99,7 @@ class SpeleoDBControllerTest {
         @Test
         @DisplayName("Should create and save custom preferences")
         void shouldCreateAndSaveCustomPreferences() {
-            PreferencesService preferencesService = new PreferencesService();
+            PreferencesService preferencesService = createTestPreferencesService();
             
             // Create custom preferences
             PreferencesService.UserPreferences customPrefs = new PreferencesService.UserPreferences(
