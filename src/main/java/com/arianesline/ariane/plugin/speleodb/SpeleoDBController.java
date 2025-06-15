@@ -26,7 +26,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -53,7 +52,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
-import javafx.util.Duration;
 
 /**
  * Controller for managing the SpeleoDB user interface.
@@ -204,15 +202,12 @@ public class SpeleoDBController implements Initializable {
             
             // Create temporary success indicator
             Label successLabel = new Label("✓ " + displayMessage);
-            successLabel.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; " +
-                                "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
-                                "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);");
+            successLabel.setStyle(UIConstants.SUCCESS_ANIMATION_STYLE);
             
             // Position it in the center-top of the main pane
-            AnchorPane.setTopAnchor(successLabel, 20.0);
-            AnchorPane.setLeftAnchor(successLabel, 50.0);
-            AnchorPane.setRightAnchor(successLabel, 50.0);
+            AnchorPane.setTopAnchor(successLabel, UIConstants.OVERLAY_TOP_ANCHOR);
+            AnchorPane.setLeftAnchor(successLabel, UIConstants.OVERLAY_LEFT_ANCHOR);
+            AnchorPane.setRightAnchor(successLabel, UIConstants.OVERLAY_RIGHT_ANCHOR);
             successLabel.setMaxWidth(Double.MAX_VALUE);
             successLabel.setAlignment(javafx.geometry.Pos.CENTER);
             
@@ -220,15 +215,15 @@ public class SpeleoDBController implements Initializable {
             
             // Animate the success message
             successLabel.setOpacity(0.0);
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(400), successLabel);
+            FadeTransition fadeIn = new FadeTransition(UIConstants.FADE_IN_DURATION, successLabel);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
             fadeIn.play();
             
-            // Auto-hide after 4 seconds
+            // Auto-hide after animation duration
             Timeline hideTimeline = new Timeline(
-                new KeyFrame(Duration.seconds(4), e -> {
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(400), successLabel);
+                new KeyFrame(UIConstants.ANIMATION_DURATION, e -> {
+                    FadeTransition fadeOut = new FadeTransition(UIConstants.FADE_OUT_DURATION, successLabel);
                     fadeOut.setFromValue(1.0);
                     fadeOut.setToValue(0.0);
                     fadeOut.setOnFinished(event -> speleoDBAnchorPane.getChildren().remove(successLabel));
@@ -258,15 +253,12 @@ public class SpeleoDBController implements Initializable {
             
             // Create temporary error indicator
             Label errorLabel = new Label("✗ " + displayMessage);
-            errorLabel.setStyle("-fx-background-color: #F44336; -fx-text-fill: white; " +
-                              "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
-                              "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                              "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);");
+            errorLabel.setStyle(UIConstants.ERROR_ANIMATION_STYLE);
             
             // Position it in the center-top of the main pane
-            AnchorPane.setTopAnchor(errorLabel, 20.0);
-            AnchorPane.setLeftAnchor(errorLabel, 50.0);
-            AnchorPane.setRightAnchor(errorLabel, 50.0);
+            AnchorPane.setTopAnchor(errorLabel, UIConstants.OVERLAY_TOP_ANCHOR);
+            AnchorPane.setLeftAnchor(errorLabel, UIConstants.OVERLAY_LEFT_ANCHOR);
+            AnchorPane.setRightAnchor(errorLabel, UIConstants.OVERLAY_RIGHT_ANCHOR);
             errorLabel.setMaxWidth(Double.MAX_VALUE);
             errorLabel.setAlignment(javafx.geometry.Pos.CENTER);
             
@@ -274,15 +266,15 @@ public class SpeleoDBController implements Initializable {
             
             // Animate the error message
             errorLabel.setOpacity(0.0);
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(400), errorLabel);
+            FadeTransition fadeIn = new FadeTransition(UIConstants.FADE_IN_DURATION, errorLabel);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
             fadeIn.play();
             
-            // Auto-hide after 4 seconds
+            // Auto-hide after animation duration
             Timeline hideTimeline = new Timeline(
-                new KeyFrame(Duration.seconds(4), e -> {
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(400), errorLabel);
+                new KeyFrame(UIConstants.ANIMATION_DURATION, e -> {
+                    FadeTransition fadeOut = new FadeTransition(UIConstants.FADE_OUT_DURATION, errorLabel);
                     fadeOut.setFromValue(1.0);
                     fadeOut.setToValue(0.0);
                     fadeOut.setOnFinished(event -> speleoDBAnchorPane.getChildren().remove(errorLabel));
@@ -456,6 +448,45 @@ public class SpeleoDBController implements Initializable {
     }
     
     /**
+     * Sets up listeners for UI components to automatically save preferences when they change.
+     * This ensures preferences are persisted immediately when users modify settings.
+     */
+    private void setupPreferenceListeners() {
+        // Save preferences when remember credentials checkbox changes
+        rememberCredentialsCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
+            savePreferences();
+        });
+        
+        // Save preferences when email field changes (on focus lost or enter key)
+        emailTextField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) { // Focus lost
+                savePreferences();
+            }
+        });
+        
+        // Save preferences when instance field changes (on focus lost or enter key)
+        instanceTextField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) { // Focus lost
+                savePreferences();
+            }
+        });
+        
+        // Save preferences when password field changes (on focus lost)
+        passwordPasswordField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) { // Focus lost
+                savePreferences();
+            }
+        });
+        
+        // Save preferences when oauth token field changes (on focus lost)
+        oauthtokenPasswordField.focusedProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal) { // Focus lost
+                savePreferences();
+            }
+        });
+    }
+    
+    /**
      * Shows a save modal dialog when Ctrl+S / Cmd+S is pressed.
      * This method assumes an active project with lock exists (gated by keyboard shortcut handler).
      */
@@ -472,9 +503,9 @@ public class SpeleoDBController implements Initializable {
         
         // Create the content
         GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 20, 10, 20));
+        grid.setHgap(UIConstants.GRID_HGAP);
+        grid.setVgap(UIConstants.GRID_VGAP);
+        grid.setPadding(UIConstants.getGridPadding());
         
         // Set column constraints - column 1 (text field) should grow
         ColumnConstraints col1 = new ColumnConstraints();
@@ -494,8 +525,8 @@ public class SpeleoDBController implements Initializable {
         dialog.getDialogPane().setContent(grid);
         
         // Set minimum width for the dialog
-        dialog.getDialogPane().setMinWidth(500);
-        dialog.getDialogPane().setPrefWidth(500);
+        dialog.getDialogPane().setMinWidth(UIConstants.DIALOG_MIN_WIDTH);
+        dialog.getDialogPane().setPrefWidth(UIConstants.DIALOG_PREF_WIDTH);
         
         // Focus on the text field when dialog is shown
         dialog.setOnShown(e -> messageField.requestFocus());
@@ -546,6 +577,7 @@ public class SpeleoDBController implements Initializable {
         loadPreferences();
         setupUI();
         setupKeyboardShortcuts();
+        setupPreferenceListeners();
     }
 
 
@@ -845,79 +877,37 @@ public class SpeleoDBController implements Initializable {
 
     // -------------------------- Project Opening -------------------------- //
 
+    /**
+     * Handles clicking on a SpeleoDB project button.
+     * Orchestrates the project opening process in the background.
+     */
     private void clickSpeleoDBProject(ActionEvent e) throws URISyntaxException, IOException, InterruptedException {
         var project = (JsonObject) ((Button) e.getSource()).getUserData();
-
+        
         parentPlugin.executorService.execute(() -> {
-
-            AtomicBoolean lockIsAcquired = new AtomicBoolean(false);
-
             try {
-
-                if (!project.getString("permission").equals(READ_ONLY.name())) {
-                    logMessage("Locking " + project.getString("name"));
-
-                    if (speleoDBService.acquireOrRefreshProjectMutex(project)) {
-                        logMessage("Lock successful on  " + project.getString("name"));
-                        lockIsAcquired.set(true);
-                    } else {
-                        logMessage("Lock failed on  " + project.getString("name"));
-                    }
+                AtomicBoolean lockIsAcquired = new AtomicBoolean(false);
+                
+                // Step 1: Acquire project lock if needed
+                if (shouldAcquireProjectLock(project)) {
+                    lockIsAcquired.set(acquireProjectLock(project));
                 }
-
-                logMessage("Downloading projects " + project.getString("name"));
-
-                Path tml_filepath = speleoDBService.downloadProject(project);
-
-                if (Files.exists(tml_filepath)) {
-
-                    parentPlugin.loadSurvey(tml_filepath.toFile());
-                    logMessage("Download successful of " + project.getString("name"));
-                    currentProject = project;
-                    checkAndUpdateSpeleoDBId(project);
-
-                    // Update UI first
-                    Platform.runLater(() -> {
-                        serverProgressIndicator.setVisible(false);
-                        actionsTitlePane.setVisible(true);
-                        actionsTitlePane.setExpanded(true);
-                        actionsTitlePane.setText("Actions on `" + currentProject.getString("name") + "`.");
-
-                        if (lockIsAcquired.get()) {
-                            uploadButton.setDisable(false);
-                            unlockButton.setDisable(false);
-                        } else {
-                            uploadButton.setDisable(true);
-                            unlockButton.setDisable(true);
-                        }
-                    });
+                
+                // Step 2: Download and load project
+                if (downloadAndLoadProject(project)) {
+                    // Step 3: Update UI state
+                    updateUIAfterProjectLoad(project, lockIsAcquired.get());
                     
-                    // Refresh project listing after all operations are complete
-                    // (no sleep needed - all operations above are now complete)
-                    try {
-                        logMessage("Refreshing project listing after project opening...");
-                        JsonArray projectList = speleoDBService.listProjects();
-                        handleProjectListResponse(projectList);
-                    } catch (Exception refreshEx) {
-                        logMessage("Error refreshing project listing: " + refreshEx.getMessage());
-                    }
-
+                    // Step 4: Refresh project listing
+                    refreshProjectListingAfterLoad();
                 } else {
-                    logMessage("Download failed");
-                    currentProject = null;
-
-                    Platform.runLater(() -> {
-                        serverProgressIndicator.setVisible(false);
-                        actionsTitlePane.setVisible(false);
-                        actionsTitlePane.setExpanded(false);
-                        actionsTitlePane.setText("Actions");
-                        uploadButton.setDisable(true);
-                        unlockButton.setDisable(true);
-                    });
-
+                    // Step 5: Handle download failure
+                    handleProjectLoadFailure();
                 }
-            } catch (IOException | InterruptedException | URISyntaxException ex) {
-                throw new RuntimeException(ex);
+                
+            } catch (Exception ex) {
+                logMessage("Error opening project: " + ex.getMessage());
+                handleProjectLoadFailure();
             } finally {
                 Platform.runLater(() -> {
                     projectListView.setDisable(false);
@@ -926,12 +916,122 @@ public class SpeleoDBController implements Initializable {
             }
         });
     }
+    
+    /**
+     * Determines if a project lock should be acquired based on project permissions.
+     */
+    private boolean shouldAcquireProjectLock(JsonObject project) {
+        return !project.getString("permission").equals(READ_ONLY.name());
+    }
+    
+    /**
+     * Attempts to acquire a lock on the specified project.
+     * 
+     * @param project the project to lock
+     * @return true if lock was acquired, false otherwise
+     */
+    private boolean acquireProjectLock(JsonObject project) {
+        try {
+            String projectName = project.getString("name");
+            logMessage("Locking " + projectName);
+            
+            if (speleoDBService.acquireOrRefreshProjectMutex(project)) {
+                logMessage("Lock successful on " + projectName);
+                return true;
+            } else {
+                logMessage("Lock failed on " + projectName);
+                return false;
+            }
+        } catch (Exception e) {
+            logMessage("Error acquiring lock: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Downloads and loads the specified project.
+     * 
+     * @param project the project to download and load
+     * @return true if successful, false otherwise
+     */
+    private boolean downloadAndLoadProject(JsonObject project) {
+        try {
+            String projectName = project.getString("name");
+            logMessage("Downloading project " + projectName);
+            
+            Path tml_filepath = speleoDBService.downloadProject(project);
+            
+            if (Files.exists(tml_filepath)) {
+                parentPlugin.loadSurvey(tml_filepath.toFile());
+                logMessage("Download successful of " + projectName);
+                
+                currentProject = project;
+                checkAndUpdateSpeleoDBId(project);
+                return true;
+            } else {
+                logMessage("Download failed - file does not exist");
+                return false;
+            }
+            
+        } catch (Exception e) {
+            logMessage("Error downloading project: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Updates the UI state after successful project loading.
+     */
+    private void updateUIAfterProjectLoad(JsonObject project, boolean hasLock) {
+        Platform.runLater(() -> {
+            serverProgressIndicator.setVisible(false);
+            actionsTitlePane.setVisible(true);
+            actionsTitlePane.setExpanded(true);
+            actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
+            
+            if (hasLock) {
+                uploadButton.setDisable(false);
+                unlockButton.setDisable(false);
+            } else {
+                uploadButton.setDisable(true);
+                unlockButton.setDisable(true);
+            }
+        });
+    }
+    
+    /**
+     * Refreshes the project listing after successful project load.
+     */
+    private void refreshProjectListingAfterLoad() {
+        try {
+            logMessage("Refreshing project listing after project opening...");
+            JsonArray projectList = speleoDBService.listProjects();
+            handleProjectListResponse(projectList);
+        } catch (Exception refreshEx) {
+            logMessage("Error refreshing project listing: " + refreshEx.getMessage());
+        }
+    }
+    
+    /**
+     * Handles UI updates when project loading fails.
+     */
+    private void handleProjectLoadFailure() {
+        logMessage("Project loading failed");
+        currentProject = null;
+        
+        Platform.runLater(() -> {
+            serverProgressIndicator.setVisible(false);
+            actionsTitlePane.setVisible(false);
+            actionsTitlePane.setExpanded(false);
+            actionsTitlePane.setText("Actions");
+            uploadButton.setDisable(true);
+            unlockButton.setDisable(true);
+        });
+    }
 
     /**
      * Handles the action performed when a project button is clicked.
-     *
-     * @param event       The ActionEvent triggered by the button click.
-     * @param projectItem The JsonObject containing project metadata.
+     * Orchestrates project selection and potential project switching.
      */
     private void handleProjectCardClickAction(ActionEvent event, JsonObject projectItem) {
         // Prevent double click
@@ -941,84 +1041,136 @@ public class SpeleoDBController implements Initializable {
             String selectedProjectName = projectItem.getString("name");
             String selectedProjectId = projectItem.getString("id");
             
-            // Check if user is trying to switch to a different project while having an active lock
+            // Handle project selection based on current lock state
             if (hasActiveProjectLock()) {
-                String currentProjectId = currentProject.getString("id");
-                
-                // If clicking on the same project, proceed normally
-                if (currentProjectId.equals(selectedProjectId)) {
-                    logMessage("Selected project: " + selectedProjectName);
-                    clickSpeleoDBProject(event);
-                    return;
-                }
-                
-                // Different project selected - show confirmation dialog
-                logMessage("Attempting to switch from locked project: " + getCurrentProjectName() + 
-                          " to: " + selectedProjectName);
-                
-                boolean shouldSwitch = showProjectSwitchConfirmation(selectedProjectName);
-                
-                if (!shouldSwitch) {
-                    logMessage("User cancelled project switch. Staying on: " + getCurrentProjectName());
-                    Platform.runLater(() -> projectListView.setDisable(false));
-                    return;
-                }
-                
-                // User confirmed switch - release current lock first
-                logMessage("User confirmed project switch. Releasing lock on: " + getCurrentProjectName());
-                
-                parentPlugin.executorService.execute(() -> {
-                    try {
-                        if (speleoDBService.releaseProjectMutex(currentProject)) {
-                            logMessage("Successfully released lock on: " + getCurrentProjectName());
-                            currentProject = null;
-                            
-                            Platform.runLater(() -> {
-                                actionsTitlePane.setVisible(false);
-                                actionsTitlePane.setExpanded(false);
-                                
-                                // Now proceed with the new project selection
-                                try {
-                                    logMessage("Proceeding with new project selection: " + selectedProjectName);
-                                    clickSpeleoDBProject(event);
-                                    
-                                    // Refresh project listing after project switch is complete
-                                    parentPlugin.executorService.execute(() -> {
-                                        try {
-                                            logMessage("Refreshing project listing after project switch...");
-                                            listProjects();
-                                        } catch (Exception e) {
-                                            logMessage("Error refreshing project listing: " + e.getMessage());
-                                        }
-                                    });
-                                    
-                                } catch (IOException | InterruptedException | URISyntaxException e) {
-                                    logMessage("Error switching to new project: " + e.getMessage());
-                                    Platform.runLater(() -> projectListView.setDisable(false));
-                                }
-                            });
-                        } else {
-                            logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
-                            Platform.runLater(() -> projectListView.setDisable(false));
-                        }
-                    } catch (IOException | InterruptedException | URISyntaxException e) {
-                        logMessage("Error releasing lock: " + e.getMessage());
-                        Platform.runLater(() -> projectListView.setDisable(false));
-                    }
-                });
-                
-                return;
+                handleProjectSelectionWithActiveLock(event, projectItem, selectedProjectName, selectedProjectId);
+            } else {
+                handleProjectSelectionWithoutLock(event, selectedProjectName);
             }
-            
-            // No active lock - proceed normally
-            logMessage("Selected project: " + selectedProjectName);
-            clickSpeleoDBProject(event);
 
         } catch (IOException | InterruptedException | URISyntaxException e) {
             logMessage("Error handling project action: " + e.getMessage());
             Platform.runLater(() -> projectListView.setDisable(false));
         }
-
+    }
+    
+    /**
+     * Handles project selection when there's an active project lock.
+     */
+    private void handleProjectSelectionWithActiveLock(ActionEvent event, JsonObject projectItem, 
+                                                      String selectedProjectName, String selectedProjectId) 
+            throws IOException, InterruptedException, URISyntaxException {
+        
+        String currentProjectId = currentProject.getString("id");
+        
+        // If clicking on the same project, proceed normally
+        if (currentProjectId.equals(selectedProjectId)) {
+            logMessage("Selected project: " + selectedProjectName);
+            clickSpeleoDBProject(event);
+            return;
+        }
+        
+        // Different project selected - handle project switching
+        handleProjectSwitching(event, selectedProjectName);
+    }
+    
+    /**
+     * Handles project selection when there's no active lock.
+     */
+    private void handleProjectSelectionWithoutLock(ActionEvent event, String selectedProjectName) 
+            throws IOException, InterruptedException, URISyntaxException {
+        
+        logMessage("Selected project: " + selectedProjectName);
+        clickSpeleoDBProject(event);
+    }
+    
+    /**
+     * Handles the process of switching from one locked project to another.
+     */
+    private void handleProjectSwitching(ActionEvent event, String selectedProjectName) {
+        logMessage("Attempting to switch from locked project: " + getCurrentProjectName() + 
+                  " to: " + selectedProjectName);
+        
+        boolean shouldSwitch = showProjectSwitchConfirmation(selectedProjectName);
+        
+        if (!shouldSwitch) {
+            logMessage("User cancelled project switch. Staying on: " + getCurrentProjectName());
+            Platform.runLater(() -> projectListView.setDisable(false));
+            return;
+        }
+        
+        // User confirmed switch - execute the switch process
+        executeProjectSwitch(event, selectedProjectName);
+    }
+    
+    /**
+     * Executes the actual project switch by releasing current lock and opening new project.
+     */
+    private void executeProjectSwitch(ActionEvent event, String selectedProjectName) {
+        logMessage("User confirmed project switch. Releasing lock on: " + getCurrentProjectName());
+        
+        parentPlugin.executorService.execute(() -> {
+            try {
+                if (releaseCurrentProjectLockInternal()) {
+                    logMessage("Successfully released lock on: " + getCurrentProjectName());
+                    currentProject = null;
+                    
+                    Platform.runLater(() -> {
+                        resetUIAfterLockRelease();
+                        proceedWithNewProjectSelection(event, selectedProjectName);
+                    });
+                } else {
+                    logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
+                    Platform.runLater(() -> projectListView.setDisable(false));
+                }
+            } catch (IOException | InterruptedException | URISyntaxException e) {
+                logMessage("Error releasing lock: " + e.getMessage());
+                Platform.runLater(() -> projectListView.setDisable(false));
+            }
+        });
+    }
+    
+    /**
+     * Releases the current project lock (internal implementation).
+     * 
+     * @return true if lock was released successfully, false otherwise
+     */
+    private boolean releaseCurrentProjectLockInternal() 
+            throws IOException, InterruptedException, URISyntaxException {
+        
+        return speleoDBService.releaseProjectMutex(currentProject);
+    }
+    
+    /**
+     * Resets UI elements after releasing a project lock.
+     */
+    private void resetUIAfterLockRelease() {
+        actionsTitlePane.setVisible(false);
+        actionsTitlePane.setExpanded(false);
+    }
+    
+    /**
+     * Proceeds with opening the newly selected project after releasing previous lock.
+     */
+    private void proceedWithNewProjectSelection(ActionEvent event, String selectedProjectName) {
+        try {
+            logMessage("Proceeding with new project selection: " + selectedProjectName);
+            clickSpeleoDBProject(event);
+            
+            // Refresh project listing after project switch is complete
+            parentPlugin.executorService.execute(() -> {
+                try {
+                    logMessage("Refreshing project listing after project switch...");
+                    listProjects();
+                } catch (Exception e) {
+                    logMessage("Error refreshing project listing: " + e.getMessage());
+                }
+            });
+            
+        } catch (IOException | InterruptedException | URISyntaxException e) {
+            logMessage("Error switching to new project: " + e.getMessage());
+            Platform.runLater(() -> projectListView.setDisable(false));
+        }
     }
 
     // ---------------------- Project Mutex Management --------------------- //

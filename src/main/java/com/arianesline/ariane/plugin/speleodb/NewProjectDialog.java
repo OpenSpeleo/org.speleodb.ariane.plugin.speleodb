@@ -8,7 +8,6 @@ import java.util.TreeMap;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
-import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -75,8 +74,8 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
     
     private VBox createFormContent() {
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
+        VBox content = new VBox(UIConstants.STANDARD_SPACING);
+        content.setPadding(UIConstants.getStandardPadding());
         content.setPrefWidth(400);
         
         // Project Name section
@@ -95,37 +94,37 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
     
     private VBox createProjectNameSection() {
-        VBox section = new VBox(5);
+        VBox section = new VBox(UIConstants.SMALL_SPACING);
         
         Label nameLabel = new Label("Project Name:");
         Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;"); // Red color for required asterisk
+        asterisk.setStyle(UIConstants.REQUIRED_FIELD_STYLE);
         
         HBox labelBox = new HBox(nameLabel, asterisk);
-        nameLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
+        nameLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, UIConstants.LABEL_FONT_SIZE));
         
         nameField = new TextField();
         nameField.setPromptText("Enter project name");
-        nameField.setPrefWidth(350);
+        nameField.setPrefWidth(UIConstants.STANDARD_FIELD_WIDTH);
         
         section.getChildren().addAll(labelBox, nameField);
         return section;
     }
     
     private VBox createDescriptionSection() {
-        VBox section = new VBox(5);
+        VBox section = new VBox(UIConstants.SMALL_SPACING);
         
         Label descLabel = new Label("Description:");
         Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;");
+        asterisk.setStyle(UIConstants.REQUIRED_FIELD_STYLE);
         
         HBox labelBox = new HBox(descLabel, asterisk);
-        descLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
+        descLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, UIConstants.LABEL_FONT_SIZE));
         
         descriptionField = new TextArea();
         descriptionField.setPromptText("Enter project description");
-        descriptionField.setPrefRowCount(4);
-        descriptionField.setPrefWidth(350);
+        descriptionField.setPrefRowCount(UIConstants.TEXT_AREA_ROWS);
+        descriptionField.setPrefWidth(UIConstants.STANDARD_FIELD_WIDTH);
         descriptionField.setWrapText(true);
         
         section.getChildren().addAll(labelBox, descriptionField);
@@ -133,18 +132,18 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
     
     private VBox createCountrySection() {
-        VBox section = new VBox(5);
+        VBox section = new VBox(UIConstants.SMALL_SPACING);
         
         Label countryLabel = new Label("Country:");
         Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;");
+        asterisk.setStyle(UIConstants.REQUIRED_FIELD_STYLE);
         
         HBox labelBox = new HBox(countryLabel, asterisk);
-        countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
+        countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, UIConstants.LABEL_FONT_SIZE));
         
         countryComboBox = new ComboBox<>();
         countryComboBox.setPromptText("Select a country...");
-        countryComboBox.setPrefWidth(350);
+        countryComboBox.setPrefWidth(UIConstants.STANDARD_FIELD_WIDTH);
         
         // Load countries from JSON file
         loadCountries();
@@ -154,27 +153,27 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
     
     private VBox createCoordinatesSection() {
-        VBox section = new VBox(10);
+        VBox section = new VBox(UIConstants.LARGE_SPACING);
         
         // Latitude
-        VBox latSection = new VBox(5);
+        VBox latSection = new VBox(UIConstants.SMALL_SPACING);
         Label latLabel = new Label("Latitude:");
-        latLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
+        latLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, UIConstants.LABEL_FONT_SIZE));
         
         latitudeField = new TextField();
         latitudeField.setPromptText("[Optional]");
-        latitudeField.setPrefWidth(350);
+        latitudeField.setPrefWidth(UIConstants.STANDARD_FIELD_WIDTH);
         
         latSection.getChildren().addAll(latLabel, latitudeField);
         
         // Longitude
-        VBox lonSection = new VBox(5);
+        VBox lonSection = new VBox(UIConstants.SMALL_SPACING);
         Label lonLabel = new Label("Longitude:");
-        lonLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
+        lonLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, UIConstants.LABEL_FONT_SIZE));
         
         longitudeField = new TextField();
         longitudeField.setPromptText("[Optional]");
-        longitudeField.setPrefWidth(350);
+        longitudeField.setPrefWidth(UIConstants.STANDARD_FIELD_WIDTH);
         
         lonSection.getChildren().addAll(lonLabel, longitudeField);
         

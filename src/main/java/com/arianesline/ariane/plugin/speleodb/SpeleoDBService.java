@@ -19,11 +19,12 @@ import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
 
-
 /**
- * Service class for handling SpeleoDB server communication.
+ * Service for handling communication with SpeleoDB API endpoints.
+ * Handles authentication, project management, and file operations.
  */
 public class SpeleoDBService {
+
     public final static String ARIANE_ROOT_DIR = System.getProperty("user.home") + File.separator + ".ariane";
     private final SpeleoDBController controller;
     private String authToken = "";
@@ -92,22 +93,27 @@ public class SpeleoDBService {
     public void authenticate(String email, String password, String oAuthToken, String instanceUrl) throws Exception {
         setSDBInstance(instanceUrl);  // First to ensure proper selection of http or https
 
-        URI uri = new URI(SDB_instance + "/api/v1/user/auth-token/");
+        URI uri = ApiConstants.buildAuthUrl(SDB_instance);
         HttpRequest request;
 
         if (oAuthToken != null && !oAuthToken.isEmpty()) {
             // Authenticate using OAuth token.
             request = HttpRequest.newBuilder(uri)
                     .GET()
-                    .setHeader("Content-Type", "application/json")
-                    .setHeader("Authorization", "Token " + oAuthToken)
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(oAuthToken))
                     .build();
         } else {
-            // Authenticate using email and password.
-            String requestBody = String.format("{\"email\": \"%s\", \"password\": \"%s\"}", email, password);
+            // Authenticate using email and password - use JSON builder for safety
+            JsonObject loginRequest = Json.createObjectBuilder()
+                    .add("email", email)
+                    .add("password", password)
+                    .build();
+            String requestBody = loginRequest.toString();
+            
             request = HttpRequest.newBuilder(uri)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .setHeader("Content-Type", "application/json")
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
                     .build();
         }
 
@@ -160,9 +166,9 @@ public class SpeleoDBService {
             throw new IllegalStateException("User is not authenticated.");
         }
 
-        var uri = new URI(SDB_instance + "/api/v1/projects/");
+        URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
 
-        // Build JSON payload
+        // Build JSON payload using proper JSON builder
         var jsonBuilder = Json.createObjectBuilder()
                 .add("name", name)
                 .add("description", description)
@@ -181,8 +187,8 @@ public class SpeleoDBService {
 
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .setHeader("Content-Type", "application/json")
-                .setHeader("Authorization", "Token " + authToken)
+                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
                 .build();
 
         HttpResponse<String> response;
@@ -227,12 +233,12 @@ public class SpeleoDBService {
             throw new IllegalStateException("User is not authenticated.");
         }
 
-        var uri = new URI(SDB_instance + "/api/v1/projects/");
+        URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
 
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .GET()
-                .setHeader("Content-Type", "application/json")
-                .setHeader("Authorization", "Token " + authToken)
+                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
                 .build();
 
         HttpResponse<String> response;
@@ -283,11 +289,9 @@ public class SpeleoDBService {
          }
 
          String SDB_projectId = project.getString("id");
+         ApiConstants.validateProjectId(SDB_projectId);
 
-         var uri = new URI(
-         SDB_instance + "/api/v1/projects/" +
-         SDB_projectId + "/upload/ariane_tml/"
-         );
+         URI uri = ApiConstants.buildUploadUrl(SDB_instance, SDB_projectId);
 
          Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
 
@@ -298,8 +302,8 @@ public class SpeleoDBService {
 
          HttpRequest request = HttpRequest.newBuilder(uri).
          PUT(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
-         .setHeader("Content-Type", multipartBody.getContentType())
-         .setHeader("Authorization", "Token " + authToken)
+         .setHeader(ApiConstants.CONTENT_TYPE_HEADER, multipartBody.getContentType())
+         .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
          .build();
 
         HttpResponse<byte[]> response;
@@ -342,29 +346,25 @@ public class SpeleoDBService {
      */
     public Path downloadProject(JsonObject project) throws IOException, InterruptedException, URISyntaxException {
 
-
         if (!isAuthenticated()) {
             throw new IllegalStateException("User is not authenticated.");
         }
 
         String SDB_projectId = project.getString("id");
+        ApiConstants.validateProjectId(SDB_projectId);
 
-        var uri = new URI(
-                SDB_instance + "/api/v1/projects/" +
-                        SDB_projectId + "/download/ariane_tml/"
-        );
+        URI uri = ApiConstants.buildDownloadUrl(SDB_instance, SDB_projectId);
 
         var request = HttpRequest.newBuilder(uri).
                 GET()
-                .setHeader("Content-type", "application/json")
-                .setHeader("Authorization", "token " + authToken).
+                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
                 build();
 
         HttpResponse<byte[]> response;
         try (HttpClient client = HttpClient.newHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
         }
-
 
         Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
 
@@ -414,15 +414,16 @@ public class SpeleoDBService {
      * @throws (URISyntaxException, IOException, InterruptedException) if the API call fails
      */
     public boolean acquireOrRefreshProjectMutex(JsonObject project) throws URISyntaxException, IOException, InterruptedException {
+        String projectId = project.getString("id");
+        ApiConstants.validateProjectId(projectId);
 
-        var uri = new URI(SDB_instance + "/api/v1/projects/" + project.getString("id") + "/acquire/");
+        URI uri = ApiConstants.buildMutexAcquireUrl(SDB_instance, projectId);
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(""))
-                .setHeader("Content-type", "application/json")
-                .setHeader("Authorization", "Token " + authToken).
+                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
                 build();
-
 
         HttpResponse<String> response;
         try (HttpClient client = HttpClient.newHttpClient()) {
@@ -441,7 +442,6 @@ public class SpeleoDBService {
             // The calling code expects a boolean return value
             return false;
         }
-
     }
 
     /**
@@ -451,13 +451,15 @@ public class SpeleoDBService {
      * @throws (URISyntaxException, IOException, InterruptedException) if the API call fails
      */
     public boolean releaseProjectMutex(JsonObject project) throws IOException, InterruptedException, URISyntaxException {
+        String projectId = project.getString("id");
+        ApiConstants.validateProjectId(projectId);
 
-        var uri = new URI(SDB_instance + "/api/v1/projects/" + project.getString("id") + "/release/");
+        URI uri = ApiConstants.buildMutexReleaseUrl(SDB_instance, projectId);
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(""))
-                .setHeader("Content-type", "application/json")
-                .setHeader("Authorization", "Token " + authToken).
+                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
                 build();
 
         HttpResponse<String> response;
@@ -488,12 +490,15 @@ public class SpeleoDBService {
      * @return true if the update was successful, false otherwise
      */
     public boolean updateFileSpeleoDBId(String sdbProjectId) {
-                 if (sdbProjectId == null || sdbProjectId.trim().isEmpty()) {
-             controller.logMessageFromPlugin("Error: Cannot update file with empty project ID");
-             return false;
-         }
+        if (sdbProjectId == null || sdbProjectId.trim().isEmpty()) {
+            controller.logMessageFromPlugin("Error: Cannot update file with empty project ID");
+            return false;
+        }
         
         try {
+            // Validate project ID format
+            ApiConstants.validateProjectId(sdbProjectId);
+            
             // Create the .ariane directory if it doesn't exist
             Path arianeDir = Paths.get(ARIANE_ROOT_DIR);
             if (!Files.exists(arianeDir)) {
@@ -503,25 +508,26 @@ public class SpeleoDBService {
             // Create a metadata file to store the project ID association
             Path metadataFile = Paths.get(ARIANE_ROOT_DIR + File.separator + sdbProjectId + ".metadata");
             
-            // Write project metadata
-            String metadata = String.format("project_id=%s%ncreated=%d%nupdated=%d%n", 
-                                           sdbProjectId.trim(), 
-                                           System.currentTimeMillis(),
-                                           System.currentTimeMillis());
+            // Write project metadata using proper formatting
+            JsonObject metadata = Json.createObjectBuilder()
+                    .add("project_id", sdbProjectId.trim())
+                    .add("created", System.currentTimeMillis())
+                    .add("updated", System.currentTimeMillis())
+                    .build();
             
-            Files.write(metadataFile, metadata.getBytes(), 
+            Files.write(metadataFile, metadata.toString().getBytes(), 
                        StandardOpenOption.CREATE, 
                        StandardOpenOption.TRUNCATE_EXISTING);
             
-                         controller.logMessageFromPlugin("Successfully updated file metadata for project: " + sdbProjectId);
-             return true;
+            controller.logMessageFromPlugin("Successfully updated file metadata for project: " + sdbProjectId);
+            return true;
              
-         } catch (IOException e) {
-             controller.logMessageFromPlugin("Error updating file SpeleoDB ID: " + e.getMessage());
-             return false;
-         } catch (Exception e) {
-             controller.logMessageFromPlugin("Unexpected error updating file SpeleoDB ID: " + e.getMessage());
-             return false;
-         }
+        } catch (IOException e) {
+            controller.logMessageFromPlugin("Error updating file SpeleoDB ID: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            controller.logMessageFromPlugin("Unexpected error updating file SpeleoDB ID: " + e.getMessage());
+            return false;
+        }
     }
 }
