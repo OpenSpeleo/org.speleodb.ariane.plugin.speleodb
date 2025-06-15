@@ -239,7 +239,11 @@ public class SpeleoDBController implements Initializable {
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
         connectionButton.setText("CONNECT");
-        // On purpose - use the main URL, not the instance one.
+        
+        // Initial state: CONNECT and SIGNUP buttons visible 50/50
+        javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
+        signupButton.setVisible(true);
+        
         // Use localhost URL when in debug mode, production URL otherwise
         String aboutUrl;
         boolean isDebugMode = isDebugMode();
@@ -247,6 +251,7 @@ public class SpeleoDBController implements Initializable {
         if (isDebugMode) {
             aboutUrl = "http://localhost:8000/webview/ariane/";
         } else {
+            // On purpose - use the main URL, not the instance one.
             aboutUrl = "https://www.speleoDB.org/webview/ariane/";
         }
 
@@ -300,6 +305,10 @@ public class SpeleoDBController implements Initializable {
                     projectsTitlePane.setExpanded(true);
                     refreshProjectsButton.setDisable(false); // Enable refresh button
                     connectionButton.setText("DISCONNECT");
+                    
+                    // When authenticated: DISCONNECT button takes 100% width, SIGNUP button hidden
+                    javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3); // Span all 3 columns
+                    signupButton.setVisible(false);
                 });
 
                 listProjects();
@@ -323,6 +332,11 @@ public class SpeleoDBController implements Initializable {
         projectsTitlePane.setVisible(false);
         refreshProjectsButton.setDisable(true); // Disable refresh button
         connectionButton.setText("CONNECT");
+        
+        // When disconnected: CONNECT and SIGNUP buttons visible 50/50
+        javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
+        signupButton.setVisible(true);
+        
         if (!rememberCredentialsCheckBox.isSelected())
             passwordPasswordField.clear();
         logMessage("Disconnected from " + SDB_instance);
@@ -368,6 +382,10 @@ public class SpeleoDBController implements Initializable {
         Button button = new Button();
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         button.setGraphic(card);
+        
+        // Make the button scale with the ListView width
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.prefWidthProperty().bind(projectListView.widthProperty().subtract(20)); // 20px for scrollbar/padding
 
         // Define the action handler for button clicks.
         button.setOnAction(event -> handleProjectCardClickAction(event, projectItem));
@@ -410,8 +428,8 @@ public class SpeleoDBController implements Initializable {
             LocalDateTime modifiedDateTime = LocalDateTime.parse(modifiedDate.substring(0, modifiedDate.lastIndexOf('.')));
             card.getChildren().add(new Text("(mod) " + modifiedDateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM))));
         }
-
-        card.setPrefWidth(180);
+        
+        card.setMaxWidth(Double.MAX_VALUE);
         return card;
     }
 
@@ -496,10 +514,6 @@ public class SpeleoDBController implements Initializable {
             try {
 
                 if (!project.getString("permission").equals(READ_ONLY.name())) {
-
-                    // TODO: Should ask the user if they want to lock the project or not
-                    //    - Create a UI confirmation window: "Are you modifying the project": Yes / No
-
                     logMessage("Locking " + project.getString("name"));
 
                     if (speleoDBService.acquireOrRefreshProjectMutex(project)) {
@@ -526,7 +540,7 @@ public class SpeleoDBController implements Initializable {
                         serverProgressIndicator.setVisible(false);
                         actionsTitlePane.setVisible(true);
                         actionsTitlePane.setExpanded(true);
-                        actionsTitlePane.setText("Actions on " + currentProject.getString("name"));
+                        actionsTitlePane.setText("Actions on `" + currentProject.getString("name") + "`.");
 
                         if (lockIsAcquired.get()) {
                             uploadButton.setDisable(false);
@@ -749,7 +763,7 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Handles the unlock button click event for SpeleoDB.
+     * Handles the "Unlock Project" button click event for SpeleoDB.
      */
     @FXML
     public void onUnlockSpeleoDB(ActionEvent actionEvent) throws IOException, InterruptedException, URISyntaxException {
@@ -798,7 +812,7 @@ public class SpeleoDBController implements Initializable {
     // --------------------- Project Saving and Upload --------------------- //
 
     /**
-     * Handles the upload button click event for SpeleoDB.
+     * Handles the "Save Project" button click event for SpeleoDB.
      */
     @FXML
     public void onUploadSpeleoDB(ActionEvent actionEvent) throws IOException, URISyntaxException, InterruptedException {

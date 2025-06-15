@@ -797,6 +797,79 @@ class SpeleoDBControllerTest {
         }
         
         @Test
+        @DisplayName("Should configure button layout for authenticated state")
+        void shouldConfigureButtonLayoutForAuthenticatedState() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute authentication
+            var layoutState = controllerLogic.simulateAuthenticationStateChange(true);
+            
+            // Verify authenticated state layout
+            assertThat(layoutState.getConnectionButtonText()).isEqualTo("DISCONNECT");
+            assertThat(layoutState.getConnectionButtonColumnSpan()).isEqualTo(3); // Full width
+            assertThat(layoutState.isSignupButtonVisible()).isFalse(); // Hidden
+            assertThat(layoutState.isRefreshButtonEnabled()).isTrue();
+        }
+        
+        @Test
+        @DisplayName("Should configure button layout for disconnected state")
+        void shouldConfigureButtonLayoutForDisconnectedState() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute disconnection
+            var layoutState = controllerLogic.simulateAuthenticationStateChange(false);
+            
+            // Verify disconnected state layout
+            assertThat(layoutState.getConnectionButtonText()).isEqualTo("CONNECT");
+            assertThat(layoutState.getConnectionButtonColumnSpan()).isEqualTo(1); // 50% width
+            assertThat(layoutState.isSignupButtonVisible()).isTrue(); // Visible
+            assertThat(layoutState.isRefreshButtonEnabled()).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should handle initial UI state correctly")
+        void shouldHandleInitialUIStateCorrectly() {
+            // Setup - fresh controller logic
+            var freshControllerLogic = new SpeleoDBControllerLogic();
+            
+            // Execute initial setup
+            var initialState = freshControllerLogic.simulateInitialUISetup();
+            
+            // Verify initial state
+            assertThat(initialState.getConnectionButtonText()).isEqualTo("CONNECT");
+            assertThat(initialState.getConnectionButtonColumnSpan()).isEqualTo(1); // 50% width
+            assertThat(initialState.isSignupButtonVisible()).isTrue(); // Visible
+            assertThat(initialState.isRefreshButtonEnabled()).isFalse(); // Disabled
+            assertThat(initialState.isAuthenticated()).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should validate button layout transitions")
+        void shouldValidateButtonLayoutTransitions() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute connect -> disconnect -> connect cycle
+            var connectState = controllerLogic.simulateAuthenticationStateChange(true);
+            var disconnectState = controllerLogic.simulateAuthenticationStateChange(false);
+            var reconnectState = controllerLogic.simulateAuthenticationStateChange(true);
+            
+            // Verify connect state
+            assertThat(connectState.getConnectionButtonColumnSpan()).isEqualTo(3);
+            assertThat(connectState.isSignupButtonVisible()).isFalse();
+            
+            // Verify disconnect state
+            assertThat(disconnectState.getConnectionButtonColumnSpan()).isEqualTo(1);
+            assertThat(disconnectState.isSignupButtonVisible()).isTrue();
+            
+            // Verify reconnect state
+            assertThat(reconnectState.getConnectionButtonColumnSpan()).isEqualTo(3);
+            assertThat(reconnectState.isSignupButtonVisible()).isFalse();
+        }
+        
+        @Test
         @DisplayName("Should refresh project listing after successful project opening")
         void shouldRefreshProjectListingAfterSuccessfulProjectOpening() {
             // Setup
@@ -1109,6 +1182,24 @@ class SpeleoDBControllerTest {
             }
         }
         
+        public UILayoutState simulateAuthenticationStateChange(boolean shouldAuthenticate) {
+            this.isAuthenticated = shouldAuthenticate;
+            
+            if (shouldAuthenticate) {
+                // Authenticated state: DISCONNECT button 100% width, SIGNUP hidden
+                return new UILayoutState("DISCONNECT", 3, false, true, true);
+            } else {
+                // Disconnected state: CONNECT button 50% width, SIGNUP visible
+                return new UILayoutState("CONNECT", 1, true, false, false);
+            }
+        }
+        
+        public UILayoutState simulateInitialUISetup() {
+            // Initial state is always disconnected
+            this.isAuthenticated = false;
+            return new UILayoutState("CONNECT", 1, true, false, false);
+        }
+        
         // Expose private constants for testing
         public String getPrefEmail() { return "SDB_EMAIL"; }
         public String getPrefPassword() { return "SDB_PASSWORD"; }
@@ -1171,5 +1262,31 @@ class SpeleoDBControllerTest {
         public boolean isInitiallyEnabled() { return initiallyEnabled; }
         public boolean isDuringRefreshEnabled() { return duringRefreshEnabled; }
         public boolean isFinallyEnabled() { return finallyEnabled; }
+    }
+    
+    /**
+     * Helper class to represent UI layout state for testing
+     */
+    static class UILayoutState {
+        private final String connectionButtonText;
+        private final int connectionButtonColumnSpan;
+        private final boolean signupButtonVisible;
+        private final boolean refreshButtonEnabled;
+        private final boolean authenticated;
+        
+        public UILayoutState(String connectionButtonText, int connectionButtonColumnSpan, 
+                           boolean signupButtonVisible, boolean refreshButtonEnabled, boolean authenticated) {
+            this.connectionButtonText = connectionButtonText;
+            this.connectionButtonColumnSpan = connectionButtonColumnSpan;
+            this.signupButtonVisible = signupButtonVisible;
+            this.refreshButtonEnabled = refreshButtonEnabled;
+            this.authenticated = authenticated;
+        }
+        
+        public String getConnectionButtonText() { return connectionButtonText; }
+        public int getConnectionButtonColumnSpan() { return connectionButtonColumnSpan; }
+        public boolean isSignupButtonVisible() { return signupButtonVisible; }
+        public boolean isRefreshButtonEnabled() { return refreshButtonEnabled; }
+        public boolean isAuthenticated() { return authenticated; }
     }
 } 

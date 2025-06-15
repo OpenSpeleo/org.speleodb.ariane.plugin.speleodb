@@ -261,14 +261,14 @@
 
                                         <Button fx:id="unlockButton" alignment="CENTER" contentDisplay="BOTTOM"
                                                 maxWidth="Infinity" mnemonicParsing="false" onAction="#onUnlockSpeleoDB"
-                                                styleClass="bold" text="Unlock" textAlignment="CENTER"
+                                                styleClass="bold" text="Unlock Project" textAlignment="CENTER"
                                                 GridPane.columnIndex="0" GridPane.halignment="CENTER"
                                                 GridPane.hgrow="ALWAYS" GridPane.rowIndex="2"
                                                 GridPane.valignment="CENTER"/>
 
                                         <Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM"
                                                 maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB"
-                                                styleClass="bold" text="Upload" textAlignment="CENTER"
+                                                styleClass="bold" text="Save Project" textAlignment="CENTER"
                                                 GridPane.columnIndex="2" GridPane.halignment="CENTER"
                                                 GridPane.hgrow="ALWAYS" GridPane.rowIndex="2"
                                                 GridPane.valignment="CENTER"/>
