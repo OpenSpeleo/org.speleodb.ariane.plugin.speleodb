@@ -12,6 +12,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import jakarta.json.Json;
@@ -22,16 +25,29 @@ import jakarta.json.JsonReader;
 /**
  * Service for handling communication with SpeleoDB API endpoints.
  * Handles authentication, project management, and file operations.
+ * Enhanced with async capabilities to address blocking operations antipattern.
  */
 public class SpeleoDBService {
 
     public final static String ARIANE_ROOT_DIR = System.getProperty("user.home") + File.separator + ".ariane";
+    
+    // Constants for async operations
+    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(30);
+    private static final int MAX_CONCURRENT_REQUESTS = 10;
+    
     private final SpeleoDBController controller;
     private String authToken = "";
     private String SDB_instance = "";
+    
+    // Shared HttpClient instance for better resource management
+    private final HttpClient sharedHttpClient;
 
     public SpeleoDBService(SpeleoDBController controller) {
         this.controller = controller;
+        // Create a shared HttpClient with optimized configuration
+        this.sharedHttpClient = HttpClient.newBuilder()
+            .connectTimeout(HTTP_TIMEOUT)
+            .build();
     }
 
     /**
@@ -529,5 +545,194 @@ public class SpeleoDBService {
             controller.logMessageFromPlugin("Unexpected error updating file SpeleoDB ID: " + e.getMessage());
             return false;
         }
+    }
+    
+    // ==================== ASYNC METHODS (Non-blocking alternatives) ==================== //
+    
+    /**
+     * Asynchronous version of listProjects() that doesn't block the calling thread.
+     * 
+     * @return CompletableFuture containing the JsonArray of projects
+     */
+    public CompletableFuture<JsonArray> listProjectsAsync() {
+        if (!isAuthenticated()) {
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
+        }
+
+        try {
+            URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
+            
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .GET()
+                    .timeout(HTTP_TIMEOUT)
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .build();
+
+            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(this::parseProjectListResponse)
+                    .exceptionally(this::handleProjectListError);
+                    
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    /**
+     * Asynchronous version of createProject() that doesn't block the calling thread.
+     * 
+     * @param name the project name
+     * @param description the project description  
+     * @param countryCode the country code
+     * @param latitude the latitude (optional)
+     * @param longitude the longitude (optional)
+     * @return CompletableFuture containing the created project JsonObject
+     */
+    public CompletableFuture<JsonObject> createProjectAsync(String name, String description, 
+                                                           String countryCode, String latitude, String longitude) {
+        if (!isAuthenticated()) {
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
+        }
+
+        try {
+            URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
+            
+            String requestBody = StringFormatter.buildProjectCreationJson(name, description, countryCode, latitude, longitude);
+
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .timeout(HTTP_TIMEOUT)
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .build();
+
+            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(this::parseCreateProjectResponse)
+                    .exceptionally(this::handleCreateProjectError);
+                    
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    /**
+     * Asynchronous version of acquireOrRefreshProjectMutex() that doesn't block.
+     * 
+     * @param project the project to acquire mutex for
+     * @return CompletableFuture containing true if successful, false otherwise
+     */
+    public CompletableFuture<Boolean> acquireOrRefreshProjectMutexAsync(JsonObject project) {
+        if (!isAuthenticated()) {
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
+        }
+
+        try {
+            String projectId = project.getString("id");
+            ApiConstants.validateProjectId(projectId);
+            
+            URI uri = ApiConstants.buildMutexAcquireUrl(SDB_instance, projectId);
+
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .POST(HttpRequest.BodyPublishers.ofString(""))
+                    .timeout(HTTP_TIMEOUT)
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .build();
+
+            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(response -> response.statusCode() == 200)
+                    .exceptionally(throwable -> {
+                        // Log error but don't fail the future - return false for backward compatibility
+                        controller.logMessageFromPlugin("Error acquiring project mutex: " + throwable.getMessage());
+                        return false;
+                    });
+                    
+        } catch (Exception e) {
+            return CompletableFuture.completedFuture(false);
+        }
+    }
+    
+    /**
+     * Provides a synchronous wrapper around the async listProjects method.
+     * This maintains backward compatibility while using async internally.
+     * 
+     * @return JsonArray of projects
+     * @throws Exception if the operation fails
+     */
+    public JsonArray listProjectsSync() throws Exception {
+        try {
+            return listProjectsAsync().get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Exception("Failed to list projects: " + e.getMessage(), e);
+        }
+    }
+    
+    // ==================== PRIVATE HELPER METHODS FOR ASYNC OPERATIONS ==================== //
+    
+    /**
+     * Parses the response from listProjects API call.
+     */
+    private JsonArray parseProjectListResponse(HttpResponse<String> response) {
+        if (response.statusCode() != 200) {
+            String errorMessage = StringFormatter.formatErrorMessage("List projects", response.statusCode(), response.body());
+            throw new RuntimeException(errorMessage);
+        }
+
+        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+            JsonObject responseObject = reader.readObject();
+            return responseObject.getJsonArray("data");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse project list response", e);
+        }
+    }
+    
+    /**
+     * Handles errors from listProjects async operation.
+     */
+    private JsonArray handleProjectListError(Throwable throwable) {
+        String errorMessage = "Async project list operation failed: " + throwable.getMessage();
+        controller.logMessageFromPlugin("ERROR: " + errorMessage);
+        throw new RuntimeException(errorMessage, throwable);
+    }
+    
+    /**
+     * Parses the response from createProject API call.
+     */
+    private JsonObject parseCreateProjectResponse(HttpResponse<String> response) {
+        if (response.statusCode() != 201) {
+            String errorMessage = StringFormatter.formatErrorMessage("Create project", response.statusCode(), response.body());
+            throw new RuntimeException(errorMessage);
+        }
+
+        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+            JsonObject responseObject = reader.readObject();
+            return responseObject.getJsonObject("data");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse create project response", e);
+        }
+    }
+    
+    /**
+     * Handles errors from createProject async operation.
+     */
+    private JsonObject handleCreateProjectError(Throwable throwable) {
+        String errorMessage = "Async create project operation failed: " + throwable.getMessage();
+        controller.logMessageFromPlugin("ERROR: " + errorMessage);
+        throw new RuntimeException(errorMessage, throwable);
+    }
+    
+    /**
+     * Cleanup method to properly close the shared HttpClient.
+     * Should be called when the service is no longer needed.
+     */
+    public void shutdown() {
+        // HttpClient doesn't have an explicit close method, but we can clear references
+        // The shared client will be garbage collected when no longer referenced
     }
 }

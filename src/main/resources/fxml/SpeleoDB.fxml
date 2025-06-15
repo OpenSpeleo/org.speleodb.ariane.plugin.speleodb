@@ -288,7 +288,7 @@
                         </AnchorPane>
                     </content>
                 </TitledPane>
-                <TitledPane fx:id="aboutTitlePane" animated="false" text="About SpeleoDB">
+                <TitledPane fx:id="aboutTitlePane" animated="false" expanded="true" text="About SpeleoDB">
                     <content>
                         <WebView fx:id="aboutWebView" prefHeight="-1.0" prefWidth="-1.0"/>
                     </content>

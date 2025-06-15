@@ -395,8 +395,18 @@ public class SpeleoDBController implements Initializable {
      */
     private void setupUI() {
         actionsTitlePane.setVisible(false);
-        aboutTitlePane.setExpanded(true);
         projectsTitlePane.setVisible(false);
+        
+        // For Accordion: ensure About section is the only visible and expanded pane at startup
+        aboutTitlePane.setVisible(true);
+        aboutTitlePane.setExpanded(true);
+        
+        // Use Platform.runLater to ensure accordion setup happens after FXML is fully loaded
+        Platform.runLater(() -> {
+            // Set About pane as the expanded pane in the Accordion
+            setAccordionExpandedPane(aboutTitlePane);
+        });
+        
         createNewProjectButton.setDisable(true); // Disabled until authenticated
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
@@ -406,6 +416,19 @@ public class SpeleoDBController implements Initializable {
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
         
+        // Setup AboutWebView with proper URL and error handling
+        setupAboutWebView();
+
+        serverLog.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
+            // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
+            serverLog.setScrollTop(Double.MAX_VALUE);
+        });
+    }
+    
+    /**
+     * Sets up the AboutWebView with proper URL loading and error handling.
+     */
+    private void setupAboutWebView() {
         // Use localhost URL when in debug mode, production URL otherwise
         String aboutUrl;
         boolean isDebugMode = isDebugMode();
@@ -417,13 +440,45 @@ public class SpeleoDBController implements Initializable {
             aboutUrl = "https://www.speleoDB.org/webview/ariane/";
         }
 
-        aboutWebView.getEngine().load(aboutUrl);
+        // Load the URL with error handling
+        try {
+            aboutWebView.getEngine().load(aboutUrl);
+            logMessage("Loading about page from: " + aboutUrl);
+            
+            // Add a listener to handle loading states
+            aboutWebView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
+                switch (newState) {
+                    case SUCCEEDED:
+                        logMessage("About page loaded successfully");
+                        break;
+                    case FAILED:
+                        logMessage("Failed to load about page from " + aboutUrl);
+                        break;
+                    case CANCELLED:
+                        logMessage("About page loading was cancelled");
+                        break;
+                }
+            });
+            
+        } catch (Exception e) {
+            logMessage("Error loading about page: " + e.getMessage());
+        }
+        
         //TODO: WebView has been removed. Create directly in UI elements describing the about
+    }
 
-        serverLog.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
-            // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
-            serverLog.setScrollTop(Double.MAX_VALUE);
-        });
+    /**
+     * Helper method to set the expanded pane in the Accordion.
+     * Ensures only one pane is expanded at a time, as required by Accordion behavior.
+     * 
+     * @param paneToExpand the TitledPane to expand
+     */
+    private void setAccordionExpandedPane(javafx.scene.control.TitledPane paneToExpand) {
+        if (paneToExpand != null && paneToExpand.getParent() instanceof javafx.scene.control.Accordion) {
+            javafx.scene.control.Accordion accordion = (javafx.scene.control.Accordion) paneToExpand.getParent();
+            accordion.setExpandedPane(paneToExpand);
+            logMessage("Expanded accordion pane: " + paneToExpand.getText());
+        }
     }
 
     /**
@@ -607,6 +662,10 @@ public class SpeleoDBController implements Initializable {
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
                     projectsTitlePane.setExpanded(true);
+                    
+                    // Set Projects pane as the expanded pane in the Accordion
+                    setAccordionExpandedPane(projectsTitlePane);
+                    
                     createNewProjectButton.setDisable(false); // Enable create new project button
                     refreshProjectsButton.setDisable(false); // Enable refresh button
                     connectionButton.setText("DISCONNECT");
@@ -643,6 +702,9 @@ public class SpeleoDBController implements Initializable {
         // When disconnected: CONNECT and SIGNUP buttons visible 50/50
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
+        
+        // Return to About pane when disconnected
+        setAccordionExpandedPane(aboutTitlePane);
         
         if (!rememberCredentialsCheckBox.isSelected())
             passwordPasswordField.clear();
@@ -1186,12 +1248,8 @@ public class SpeleoDBController implements Initializable {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Switch Project");
         alert.setHeaderText("Current Project is Locked");
-        alert.setContentText("You currently have an active lock on project \"" + 
-                            currentProject.getString("name") + "\".\n\n" +
-                            "To switch to project \"" + newProjectName + "\", you need to release your current lock.\n\n" +
-                            "Do you want to release the lock and switch projects?\n\n" +
-                            "• Yes: Release lock and switch to \"" + newProjectName + "\"\n" +
-                            "• No: Keep current lock and stay on \"" + currentProject.getString("name") + "\"");
+        alert.setContentText(StringFormatter.formatProjectSwitchMessage(
+            currentProject.getString("name"), newProjectName));
         
         // Customize button text
         ButtonType yesButton = new ButtonType("Yes, Switch Projects");
@@ -1213,11 +1271,8 @@ public class SpeleoDBController implements Initializable {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Unlock Project");
         alert.setHeaderText("Confirm Unlock");
-        alert.setContentText("Are you sure you want to unlock project \"" + 
-                            currentProject.getString("name") + "\"?\n\n" +
-                            "This will release your write lock and allow other users to edit the project.\n\n" +
-                            "• Yes: Unlock project (other users can edit)\n" +
-                            "• No: Keep lock (continue editing)");
+        alert.setContentText(StringFormatter.formatUnlockMessage(
+            currentProject.getString("name")));
         
         // Customize button text
         ButtonType yesButton = new ButtonType("Yes, Unlock");
@@ -1239,10 +1294,8 @@ public class SpeleoDBController implements Initializable {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Release Write Lock");
         alert.setHeaderText("Upload Successful");
-        alert.setContentText("Do you want to release the write lock for project \"" + 
-                            currentProject.getString("name") + "\"?\n\n" +
-                            "• Yes: Release lock (other users can edit)\n" +
-                            "• No: Keep lock (continue editing)");
+        alert.setContentText(StringFormatter.formatReleaseLockMessage(
+            currentProject.getString("name")));
         
         // Customize button text
         ButtonType yesButton = new ButtonType("Yes, Release Lock");

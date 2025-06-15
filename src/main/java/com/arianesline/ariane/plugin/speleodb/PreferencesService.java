@@ -85,7 +85,7 @@ public class PreferencesService {
     }
     
     public PreferencesService() {
-        this.preferences = Preferences.userNodeForPackage(PreferencesService.class);
+        this.preferences = Preferences.userNodeForPackage(SpeleoDBController.class);
     }
     
     /**

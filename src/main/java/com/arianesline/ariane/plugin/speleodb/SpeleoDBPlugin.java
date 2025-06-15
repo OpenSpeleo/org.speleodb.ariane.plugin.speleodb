@@ -3,8 +3,6 @@ package com.arianesline.ariane.plugin.speleodb;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -159,10 +157,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Application Shutdown");
         alert.setHeaderText("Project Lock Active");
-        alert.setContentText("You have an active lock on project \"" + projectName + "\".\n\n" +
-                            "Do you want to release the lock before closing the application?\n\n" +
-                            "• Yes: Release lock (other users can edit)\n" +
-                            "• No: Keep lock (will be released when connection times out)");
+        alert.setContentText(StringFormatter.formatProjectCloseMessage(projectName));
         
         // Customize button text
         ButtonType yesButton = new ButtonType("Yes, Release Lock");
@@ -337,25 +332,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         settingsDialog.setTitle("SpeleoDB Plugin Settings");
         settingsDialog.setHeaderText("SpeleoDB Configuration");
         
-        // Create settings content
-        StringBuilder settingsInfo = new StringBuilder();
-        settingsInfo.append("Current Settings:\n\n");
+        // Create settings content using StringFormatter
+        boolean isAuthenticated = activeController != null && activeController.speleoDBService.isAuthenticated();
+        String instanceUrl = isAuthenticated ? activeController.speleoDBService.getSDBInstance() : null;
+        String settingsInfo = StringFormatter.formatSettingsInfo(isAuthenticated, instanceUrl, SpeleoDBService.ARIANE_ROOT_DIR);
         
-        if (activeController != null && activeController.speleoDBService.isAuthenticated()) {
-            settingsInfo.append("Status: Connected\n");
-            settingsInfo.append("Instance: ").append(activeController.speleoDBService.getSDBInstance()).append("\n");
-        } else {
-            settingsInfo.append("Status: Disconnected\n");
-            settingsInfo.append("Instance: Not connected\n");
-        }
-        
-        settingsInfo.append("\nData Directory: ").append(SpeleoDBService.ARIANE_ROOT_DIR).append("\n");
-        
-        settingsInfo.append("\n• Use the main interface to configure connection settings");
-        settingsInfo.append("\n• Preferences are automatically saved when you connect");
-        settingsInfo.append("\n• Project files are stored in your home directory");
-        
-        settingsDialog.setContentText(settingsInfo.toString());
+        settingsDialog.setContentText(settingsInfo);
         
         // Add custom buttons
         ButtonType configureButton = new ButtonType("Open Configuration", ButtonData.OK_DONE);
@@ -378,23 +360,14 @@ public class SpeleoDBPlugin implements DataServerPlugin {
      * Shows settings information in headless mode (console output).
      */
     private void showSettingsHeadless() {
-        StringBuilder settingsInfo = new StringBuilder();
-        settingsInfo.append("SpeleoDB Plugin Settings:\n");
-        
-        if (activeController != null && activeController.speleoDBService.isAuthenticated()) {
-            settingsInfo.append("Status: Connected\n");
-            settingsInfo.append("Instance: ").append(activeController.speleoDBService.getSDBInstance()).append("\n");
-        } else {
-            settingsInfo.append("Status: Disconnected\n");
-            settingsInfo.append("Instance: Not connected\n");
-        }
-        
-        settingsInfo.append("Data Directory: ").append(SpeleoDBService.ARIANE_ROOT_DIR).append("\n");
+        boolean isAuthenticated = activeController != null && activeController.speleoDBService.isAuthenticated();
+        String instanceUrl = isAuthenticated ? activeController.speleoDBService.getSDBInstance() : null;
+        String settingsInfo = StringFormatter.formatSettingsInfo(isAuthenticated, instanceUrl, SpeleoDBService.ARIANE_ROOT_DIR);
         
         if (activeController != null) {
-            activeController.logMessageFromPlugin("Settings accessed (headless mode): " + settingsInfo.toString());
+            activeController.logMessageFromPlugin("Settings accessed (headless mode): " + settingsInfo);
         } else {
-            System.out.println("SpeleoDB Plugin: " + settingsInfo.toString());
+            System.out.println("SpeleoDB Plugin: " + settingsInfo);
         }
     }
     
