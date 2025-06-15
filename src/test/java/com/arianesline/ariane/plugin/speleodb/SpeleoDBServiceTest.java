@@ -114,13 +114,21 @@ class SpeleoDBServiceTest {
         @Test
         @DisplayName("Should handle project creation with authentication check")
         void shouldHandleProjectCreation() {
+            // Create a ProjectCreationRequest using the builder pattern
+            ProjectCreationRequest request = ProjectCreationRequest.builder()
+                .withName("Test Cave")
+                .withDescription("A test cave system")
+                .withCountry("US")
+                .withCoordinates("40.7128", "-74.0060")
+                .build();
+            
             // Test that unauthenticated access throws exception
-            assertThatThrownBy(() -> service.createProject("Test Cave", "A test cave system", "US", "40.7128", "-74.0060"))
+            assertThatThrownBy(() -> service.createProject(request))
                 .isInstanceOf(Exception.class)
                 .hasMessageContaining("not authenticated");
                 
             // Test async version
-            CompletableFuture<JsonObject> createFuture = service.createProjectAsync("Test Cave", "A test cave system", "US", "40.7128", "-74.0060");
+            CompletableFuture<JsonObject> createFuture = service.createProjectAsync(request);
             assertThat(createFuture).isNotNull();
             
             // Should fail immediately due to authentication
@@ -241,7 +249,7 @@ class SpeleoDBServiceTest {
         @DisplayName("Should handle file SpeleoDB ID update")
         void shouldHandleFileSpeleoDBIdUpdate() {
             // Test with null project ID
-            boolean result = service.updateFileSpeleoDBId(null);
+            boolean result = service.updateFileSpeleoDBId((String) null);
             assertThat(result).isFalse();
             assertThat(mockController.getLoggedMessages()).contains("Error: Cannot update file with empty project ID");
             

@@ -190,10 +190,12 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
                     getClass().getPackage().getName().replace('.', '/') + "/countries.json");
             }
             
-            // Read and parse JSON
+            // Read and parse JSON with proper resource management
             String jsonContent = new String(inputStream.readAllBytes());
-            JsonReader jsonReader = Json.createReader(new StringReader(jsonContent));
-            JsonObject countriesObj = jsonReader.readObject();
+            JsonObject countriesObj;
+            try (JsonReader jsonReader = Json.createReader(new StringReader(jsonContent))) {
+                countriesObj = jsonReader.readObject();
+            }
             
             // Convert to sorted map for alphabetical ordering
             Map<String, String> countries = new TreeMap<>();

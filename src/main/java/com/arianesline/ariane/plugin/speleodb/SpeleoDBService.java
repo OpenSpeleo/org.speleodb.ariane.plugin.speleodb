@@ -15,7 +15,6 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
@@ -36,8 +35,8 @@ public class SpeleoDBService {
     private static final int MAX_CONCURRENT_REQUESTS = 10;
     
     private final SpeleoDBController controller;
-    private String authToken = "";
-    private String SDB_instance = "";
+    private AuthToken authToken = AuthToken.empty();
+    private InstanceUrl instanceUrl = InstanceUrl.defaultInstance();
     
     // Shared HttpClient instance for better resource management
     private final HttpClient sharedHttpClient;
@@ -52,7 +51,7 @@ public class SpeleoDBService {
 
     /**
      * Gets the current SpeleoDB instance address.
-     * This allows controlled access to the private `SDB_instance` field.
+     * This allows controlled access to the private instance URL.
      *
      * @return the SpeleoDB instance address, or an empty string if not authenticated.
      * @throws IllegalStateException if not authenticated.
@@ -61,26 +60,57 @@ public class SpeleoDBService {
         if (!isAuthenticated()) {
             throw new IllegalStateException("User is not authenticated. Please log in.");
         }
-        return SDB_instance;
+        return instanceUrl.getUrl();
     }
 
     /**
-     * Sets the current SpeleoDB instance address.
-     * This allows controlled access to the private `SDB_instance` field.
+     * Gets the current SpeleoDB instance as a typed InstanceUrl object.
      *
-     * @param instanceUrl the SpeleoDB instance URL.
+     * @return the InstanceUrl object
+     * @throws IllegalStateException if not authenticated.
      */
-    private void setSDBInstance(String instanceUrl) {
-        // Regex to match localhost, private IP ranges, or loopback addresses.
-        String localPattern = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
-
-        if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
-            // For local addresses and IPs, use http://
-            SDB_instance = "http://" + instanceUrl;
-        } else {
-            // For non-local addresses, use https://
-            SDB_instance = "https://" + instanceUrl;
+    public InstanceUrl getInstanceUrl() throws IllegalStateException {
+        if (!isAuthenticated()) {
+            throw new IllegalStateException("User is not authenticated. Please log in.");
         }
+        return instanceUrl;
+    }
+
+    /**
+     * Sets the current SpeleoDB instance address using a typed InstanceUrl.
+     *
+     * @param instanceUrl the SpeleoDB instance URL object.
+     */
+    private void setInstanceUrl(InstanceUrl instanceUrl) {
+        this.instanceUrl = instanceUrl;
+    }
+
+    /**
+     * Sets the current SpeleoDB instance address from a string.
+     * This method creates an InstanceUrl object from the string input.
+     *
+     * @param instanceUrlString the SpeleoDB instance URL string.
+     */
+    private void setSDBInstance(String instanceUrlString) {
+        this.instanceUrl = InstanceUrl.of(instanceUrlString);
+    }
+
+    /**
+     * Gets the current authentication token.
+     *
+     * @return the AuthToken object
+     */
+    public AuthToken getAuthToken() {
+        return authToken;
+    }
+
+    /**
+     * Sets the authentication token using a typed AuthToken object.
+     *
+     * @param authToken the authentication token object.
+     */
+    private void setAuthToken(AuthToken authToken) {
+        this.authToken = authToken;
     }
 
     /* ===================== AUTHENTICATION MANAGEMENT ===================== */
@@ -130,7 +160,7 @@ public class SpeleoDBService {
             setSDBInstance(instanceUrl);  // Set instance URL first
         }).thenCompose(v -> {
             try {
-                URI uri = ApiConstants.buildAuthUrl(SDB_instance);
+                                 URI uri = ApiConstants.buildAuthUrl(this.instanceUrl.getUrl());
                 HttpRequest request;
 
                 if (oAuthToken != null && !oAuthToken.isEmpty()) {
@@ -159,7 +189,7 @@ public class SpeleoDBService {
                 return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                         .thenAccept(response -> {
                             if (response.statusCode() == 200) {
-                                authToken = parseAuthToken(response.body());
+                                setAuthToken(AuthToken.of(parseAuthToken(response.body())));
                             } else {
                                 logout(); // Clear credentials on failure
                                 throw new RuntimeException("Authentication failed with status code: " + response.statusCode());
@@ -177,8 +207,8 @@ public class SpeleoDBService {
      * Logs the user out by clearing the authentication token and the SDB_instance
      */
     public void logout() {
-        authToken = "";
-        SDB_instance = "";
+        authToken = AuthToken.empty();
+        instanceUrl = InstanceUrl.defaultInstance();
     }
 
     /**
@@ -187,28 +217,25 @@ public class SpeleoDBService {
      * @return true if authenticated, false otherwise.
      */
     public boolean isAuthenticated() {
-        return !authToken.isEmpty() && !SDB_instance.isEmpty();
+        return !authToken.isEmpty() && !instanceUrl.isEmpty();
     }
 
     /* ========================= PROJECT MANAGEMENT ======================== */
 
     // -------------------------- Project Creation ------------------------- //
 
+
+
     /**
-     * Creates a new project on SpeleoDB.
+     * Creates a new project on SpeleoDB using a ProjectCreationRequest.
      *
-     * @param name        the project name.
-     * @param description the project description.
-     * @param countryCode the ISO country code.
-     * @param latitude    the latitude (optional, can be null).
-     * @param longitude   the longitude (optional, can be null).
+     * @param request the project creation request containing all necessary data.
      * @return A JsonObject containing the created project details.
      * @throws Exception if the request fails.
      */
-    public JsonObject createProject(String name, String description, String countryCode, 
-                                   String latitude, String longitude) throws Exception {
+    public JsonObject createProject(ProjectCreationRequest request) throws Exception {
         try {
-            return createProjectAsync(name, description, countryCode, latitude, longitude)
+            return createProjectAsync(request)
                 .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new Exception("Failed to create project: " + e.getMessage(), e);
@@ -274,22 +301,22 @@ public class SpeleoDBService {
                 }
                 
                 try {
-                    String SDB_projectId = project.getString("id");
-                    ApiConstants.validateProjectId(SDB_projectId);
+                    ProjectId projectId = ProjectId.fromJson(project);
+                    ApiConstants.validateProjectId(projectId.getValue());
 
-                    URI uri = ApiConstants.buildUploadUrl(SDB_instance, SDB_projectId);
-                    Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
+                    URI uri = ApiConstants.buildUploadUrl(instanceUrl.getUrl(), projectId.getValue());
+                    Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + projectId.getValue() + ".tml");
 
                     HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
                         .addPart("message", message)
-                        .addPart("artifact", tmp_filepath.toFile(), null, SDB_projectId + ".tml")
+                        .addPart("artifact", tmp_filepath.toFile(), null, projectId.getValue() + ".tml")
                         .build();
 
                     HttpRequest request = HttpRequest.newBuilder(uri)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
                         .timeout(Duration.ofMinutes(5)) // Longer timeout for file uploads
                         .setHeader(ApiConstants.CONTENT_TYPE_HEADER, multipartBody.getContentType())
-                        .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                        .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                         .build();
 
                     return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
@@ -341,19 +368,19 @@ public class SpeleoDBService {
         }
 
         try {
-            String SDB_projectId = project.getString("id");
-            ApiConstants.validateProjectId(SDB_projectId);
+            ProjectId projectId = ProjectId.fromJson(project);
+            ApiConstants.validateProjectId(projectId.getValue());
 
-            URI uri = ApiConstants.buildDownloadUrl(SDB_instance, SDB_projectId);
+            URI uri = ApiConstants.buildDownloadUrl(instanceUrl.getUrl(), projectId.getValue());
             
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .GET()
                     .timeout(Duration.ofMinutes(5)) // Longer timeout for file downloads
                     .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                     .build();
 
-            Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
+            Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + projectId.getValue() + ".tml");
 
             return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                     .thenApply(response -> {
@@ -436,16 +463,16 @@ public class SpeleoDBService {
         }
 
         try {
-            String projectId = project.getString("id");
-            ApiConstants.validateProjectId(projectId);
+            ProjectId projectId = ProjectId.fromJson(project);
+            ApiConstants.validateProjectId(projectId.getValue());
             
-            URI uri = ApiConstants.buildMutexReleaseUrl(SDB_instance, projectId);
+            URI uri = ApiConstants.buildMutexReleaseUrl(instanceUrl.getUrl(), projectId.getValue());
 
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .POST(HttpRequest.BodyPublishers.ofString(""))
                     .timeout(HTTP_TIMEOUT)
                     .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                     .build();
 
             return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
@@ -510,7 +537,83 @@ public class SpeleoDBService {
             return false;
         }
     }
-    
+
+    /**
+     * Updates the survey file with a typed ProjectId.
+     * 
+     * @param projectId the SpeleoDB project ID to associate with the file
+     * @return true if the update was successful, false otherwise
+     */
+    public boolean updateFileSpeleoDBId(ProjectId projectId) {
+        return updateFileSpeleoDBId(projectId.getValue());
+    }
+
+    /**
+     * Uploads a project using a typed ProjectId for the project identifier.
+     * 
+     * @param message the upload message to accompany the project
+     * @param projectId the project identifier
+     * @throws Exception if the upload fails
+     */
+    public void uploadProject(String message, ProjectId projectId) throws Exception {
+        // Create a minimal JsonObject for compatibility with existing uploadProject method
+        JsonObject project = Json.createObjectBuilder()
+                .add("id", projectId.getValue())
+                .build();
+        uploadProject(message, project);
+    }
+
+    /**
+     * Downloads a project using a typed ProjectId for the project identifier.
+     * 
+     * @param projectId the project identifier
+     * @return Path to the downloaded file
+     * @throws IOException if the download fails
+     * @throws InterruptedException if the download is interrupted
+     * @throws URISyntaxException if the URI is invalid
+     */
+    public Path downloadProject(ProjectId projectId) throws IOException, InterruptedException, URISyntaxException {
+        // Create a minimal JsonObject for compatibility with existing downloadProject method
+        JsonObject project = Json.createObjectBuilder()
+                .add("id", projectId.getValue())
+                .build();
+        return downloadProject(project);
+    }
+
+    /**
+     * Acquires or refreshes a project mutex using a typed ProjectId.
+     * 
+     * @param projectId the project identifier
+     * @return true if mutex was acquired/refreshed successfully
+     * @throws URISyntaxException if the URI is invalid
+     * @throws IOException if the operation fails
+     * @throws InterruptedException if the operation is interrupted
+     */
+    public boolean acquireOrRefreshProjectMutex(ProjectId projectId) throws URISyntaxException, IOException, InterruptedException {
+        // Create a minimal JsonObject for compatibility with existing method
+        JsonObject project = Json.createObjectBuilder()
+                .add("id", projectId.getValue())
+                .build();
+        return acquireOrRefreshProjectMutex(project);
+    }
+
+    /**
+     * Releases a project mutex using a typed ProjectId.
+     * 
+     * @param projectId the project identifier
+     * @return true if mutex was released successfully
+     * @throws IOException if the operation fails
+     * @throws InterruptedException if the operation is interrupted
+     * @throws URISyntaxException if the URI is invalid
+     */
+    public boolean releaseProjectMutex(ProjectId projectId) throws IOException, InterruptedException, URISyntaxException {
+        // Create a minimal JsonObject for compatibility with existing method
+        JsonObject project = Json.createObjectBuilder()
+                .add("id", projectId.getValue())
+                .build();
+        return releaseProjectMutex(project);
+    }
+
     // ==================== ASYNC METHODS (Non-blocking alternatives) ==================== //
     
     /**
@@ -526,13 +629,13 @@ public class SpeleoDBService {
         }
 
         try {
-            URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
+            URI uri = ApiConstants.buildProjectsUrl(instanceUrl.getUrl());
             
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .GET()
                     .timeout(HTTP_TIMEOUT)
                     .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                     .build();
 
             return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
@@ -544,18 +647,15 @@ public class SpeleoDBService {
         }
     }
     
+
+    
     /**
-     * Asynchronous version of createProject() that doesn't block the calling thread.
+     * Asynchronous version of createProject() that accepts a ProjectCreationRequest.
      * 
-     * @param name the project name
-     * @param description the project description  
-     * @param countryCode the country code
-     * @param latitude the latitude (optional)
-     * @param longitude the longitude (optional)
+     * @param request the project creation request
      * @return CompletableFuture containing the created project JsonObject
      */
-    public CompletableFuture<JsonObject> createProjectAsync(String name, String description, 
-                                                           String countryCode, String latitude, String longitude) {
+    public CompletableFuture<JsonObject> createProjectAsync(ProjectCreationRequest request) {
         if (!isAuthenticated()) {
             return CompletableFuture.failedFuture(
                 new IllegalStateException("User is not authenticated.")
@@ -563,18 +663,24 @@ public class SpeleoDBService {
         }
 
         try {
-            URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
+            URI uri = ApiConstants.buildProjectsUrl(instanceUrl.getUrl());
             
-            String requestBody = StringFormatter.buildProjectCreationJson(name, description, countryCode, latitude, longitude);
+            String requestBody = StringFormatter.buildProjectCreationJson(
+                request.getName(),
+                request.getDescription(),
+                request.getCountryCode(),
+                request.getLatitude(),
+                request.getLongitude()
+            );
 
-            HttpRequest request = HttpRequest.newBuilder(uri)
+            HttpRequest httpRequest = HttpRequest.newBuilder(uri)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .timeout(HTTP_TIMEOUT)
                     .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                     .build();
 
-            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+            return sharedHttpClient.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString())
                     .thenApply(this::parseCreateProjectResponse)
                     .exceptionally(this::handleCreateProjectError);
                     
@@ -597,16 +703,16 @@ public class SpeleoDBService {
         }
 
         try {
-            String projectId = project.getString("id");
-            ApiConstants.validateProjectId(projectId);
+            ProjectId projectId = ProjectId.fromJson(project);
+            ApiConstants.validateProjectId(projectId.getValue());
             
-            URI uri = ApiConstants.buildMutexAcquireUrl(SDB_instance, projectId);
+            URI uri = ApiConstants.buildMutexAcquireUrl(instanceUrl.getUrl(), projectId.getValue());
 
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .POST(HttpRequest.BodyPublishers.ofString(""))
                     .timeout(HTTP_TIMEOUT)
                     .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken.getValue()))
                     .build();
 
             return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())

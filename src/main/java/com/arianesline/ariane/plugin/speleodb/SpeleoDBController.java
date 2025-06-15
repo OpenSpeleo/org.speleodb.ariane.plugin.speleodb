@@ -303,22 +303,22 @@ public class SpeleoDBController implements Initializable {
         parentPlugin.executorService.execute(() -> {
             try {
 
-                String SDB_projectId = project.getString("id");
+                ProjectId projectId = ProjectId.fromJson(project);
                 String SDB_mainCaveFileId = parentPlugin.getSurvey().getExtraData();
 
 
                 if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
-                    logMessage("Adding SpeleoDB ID: " + SDB_projectId);
-                    speleoDBService.updateFileSpeleoDBId(SDB_projectId);
-                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
+                    logMessage("Adding SpeleoDB ID: " + projectId.getValue());
+                    speleoDBService.updateFileSpeleoDBId(projectId.getValue());
+                    parentPlugin.getSurvey().setExtraData(projectId.getValue());
                     return;
                 }
 
-                if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
+                if (!SDB_mainCaveFileId.equals(projectId.getValue())) {
                     logMessage("Incoherent File ID detected.");
                     logMessage("\t- Previous Value: " + SDB_mainCaveFileId);
-                    logMessage("\t- New Value: " + SDB_projectId);
-                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
+                    logMessage("\t- New Value: " + projectId.getValue());
+                    parentPlugin.getSurvey().setExtraData(projectId.getValue());
                     logMessage("SpeleoDB ID updated successfully.");
                 }
 
@@ -901,18 +901,19 @@ public class SpeleoDBController implements Initializable {
             
             parentPlugin.executorService.execute(() -> {
                 try {
-                    // Create the project via API
-                    JsonObject createdProject = speleoDBService.createProject(
-                        projectData.name,
-                        projectData.description, 
-                        projectData.countryCode,
-                        projectData.latitude,
-                        projectData.longitude
-                    );
+                    // Create the project via API using ProjectCreationRequest
+                    ProjectCreationRequest request = ProjectCreationRequest.builder()
+                        .withName(projectData.name)
+                        .withDescription(projectData.description)
+                        .withCountry(projectData.countryCode)
+                        .withCoordinates(projectData.latitude, projectData.longitude)
+                        .build();
+                    
+                    JsonObject createdProject = speleoDBService.createProject(request);
                     
                     Platform.runLater(() -> {
                         logMessage("Project '" + projectData.name + "' created successfully!");
-                        logMessage("Project ID: " + createdProject.getString("id"));
+                        logMessage("Project ID: " + ProjectId.fromJson(createdProject).getValue());
                         
                         // Show success animation
                         showSuccessAnimation();
@@ -1103,7 +1104,7 @@ public class SpeleoDBController implements Initializable {
 
         try {
             String selectedProjectName = projectItem.getString("name");
-            String selectedProjectId = projectItem.getString("id");
+            ProjectId selectedProjectId = ProjectId.fromJson(projectItem); // Use ProjectId value object
             
             // Handle project selection based on current lock state
             if (hasActiveProjectLock()) {
@@ -1120,12 +1121,13 @@ public class SpeleoDBController implements Initializable {
     
     /**
      * Handles project selection when there's an active project lock.
+     * Updated to use ProjectId value object for type safety.
      */
     private void handleProjectSelectionWithActiveLock(ActionEvent event, JsonObject projectItem, 
-                                                      String selectedProjectName, String selectedProjectId) 
+                                                      String selectedProjectName, ProjectId selectedProjectId) 
             throws IOException, InterruptedException, URISyntaxException {
         
-        String currentProjectId = currentProject.getString("id");
+        ProjectId currentProjectId = ProjectId.fromJson(currentProject); // Use ProjectId value object
         
         // If clicking on the same project, proceed normally
         if (currentProjectId.equals(selectedProjectId)) {
