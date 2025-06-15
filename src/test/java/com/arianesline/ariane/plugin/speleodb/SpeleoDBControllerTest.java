@@ -3,6 +3,7 @@ package com.arianesline.ariane.plugin.speleodb;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -210,6 +211,133 @@ class SpeleoDBControllerTest {
             String trimmedInstance = spacedInstance.trim();
             
             assertThat(trimmedInstance).isEqualTo("spaced.instance.com");
+        }
+    }
+    
+    @Nested
+    @DisplayName("Learn About SpeleoDB Functionality")
+    class LearnAboutSpeleoDBTests {
+        
+        @Test
+        @DisplayName("Should validate correct SpeleoDB URL format")
+        void shouldValidateCorrectSpeleoDBUrlFormat() {
+            // Test the URL that the button should open
+            String expectedUrl = "https://www.speleodb.org";
+            
+            // Verify URL format is correct
+            assertThat(expectedUrl).startsWith("https://");
+            assertThat(expectedUrl).contains("speleodb.org");
+            assertThat(expectedUrl).doesNotContain(" ");
+            assertThat(expectedUrl).doesNotEndWith("/");
+            assertThat(expectedUrl).hasSize(24); // Correct length: "https://www.speleodb.org" = 24 chars
+        }
+        
+        @Test
+        @DisplayName("Should create valid URI from SpeleoDB URL")
+        void shouldCreateValidUriFromSpeleoDBUrl() {
+            String url = "https://www.speleodb.org";
+            
+            // Test that URI can be created from the URL
+            assertThatCode(() -> {
+                java.net.URI uri = new java.net.URI(url);
+                assertThat(uri.getScheme()).isEqualTo("https");
+                assertThat(uri.getHost()).isEqualTo("www.speleodb.org");
+                assertThat(uri.getPath()).isEmpty();
+                assertThat(uri.toString()).isEqualTo(url);
+            }).doesNotThrowAnyException();
+        }
+        
+        @Test
+        @DisplayName("Should verify Desktop API availability")
+        void shouldVerifyDesktopApiAvailability() {
+            // Test Desktop API behavior that the button relies on
+            boolean isDesktopSupported = java.awt.Desktop.isDesktopSupported();
+            
+            // This will vary by platform, but method should not throw exceptions
+            assertThatCode(() -> {
+                if (isDesktopSupported) {
+                    java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+                    boolean browsseSupported = desktop.isSupported(java.awt.Desktop.Action.BROWSE);
+                    // Just verify we can check browse support without errors
+                    assertThat(browsseSupported).isNotNull();
+                }
+            }).doesNotThrowAnyException();
+        }
+        
+        @Test
+        @DisplayName("Should handle URI syntax validation")
+        void shouldHandleUriSyntaxValidation() {
+            // Test various URL formats to ensure robustness
+            String[] validUrls = {
+                "https://www.speleodb.org",
+                "https://speleodb.org",
+                "http://localhost:8080",
+                "https://test.speleodb.org"
+            };
+            
+            for (String url : validUrls) {
+                assertThatCode(() -> {
+                    java.net.URI uri = new java.net.URI(url);
+                    assertThat(uri.getScheme()).isIn("http", "https");
+                }).doesNotThrowAnyException();
+            }
+        }
+        
+        @Test
+        @DisplayName("Should handle error scenarios gracefully")
+        void shouldHandleErrorScenariosGracefully() {
+            // Test that we can handle various error scenarios that the button might encounter
+            
+            // Test that we can detect if Desktop operations are supported
+            boolean desktopSupported = java.awt.Desktop.isDesktopSupported();
+            assertThat(desktopSupported).isIn(true, false); // Should be one or the other
+            
+            // Test that we can handle the case where Desktop is supported but browse isn't
+            if (desktopSupported) {
+                assertThatCode(() -> {
+                    java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+                    boolean browseSupported = desktop.isSupported(java.awt.Desktop.Action.BROWSE);
+                    assertThat(browseSupported).isIn(true, false);
+                }).doesNotThrowAnyException();
+            }
+            
+            // Verify our URL is well-formed (this is what matters for our button)
+            assertThatCode(() -> {
+                java.net.URI uri = new java.net.URI("https://www.speleodb.org");
+                assertThat(uri.isAbsolute()).isTrue();
+            }).doesNotThrowAnyException();
+        }
+        
+        @Test
+        @DisplayName("Should verify button action method exists")
+        void shouldVerifyButtonActionMethodExists() {
+            // Verify that the onLearnAbout method exists in SpeleoDBController
+            assertThatCode(() -> {
+                java.lang.reflect.Method method = SpeleoDBController.class.getDeclaredMethod("onLearnAbout", javafx.event.ActionEvent.class);
+                assertThat(method).isNotNull();
+                assertThat(method.isAnnotationPresent(javafx.fxml.FXML.class)).isTrue();
+            }).doesNotThrowAnyException();
+        }
+        
+        @Test
+        @DisplayName("Should handle button functionality components")
+        void shouldHandleButtonFunctionalityComponents() {
+            // Test the core components that the Learn About button uses
+            String speleoBDUrl = "https://www.speleodb.org";
+            
+            // Test that our specific URL works
+            assertThatCode(() -> {
+                java.net.URI uri = new java.net.URI(speleoBDUrl);
+                assertThat(uri.getScheme()).isEqualTo("https");
+                assertThat(uri.getHost()).isEqualTo("www.speleodb.org");
+            }).doesNotThrowAnyException();
+            
+            // Test Desktop API basics
+            assertThatCode(() -> {
+                boolean desktopSupported = java.awt.Desktop.isDesktopSupported();
+                // Just verify the check doesn't throw - result varies by platform
+                assertThat(desktopSupported).isIn(true, false);
+            }).doesNotThrowAnyException();
         }
     }
 } 

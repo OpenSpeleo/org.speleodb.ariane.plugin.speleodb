@@ -82,6 +82,8 @@ public class SpeleoDBController implements Initializable {
     @FXML
     private Button refreshProjectsButton;
     @FXML
+    private Button learnAboutButton;
+    @FXML
     private PasswordField oauthtokenPasswordField;
     @FXML
     private PasswordField passwordPasswordField;
@@ -1473,6 +1475,32 @@ public class SpeleoDBController implements Initializable {
         } catch (IOException | URISyntaxException e) {
             logMessage("Failed to open signup page: " + e.getMessage());
             showErrorAnimation();
+        }
+    }
+    
+    /**
+     * Handles the "Learn about SpeleoDB" button click event.
+     * Opens the SpeleoDB website in the user's default browser.
+     */
+    @FXML
+    public void onLearnAbout(ActionEvent actionEvent) {
+        try {
+            String speleoBDUrl = "https://www.speleodb.org";
+            
+            // Open URL in default browser
+            if (java.awt.Desktop.isDesktopSupported()) {
+                java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+                if (desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+                    desktop.browse(new java.net.URI(speleoBDUrl));
+                    logMessage("Opened SpeleoDB website in browser: " + speleoBDUrl);
+                } else {
+                    logMessage("Browser not supported on this system");
+                }
+            } else {
+                logMessage("Desktop operations not supported on this system");
+            }
+        } catch (Exception e) {
+            logMessage("Failed to open SpeleoDB website: " + e.getMessage());
         }
     }
     
