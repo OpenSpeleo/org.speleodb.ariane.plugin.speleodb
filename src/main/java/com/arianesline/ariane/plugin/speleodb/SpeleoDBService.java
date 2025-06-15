@@ -107,41 +107,70 @@ public class SpeleoDBService {
      * @throws Exception if authentication fails.
      */
     public void authenticate(String email, String password, String oAuthToken, String instanceUrl) throws Exception {
-        setSDBInstance(instanceUrl);  // First to ensure proper selection of http or https
-
-        URI uri = ApiConstants.buildAuthUrl(SDB_instance);
-        HttpRequest request;
-
-        if (oAuthToken != null && !oAuthToken.isEmpty()) {
-            // Authenticate using OAuth token.
-            request = HttpRequest.newBuilder(uri)
-                    .GET()
-                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(oAuthToken))
-                    .build();
-        } else {
-            // Authenticate using email and password - use JSON builder for safety
-            JsonObject loginRequest = Json.createObjectBuilder()
-                    .add("email", email)
-                    .add("password", password)
-                    .build();
-            String requestBody = loginRequest.toString();
-            
-            request = HttpRequest.newBuilder(uri)
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                    .build();
+        try {
+            authenticateAsync(email, password, oAuthToken, instanceUrl)
+                .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logout(); // Ensure we clear credentials on failure
+            throw new Exception("Authentication failed: " + e.getMessage(), e);
         }
+    }
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    /**
+     * Asynchronous version of authenticate() that doesn't block the calling thread.
+     * 
+     * @param email the user's email address
+     * @param password the user's password
+     * @param oAuthToken the OAuth token for authentication
+     * @param instanceUrl the SpeleoDB instance URL
+     * @return CompletableFuture that completes when authentication is done
+     */
+    public CompletableFuture<Void> authenticateAsync(String email, String password, String oAuthToken, String instanceUrl) {
+        return CompletableFuture.runAsync(() -> {
+            setSDBInstance(instanceUrl);  // Set instance URL first
+        }).thenCompose(v -> {
+            try {
+                URI uri = ApiConstants.buildAuthUrl(SDB_instance);
+                HttpRequest request;
 
-        if (response.statusCode() == 200) {
-            authToken = parseAuthToken(response.body());
-        } else {
-            logout(); // Ensure we clears the `SDB_instance`
-            throw new Exception("Authentication failed with status code: " + response.statusCode());
-        }
+                if (oAuthToken != null && !oAuthToken.isEmpty()) {
+                    // Authenticate using OAuth token
+                    request = HttpRequest.newBuilder(uri)
+                            .GET()
+                            .timeout(HTTP_TIMEOUT)
+                            .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                            .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(oAuthToken))
+                            .build();
+                } else {
+                    // Authenticate using email and password - use JSON builder for safety
+                    JsonObject loginRequest = Json.createObjectBuilder()
+                            .add("email", email)
+                            .add("password", password)
+                            .build();
+                    String requestBody = loginRequest.toString();
+                    
+                    request = HttpRequest.newBuilder(uri)
+                            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                            .timeout(HTTP_TIMEOUT)
+                            .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                            .build();
+                }
+
+                return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                        .thenAccept(response -> {
+                            if (response.statusCode() == 200) {
+                                authToken = parseAuthToken(response.body());
+                            } else {
+                                logout(); // Clear credentials on failure
+                                throw new RuntimeException("Authentication failed with status code: " + response.statusCode());
+                            }
+                        });
+                        
+            } catch (Exception e) {
+                logout(); // Clear credentials on failure
+                return CompletableFuture.failedFuture(e);
+            }
+        });
     }
 
     /**
@@ -178,61 +207,11 @@ public class SpeleoDBService {
      */
     public JsonObject createProject(String name, String description, String countryCode, 
                                    String latitude, String longitude) throws Exception {
-        if (!isAuthenticated()) {
-            throw new IllegalStateException("User is not authenticated.");
-        }
-
-        URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
-
-        // Build JSON payload using proper JSON builder
-        var jsonBuilder = Json.createObjectBuilder()
-                .add("name", name)
-                .add("description", description)
-                .add("country", countryCode);
-
-        // Add optional coordinates if provided
-        if (latitude != null && !latitude.trim().isEmpty()) {
-            jsonBuilder.add("latitude", latitude);
-        }
-        if (longitude != null && !longitude.trim().isEmpty()) {
-            jsonBuilder.add("longitude", longitude);
-        }
-
-        JsonObject payload = jsonBuilder.build();
-        String requestBody = payload.toString();
-
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
-                .build();
-
-        HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        }
-
-        if (response.statusCode() == 201) {
-            // Successfully created, parse and return the project data
-            try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                JsonObject responseObject = reader.readObject();
-                return responseObject.getJsonObject("data");
-            }
-        } else {
-            // Handle different error cases
-            String errorMessage = "Failed to create project with status code: " + response.statusCode();
-            if (response.body() != null && !response.body().isEmpty()) {
-                try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                    JsonObject errorObj = reader.readObject();
-                    if (errorObj.containsKey("error")) {
-                        errorMessage += " - " + errorObj.getString("error");
-                    }
-                } catch (Exception e) {
-                    // If we can't parse the error, just use the response body
-                    errorMessage += " - " + response.body();
-                }
-            }
-            throw new Exception(errorMessage);
+        try {
+            return createProjectAsync(name, description, countryCode, latitude, longitude)
+                .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Exception("Failed to create project: " + e.getMessage(), e);
         }
     }
 
@@ -245,42 +224,11 @@ public class SpeleoDBService {
      * @throws Exception if the request fails.
      */
     public JsonArray listProjects() throws Exception {
-        if (!isAuthenticated()) {
-            throw new IllegalStateException("User is not authenticated.");
-        }
-
-        URI uri = ApiConstants.buildProjectsUrl(SDB_instance);
-
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .GET()
-                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
-                .build();
-
-        HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        }
-
-        if (response.statusCode() != 200) {
-            String errorMessage = "Failed to list projects with status code: " + response.statusCode();
-            if (response.body() != null && !response.body().isEmpty()) {
-                try (JsonReader errorReader = Json.createReader(new StringReader(response.body()))) {
-                    JsonObject errorObj = errorReader.readObject();
-                    if (errorObj.containsKey("error")) {
-                        errorMessage += " - " + errorObj.getString("error");
-                    }
-                } catch (Exception e) {
-                    // If we can't parse the error, use the response body as-is
-                    errorMessage += " - " + response.body();
-                }
-            }
-            throw new Exception(errorMessage);
-        }
-
-        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-            JsonObject responseObject = reader.readObject();
-            return responseObject.getJsonArray("data");
+        try {
+            return listProjectsAsync()
+                .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new Exception("Failed to list projects: " + e.getMessage(), e);
         }
     }
 
@@ -294,62 +242,69 @@ public class SpeleoDBService {
      * @throws Exception if the upload fails.
      */
     public void uploadProject(String message, JsonObject project) throws Exception {
+        try {
+            uploadProjectAsync(message, project)
+                .get(HTTP_TIMEOUT.toSeconds() * 2, TimeUnit.SECONDS); // Double timeout for uploads
+        } catch (Exception e) {
+            throw new Exception("Upload failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Asynchronous version of uploadProject() that doesn't block the calling thread.
+     * 
+     * @param message the upload message to accompany the project
+     * @param project JsonObject containing project metadata
+     * @return CompletableFuture that completes when upload is done
+     */
+    public CompletableFuture<Void> uploadProjectAsync(String message, JsonObject project) {
         if (!isAuthenticated()) {
-            throw new IllegalStateException("User is not authenticated.");
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
         }
 
-         // Re-acquire mutex before upload to ensure we still have permission
-         // This handles cases where the user might have unlocked via WebUI
-         if (!acquireOrRefreshProjectMutex(project)) {
-             throw new Exception("Failed to acquire project mutex before upload. Please ensure you have write access to the project.");
-         }
-
-         String SDB_projectId = project.getString("id");
-         ApiConstants.validateProjectId(SDB_projectId);
-
-         URI uri = ApiConstants.buildUploadUrl(SDB_instance, SDB_projectId);
-
-         Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
-
-         HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
-         .addPart("message", message)
-         .addPart("artifact", tmp_filepath.toFile(), null, SDB_projectId + ".tml")
-         .build();
-
-         HttpRequest request = HttpRequest.newBuilder(uri).
-         PUT(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
-         .setHeader(ApiConstants.CONTENT_TYPE_HEADER, multipartBody.getContentType())
-         .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
-         .build();
-
-        HttpResponse<byte[]> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        }
-
-        if (response.statusCode() != 200) {
-            String errorMessage = "Upload failed with status code: " + response.statusCode();
-            if (response.body() != null && response.body().length > 0) {
+        // First acquire mutex, then upload
+        return acquireOrRefreshProjectMutexAsync(project)
+            .thenCompose(mutexAcquired -> {
+                if (!mutexAcquired) {
+                    return CompletableFuture.failedFuture(
+                        new Exception("Failed to acquire project mutex before upload. Please ensure you have write access to the project.")
+                    );
+                }
+                
                 try {
-                    String responseBody = new String(response.body());
-                    try (JsonReader errorReader = Json.createReader(new StringReader(responseBody))) {
-                        JsonObject errorObj = errorReader.readObject();
-                        if (errorObj.containsKey("error")) {
-                            errorMessage += " - " + errorObj.getString("error");
-                        }
-                    } catch (Exception e) {
-                        // If we can't parse as JSON, include first 200 characters of response
-                        String snippet = responseBody.length() > 200 ? responseBody.substring(0, 200) + "..." : responseBody;
-                        errorMessage += " - " + snippet;
-                    }
-                }
-                catch (Exception e) {
-                    errorMessage += " - Unable to read response body";
-                }
-            }
-            throw new Exception(errorMessage);
-        }
+                    String SDB_projectId = project.getString("id");
+                    ApiConstants.validateProjectId(SDB_projectId);
 
+                    URI uri = ApiConstants.buildUploadUrl(SDB_instance, SDB_projectId);
+                    Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
+
+                    HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
+                        .addPart("message", message)
+                        .addPart("artifact", tmp_filepath.toFile(), null, SDB_projectId + ".tml")
+                        .build();
+
+                    HttpRequest request = HttpRequest.newBuilder(uri)
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
+                        .timeout(Duration.ofMinutes(5)) // Longer timeout for file uploads
+                        .setHeader(ApiConstants.CONTENT_TYPE_HEADER, multipartBody.getContentType())
+                        .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                        .build();
+
+                    return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                            .thenAccept(response -> {
+                                if (response.statusCode() != 200) {
+                                    String errorMessage = StringFormatter.formatErrorMessage("Upload project", response.statusCode(), 
+                                        response.body() != null ? new String(response.body()) : "");
+                                    throw new RuntimeException(errorMessage);
+                                }
+                            });
+                            
+                } catch (Exception e) {
+                    return CompletableFuture.failedFuture(e);
+                }
+            });
     }
 
     // -------------------------- Project Download ------------------------- //
@@ -358,66 +313,76 @@ public class SpeleoDBService {
      * Download a project from the SpeleoDB instance.
      *
      * @param project A JsonObject containing project metadata.
-     * @throws Exception if the upload fails.
+     * @throws Exception if the download fails.
      */
     public Path downloadProject(JsonObject project) throws IOException, InterruptedException, URISyntaxException {
-
-        if (!isAuthenticated()) {
-            throw new IllegalStateException("User is not authenticated.");
-        }
-
-        String SDB_projectId = project.getString("id");
-        ApiConstants.validateProjectId(SDB_projectId);
-
-        URI uri = ApiConstants.buildDownloadUrl(SDB_instance, SDB_projectId);
-
-        var request = HttpRequest.newBuilder(uri).
-                GET()
-                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
-                build();
-
-        HttpResponse<byte[]> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        }
-
-        Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
-
-        if (response.statusCode() == 200) {
-            // Clean any old version
-            if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
-
-            Files.write(tml_filepath, response.body(), StandardOpenOption.CREATE_NEW);
-
-            return tml_filepath;
-        } else if (response.statusCode() == 404) {
-            // case project has no TML file
-            // Clean any old version
-
-            if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
-
-            return tml_filepath;
-        }
-
-        // Handle other response codes with better error management
-        if (response.statusCode() == 422) {
-            throw new IOException("Project not found in cavelib: HTTP " + response.statusCode());
-        } else {
-            // For other error codes, log and return null to indicate failure
-            String errorMessage = "Download failed with status code: " + response.statusCode();
-            if (response.body() != null && response.body().length > 0) {
-                try {
-                    String responseBody = new String(response.body());
-                    if (responseBody.length() > 200) {
-                        responseBody = responseBody.substring(0, 200) + "...";
-                    }
-                    errorMessage += " - " + responseBody;
-                } catch (Exception e) {
-                    errorMessage += " - Unable to read response body";
-                }
+        try {
+            return downloadProjectAsync(project)
+                .get(HTTP_TIMEOUT.toSeconds() * 2, TimeUnit.SECONDS); // Double timeout for downloads
+        } catch (Exception e) {
+            if (e.getCause() instanceof IOException) {
+                throw (IOException) e.getCause();
             }
-            throw new IOException(errorMessage);
+            throw new IOException("Download failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Asynchronous version of downloadProject() that doesn't block the calling thread.
+     * 
+     * @param project JsonObject containing project metadata
+     * @return CompletableFuture containing the path to the downloaded file
+     */
+    public CompletableFuture<Path> downloadProjectAsync(JsonObject project) {
+        if (!isAuthenticated()) {
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
+        }
+
+        try {
+            String SDB_projectId = project.getString("id");
+            ApiConstants.validateProjectId(SDB_projectId);
+
+            URI uri = ApiConstants.buildDownloadUrl(SDB_instance, SDB_projectId);
+            
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .GET()
+                    .timeout(Duration.ofMinutes(5)) // Longer timeout for file downloads
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .build();
+
+            Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
+
+            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                    .thenApply(response -> {
+                        try {
+                            if (response.statusCode() == 200) {
+                                // Clean any old version
+                                if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
+                                Files.write(tml_filepath, response.body(), StandardOpenOption.CREATE_NEW);
+                                return tml_filepath;
+                                
+                            } else if (response.statusCode() == 404) {
+                                // Project has no TML file - clean any old version
+                                if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
+                                return tml_filepath;
+                                
+                            } else if (response.statusCode() == 422) {
+                                throw new RuntimeException("Project not found in cavelib: HTTP " + response.statusCode());
+                            } else {
+                                String errorMessage = StringFormatter.formatErrorMessage("Download project", response.statusCode(), 
+                                    response.body() != null ? new String(response.body()) : "");
+                                throw new RuntimeException(errorMessage);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException("File I/O error during download", e);
+                        }
+                    });
+                    
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
         }
     }
 
@@ -430,32 +395,12 @@ public class SpeleoDBService {
      * @throws (URISyntaxException, IOException, InterruptedException) if the API call fails
      */
     public boolean acquireOrRefreshProjectMutex(JsonObject project) throws URISyntaxException, IOException, InterruptedException {
-        String projectId = project.getString("id");
-        ApiConstants.validateProjectId(projectId);
-
-        URI uri = ApiConstants.buildMutexAcquireUrl(SDB_instance, projectId);
-
-        var request = HttpRequest.newBuilder(uri).
-                POST(HttpRequest.BodyPublishers.ofString(""))
-                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
-                build();
-
-        HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        }
-
-        if (response.statusCode() == 200) {
-            return true;
-        } else {
-            // Log the error for debugging but still return false for backward compatibility
-            String errorMessage = "Failed to acquire/refresh project mutex with status code: " + response.statusCode();
-            if (response.body() != null && !response.body().isEmpty()) {
-                errorMessage += " - " + response.body();
-            }
-            // Note: We don't throw an exception here to maintain backward compatibility
-            // The calling code expects a boolean return value
+        try {
+            return acquireOrRefreshProjectMutexAsync(project)
+                .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            // Log error but return false for backward compatibility
+            controller.logMessageFromPlugin("Error acquiring project mutex: " + e.getMessage());
             return false;
         }
     }
@@ -467,33 +412,52 @@ public class SpeleoDBService {
      * @throws (URISyntaxException, IOException, InterruptedException) if the API call fails
      */
     public boolean releaseProjectMutex(JsonObject project) throws IOException, InterruptedException, URISyntaxException {
-        String projectId = project.getString("id");
-        ApiConstants.validateProjectId(projectId);
+        try {
+            return releaseProjectMutexAsync(project)
+                .get(HTTP_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+        } catch (Exception e) {
+            // Log error but return false for backward compatibility
+            controller.logMessageFromPlugin("Error releasing project mutex: " + e.getMessage());
+            return false;
+        }
+    }
 
-        URI uri = ApiConstants.buildMutexReleaseUrl(SDB_instance, projectId);
-
-        var request = HttpRequest.newBuilder(uri).
-                POST(HttpRequest.BodyPublishers.ofString(""))
-                .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
-                .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken)).
-                build();
-
-        HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    /**
+     * Asynchronous version of releaseProjectMutex() that doesn't block.
+     * 
+     * @param project the project to release mutex for
+     * @return CompletableFuture containing true if successful, false otherwise
+     */
+    public CompletableFuture<Boolean> releaseProjectMutexAsync(JsonObject project) {
+        if (!isAuthenticated()) {
+            return CompletableFuture.failedFuture(
+                new IllegalStateException("User is not authenticated.")
+            );
         }
 
-        if (response.statusCode() == 200) {
-            return true;
-        } else {
-            // Log the error for debugging but still return false for backward compatibility
-            String errorMessage = "Failed to release project mutex with status code: " + response.statusCode();
-            if (response.body() != null && !response.body().isEmpty()) {
-                errorMessage += " - " + response.body();
-            }
-            // Note: We don't throw an exception here to maintain backward compatibility
-            // The calling code expects a boolean return value
-            return false;
+        try {
+            String projectId = project.getString("id");
+            ApiConstants.validateProjectId(projectId);
+            
+            URI uri = ApiConstants.buildMutexReleaseUrl(SDB_instance, projectId);
+
+            HttpRequest request = HttpRequest.newBuilder(uri)
+                    .POST(HttpRequest.BodyPublishers.ofString(""))
+                    .timeout(HTTP_TIMEOUT)
+                    .setHeader(ApiConstants.CONTENT_TYPE_HEADER, ApiConstants.APPLICATION_JSON)
+                    .setHeader(ApiConstants.AUTHORIZATION_HEADER, ApiConstants.buildTokenAuthHeader(authToken))
+                    .build();
+
+            return sharedHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(response -> response.statusCode() == 200)
+                    .exceptionally(throwable -> {
+                        // Log error but don't fail the future - return false for backward compatibility
+                        controller.logMessageFromPlugin("Error releasing project mutex: " + throwable.getMessage());
+                        return false;
+                    });
+                    
+        } catch (Exception e) {
+            return CompletableFuture.completedFuture(false);
         }
     }
 

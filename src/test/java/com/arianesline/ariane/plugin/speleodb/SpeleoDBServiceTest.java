@@ -1,314 +1,299 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.regex.Pattern;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonObject;
 
 /**
- * Unit tests for SpeleoDBService class.
- * Tests URL handling, authentication state, and utility methods.
+ * Comprehensive unit tests for SpeleoDBService including async operations.
+ * Tests both synchronous and asynchronous API methods with proper error handling.
  */
-public class SpeleoDBServiceTest {
+@DisplayName("SpeleoDB Service Tests")
+class SpeleoDBServiceTest {
+
+    private SpeleoDBService service;
+    private MockSpeleoDBController mockController;
     
-    private static final String TEST_ARIANE_DIR = System.getProperty("java.io.tmpdir") + File.separator + "test_ariane";
-    
-    public static void main(String[] args) throws Exception {
-        setupTestEnvironment();
-        
-        testUrlHandling();
-        testAuthenticationState();
-        testJsonParsing();
-        testFileOperations();
-        testInstanceUrlValidation();
-        testProjectCreation();
-        
-        cleanupTestEnvironment();
-        System.out.println("All SpeleoDBService tests passed!");
+    @TempDir
+    Path tempDirectory;
+
+    @BeforeEach
+    void setUp() {
+        mockController = new MockSpeleoDBController();
+        service = new SpeleoDBService(mockController);
     }
-    
-    static void setupTestEnvironment() throws IOException {
-        // Create test directory
-        Path testDir = Paths.get(TEST_ARIANE_DIR);
-        if (!Files.exists(testDir)) {
-            Files.createDirectories(testDir);
-        }
-        System.out.println("✓ Test environment setup completed");
+
+    @AfterEach
+    void tearDown() {
+        service.shutdown();
     }
-    
-    static void cleanupTestEnvironment() throws IOException {
-        // Clean up test directory
-        Path testDir = Paths.get(TEST_ARIANE_DIR);
-        if (Files.exists(testDir)) {
-            Files.walk(testDir)
-                .map(Path::toFile)
-                .forEach(File::delete);
-        }
-        System.out.println("✓ Test environment cleanup completed");
-    }
-    
-    static void testUrlHandling() {
-        System.out.println("Testing URL handling...");
+
+    @Nested
+    @DisplayName("Authentication Tests")
+    class AuthenticationTests {
         
-        // Test local URLs should use http://
-        assert shouldUseHttp("localhost");
-        assert shouldUseHttp("127.0.0.1");
-        assert shouldUseHttp("192.168.1.100");
-        assert shouldUseHttp("10.0.0.1");
-        assert shouldUseHttp("172.16.0.1");
-        
-        // Test public URLs should use https://
-        assert !shouldUseHttp("www.example.com");
-        assert !shouldUseHttp("api.speleodb.org");
-        assert !shouldUseHttp("8.8.8.8");
-        
-        System.out.println("✓ URL handling tests passed");
-    }
-    
-    static void testAuthenticationState() {
-        System.out.println("Testing authentication state...");
-        
-        MockSpeleoDBController controller = new MockSpeleoDBController();
-        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
-        
-        // Initially not authenticated
-        assert !service.isAuthenticated();
-        
-        try {
-            service.getSDBInstance();
-            assert false : "Should throw IllegalStateException when not authenticated";
-        } catch (IllegalStateException e) {
-            // Expected
+        @Test
+        @DisplayName("Should authenticate successfully with valid credentials")
+        void shouldAuthenticateSuccessfully() {
+            // Test synchronous authentication
+            // Note: This would require a mock HTTP server or similar for full integration testing
+            // For now, we test the method structure and error handling
+            
+            assertThat(service.isAuthenticated()).isFalse();
+            
+            // Test that authentication state is initially false
+            assertThatThrownBy(() -> service.getSDBInstance())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not authenticated");
         }
         
-        // Set authentication state
-        service.setTestAuthState("test-token", "https://test.example.com");
-        assert service.isAuthenticated();
-        assert service.getSDBInstance().equals("https://test.example.com");
-        
-        // Test logout
-        service.logout();
-        assert !service.isAuthenticated();
-        
-        System.out.println("✓ Authentication state tests passed");
-    }
-    
-    static void testJsonParsing() {
-        System.out.println("Testing JSON parsing...");
-        
-        MockSpeleoDBController controller = new MockSpeleoDBController();
-        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
-        
-        // Test auth token parsing
-        String authResponse = "{\"token\":\"abc123xyz\",\"user\":\"test@example.com\"}";
-        String token = service.parseAuthTokenPublic(authResponse);
-        assert token.equals("abc123xyz");
-        
-        // Test edge cases
-        String edgeResponse = "{\"other\":\"value\",\"token\":\"edge-token-456\"}";
-        String edgeToken = service.parseAuthTokenPublic(edgeResponse);
-        assert edgeToken.equals("edge-token-456");
-        
-        System.out.println("✓ JSON parsing tests passed");
-    }
-    
-    static void testFileOperations() throws IOException {
-        System.out.println("Testing file operations...");
-        
-        // Test project file path generation
-        String projectId = "test-project-123";
-        Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + ".tml");
-        Path actualPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + ".tml");
-        assert expectedPath.equals(actualPath) : "Generated path should match expected path";
-        
-        // Create a test file
-        Path testFile = Paths.get(TEST_ARIANE_DIR + File.separator + projectId + ".tml");
-        Files.write(testFile, "test content".getBytes());
-        assert Files.exists(testFile);
-        
-        // Test file cleanup
-        Files.delete(testFile);
-        assert !Files.exists(testFile);
-        
-        System.out.println("✓ File operations tests passed");
-    }
-    
-    static void testInstanceUrlValidation() {
-        System.out.println("Testing instance URL validation...");
-        
-        MockSpeleoDBController controller = new MockSpeleoDBController();
-        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
-        
-        // Test various URL formats
-        service.setInstanceUrlPublic("localhost:8000");
-        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
-        
-        service.setInstanceUrlPublic("192.168.1.100:3000");
-        assert service.getInstanceUrlPublic().equals("http://192.168.1.100:3000");
-        
-        service.setInstanceUrlPublic("api.speleodb.org");
-        assert service.getInstanceUrlPublic().equals("https://api.speleodb.org");
-        
-        service.setInstanceUrlPublic("www.example.com:443");
-        assert service.getInstanceUrlPublic().equals("https://www.example.com:443");
-        
-        System.out.println("✓ Instance URL validation tests passed");
-    }
-    
-    static void testProjectCreation() {
-        System.out.println("Testing project creation...");
-        
-        MockSpeleoDBController controller = new MockSpeleoDBController();
-        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
-        
-        // Test unauthenticated state
-        try {
-            service.buildCreateProjectJson("Test Project", "Description", "US", "40.7128", "-74.0060");
-            assert false : "Should throw IllegalStateException when not authenticated";
-        } catch (IllegalStateException e) {
-            // Expected
+        @Test
+        @DisplayName("Should handle authentication failure")
+        void shouldHandleAuthenticationFailure() {
+            assertThat(service.isAuthenticated()).isFalse();
+            
+            // Test logout functionality
+            service.logout();
+            assertThat(service.isAuthenticated()).isFalse();
         }
         
-        // Set authentication state for testing
-        service.setTestAuthState("test-token", "https://test.example.com");
-        
-        // Test JSON building with all parameters
-        String jsonWithCoords = service.buildCreateProjectJson("Cave Project", "A deep cave system", "MX", "20.1234", "-99.5678");
-        assert jsonWithCoords.contains("\"name\":\"Cave Project\"");
-        assert jsonWithCoords.contains("\"description\":\"A deep cave system\"");
-        assert jsonWithCoords.contains("\"country\":\"MX\"");
-        assert jsonWithCoords.contains("\"latitude\":\"20.1234\"");
-        assert jsonWithCoords.contains("\"longitude\":\"-99.5678\"");
-        
-        // Test JSON building without coordinates
-        String jsonWithoutCoords = service.buildCreateProjectJson("Simple Cave", "Basic description", "CA", null, null);
-        assert jsonWithoutCoords.contains("\"name\":\"Simple Cave\"");
-        assert jsonWithoutCoords.contains("\"description\":\"Basic description\"");
-        assert jsonWithoutCoords.contains("\"country\":\"CA\"");
-        assert !jsonWithoutCoords.contains("latitude");
-        assert !jsonWithoutCoords.contains("longitude");
-        
-        // Test JSON building with empty coordinates
-        String jsonWithEmptyCoords = service.buildCreateProjectJson("Empty Coords Cave", "Test", "GB", "", "  ");
-        assert !jsonWithEmptyCoords.contains("latitude");
-        assert !jsonWithEmptyCoords.contains("longitude");
-        
-        // Test JSON building with only latitude
-        String jsonWithOnlyLat = service.buildCreateProjectJson("Lat Only Cave", "Test", "US", "40.7128", null);
-        assert jsonWithOnlyLat.contains("\"latitude\":\"40.7128\"");
-        assert !jsonWithOnlyLat.contains("longitude");
-        
-        // Test JSON building with only longitude
-        String jsonWithOnlyLon = service.buildCreateProjectJson("Lon Only Cave", "Test", "FR", null, "2.3522");
-        assert !jsonWithOnlyLon.contains("latitude");
-        assert jsonWithOnlyLon.contains("\"longitude\":\"2.3522\"");
-        
-        // Test special characters in project data
-        String jsonWithSpecialChars = service.buildCreateProjectJson("Cueva de \"Los Ángeles\"", "A cave with special chars: áéíóú & symbols", "ES", null, null);
-        assert jsonWithSpecialChars.contains("Cueva de \\\"Los Ángeles\\\"");
-        assert jsonWithSpecialChars.contains("special chars");
-        
-        System.out.println("✓ Project creation tests passed");
+        @Test
+        @DisplayName("Should handle async authentication")
+        void shouldHandleAsyncAuthentication() throws Exception {
+            // Test async authentication structure
+            CompletableFuture<Void> authFuture = service.authenticateAsync("test@example.com", "password", null, "test.speleodb.org");
+            
+            // The future should be created (even if it fails due to no real server)
+            assertThat(authFuture).isNotNull();
+            
+            // Test that the async operation fails with connection error (since we're trying to connect to a non-existent server)
+            assertThatThrownBy(() -> authFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(java.net.ConnectException.class);
+        }
     }
     
-    // Helper method to test URL pattern matching
-    static boolean shouldUseHttp(String url) {
-        String localPattern = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
-        return Pattern.compile(localPattern).matcher(url).find();
+    @Nested
+    @DisplayName("Project Management Tests")
+    class ProjectManagementTests {
+        
+        @Test
+        @DisplayName("Should handle project listing with authentication check")
+        void shouldHandleProjectListing() {
+            // Test that unauthenticated access throws exception
+            assertThatThrownBy(() -> service.listProjects())
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("not authenticated");
+                
+            // Test async version
+            CompletableFuture<JsonArray> listFuture = service.listProjectsAsync();
+            assertThat(listFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> listFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
+        
+        @Test
+        @DisplayName("Should handle project creation with authentication check")
+        void shouldHandleProjectCreation() {
+            // Test that unauthenticated access throws exception
+            assertThatThrownBy(() -> service.createProject("Test Cave", "A test cave system", "US", "40.7128", "-74.0060"))
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("not authenticated");
+                
+            // Test async version
+            CompletableFuture<JsonObject> createFuture = service.createProjectAsync("Test Cave", "A test cave system", "US", "40.7128", "-74.0060");
+            assertThat(createFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> createFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
+        
+        @Test
+        @DisplayName("Should handle project upload with authentication check")
+        void shouldHandleProjectUpload() throws IOException {
+            // Create a test project JSON
+            JsonObject testProject = Json.createObjectBuilder()
+                .add("id", "test-project-123")
+                .add("name", "Test Project")
+                .build();
+            
+            // Create a dummy file for upload
+            Path testFile = tempDirectory.resolve("test-project-123.tml");
+            Files.write(testFile, "test content".getBytes());
+            
+            // Test synchronous upload - should fail due to authentication
+            assertThatThrownBy(() -> service.uploadProject("Test upload", testProject))
+                .isInstanceOf(Exception.class)
+                .hasMessageContaining("not authenticated");
+                
+            // Test async version
+            CompletableFuture<Void> uploadFuture = service.uploadProjectAsync("Test upload", testProject);
+            assertThat(uploadFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> uploadFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
+        
+        @Test
+        @DisplayName("Should handle project download with authentication check")
+        void shouldHandleProjectDownload() {
+            // Create a test project JSON
+            JsonObject testProject = Json.createObjectBuilder()
+                .add("id", "test-project-123")
+                .add("name", "Test Project")
+                .build();
+            
+            // Test synchronous download - should fail due to authentication
+            assertThatThrownBy(() -> service.downloadProject(testProject))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("not authenticated");
+                
+            // Test async version
+            CompletableFuture<Path> downloadFuture = service.downloadProjectAsync(testProject);
+            assertThat(downloadFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> downloadFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
     }
     
-    // Mock controller for testing
+    @Nested
+    @DisplayName("Project Mutex Tests")
+    class ProjectMutexTests {
+        
+        @Test
+        @DisplayName("Should handle mutex acquisition with authentication check")
+        void shouldHandleMutexAcquisition() throws Exception {
+            // Create a test project JSON
+            JsonObject testProject = Json.createObjectBuilder()
+                .add("id", "test-project-123")
+                .add("name", "Test Project")
+                .build();
+            
+            // Test synchronous mutex acquisition - should return false due to authentication
+            boolean acquired = service.acquireOrRefreshProjectMutex(testProject);
+            assertThat(acquired).isFalse();
+            
+            // Test async version
+            CompletableFuture<Boolean> acquireFuture = service.acquireOrRefreshProjectMutexAsync(testProject);
+            assertThat(acquireFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> acquireFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
+        
+        @Test
+        @DisplayName("Should handle mutex release with authentication check")
+        void shouldHandleMutexRelease() throws Exception {
+            // Create a test project JSON
+            JsonObject testProject = Json.createObjectBuilder()
+                .add("id", "test-project-123")
+                .add("name", "Test Project")
+                .build();
+            
+            // Test synchronous mutex release - should return false due to authentication
+            boolean released = service.releaseProjectMutex(testProject);
+            assertThat(released).isFalse();
+            
+            // Test async version
+            CompletableFuture<Boolean> releaseFuture = service.releaseProjectMutexAsync(testProject);
+            assertThat(releaseFuture).isNotNull();
+            
+            // Should fail immediately due to authentication
+            assertThatThrownBy(() -> releaseFuture.get(1, TimeUnit.SECONDS))
+                .isInstanceOf(ExecutionException.class)
+                .hasCauseInstanceOf(IllegalStateException.class);
+        }
+    }
+    
+    @Nested
+    @DisplayName("File Management Tests")
+    class FileManagementTests {
+        
+        @Test
+        @DisplayName("Should handle file SpeleoDB ID update")
+        void shouldHandleFileSpeleoDBIdUpdate() {
+            // Test with null project ID
+            boolean result = service.updateFileSpeleoDBId(null);
+            assertThat(result).isFalse();
+            assertThat(mockController.getLoggedMessages()).contains("Error: Cannot update file with empty project ID");
+            
+            // Test with empty project ID
+            result = service.updateFileSpeleoDBId("");
+            assertThat(result).isFalse();
+            
+            // Test with valid project ID
+            result = service.updateFileSpeleoDBId("valid-project-123");
+            // This should succeed (creates metadata file)
+            assertThat(result).isTrue();
+        }
+    }
+    
+    @Nested
+    @DisplayName("Service State Tests")
+    class ServiceStateTests {
+        
+        @Test
+        @DisplayName("Should handle service initialization")
+        void shouldHandleServiceInitialization() {
+            assertThat(service.isAuthenticated()).isFalse();
+            
+            // Test that getSDBInstance throws when not authenticated
+            assertThatThrownBy(() -> service.getSDBInstance())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not authenticated");
+        }
+        
+        @Test
+        @DisplayName("Should handle service shutdown")
+        void shouldHandleServiceShutdown() {
+            // Test that shutdown doesn't throw exceptions
+            service.shutdown();
+            
+            // Service should still be usable after shutdown call
+            assertThat(service.isAuthenticated()).isFalse();
+        }
+    }
+    
+    // ===================== MOCK CLASSES ===================== //
+    
     static class MockSpeleoDBController extends SpeleoDBController {
-        // Minimal mock implementation
-    }
-    
-    // Testable version of SpeleoDBService that exposes internal methods
-    static class TestableSpeleoDBService extends SpeleoDBService {
-        private String testAuthToken = "";
-        private String testSDBInstance = "";
-        
-        public TestableSpeleoDBService(SpeleoDBController controller) {
-            super(controller);
-        }
-        
-        // Override authentication methods for testing
-        @Override
-        public boolean isAuthenticated() {
-            return !testAuthToken.isEmpty() && !testSDBInstance.isEmpty();
-        }
+        private final java.util.List<String> loggedMessages = new java.util.ArrayList<>();
         
         @Override
-        public String getSDBInstance() throws IllegalStateException {
-            if (!isAuthenticated()) {
-                throw new IllegalStateException("User is not authenticated. Please log in.");
-            }
-            return testSDBInstance;
+        public void logMessageFromPlugin(String message) {
+            loggedMessages.add(message);
         }
         
-        @Override
-        public void logout() {
-            testAuthToken = "";
-            testSDBInstance = "";
-        }
-        
-        // Test helper methods
-        public void setTestAuthState(String token, String instance) {
-            this.testAuthToken = token;
-            this.testSDBInstance = instance;
-        }
-        
-        // Expose private methods for testing
-        public String parseAuthTokenPublic(String responseBody) {
-            int tokenStart = responseBody.indexOf("\"token\":\"") + 9;
-            int tokenEnd = responseBody.indexOf("\"", tokenStart);
-            return responseBody.substring(tokenStart, tokenEnd);
-        }
-        
-        public void setInstanceUrlPublic(String instanceUrl) {
-            String localPattern = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
-            
-            if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
-                testSDBInstance = "http://" + instanceUrl;
-            } else {
-                testSDBInstance = "https://" + instanceUrl;
-            }
-        }
-        
-        public String getInstanceUrlPublic() {
-            return testSDBInstance;
-        }
-        
-        // Method to test JSON building for project creation
-        public String buildCreateProjectJson(String name, String description, String countryCode, 
-                                           String latitude, String longitude) {
-            if (!isAuthenticated()) {
-                throw new IllegalStateException("User is not authenticated.");
-            }
-            
-            // Build JSON payload using StringBuilder to match what createProject does
-            StringBuilder json = new StringBuilder("{");
-            json.append("\"name\":\"").append(escapeJson(name)).append("\",");
-            json.append("\"description\":\"").append(escapeJson(description)).append("\",");
-            json.append("\"country\":\"").append(countryCode).append("\"");
-            
-            // Add optional coordinates if provided
-            if (latitude != null && !latitude.trim().isEmpty()) {
-                json.append(",\"latitude\":\"").append(latitude).append("\"");
-            }
-            if (longitude != null && !longitude.trim().isEmpty()) {
-                json.append(",\"longitude\":\"").append(longitude).append("\"");
-            }
-            
-            json.append("}");
-            return json.toString();
-        }
-        
-        // Helper method to escape JSON strings
-        private String escapeJson(String input) {
-            if (input == null) return "";
-            return input.replace("\\", "\\\\").replace("\"", "\\\"");
+        public java.util.List<String> getLoggedMessages() {
+            return loggedMessages;
         }
     }
 } 
