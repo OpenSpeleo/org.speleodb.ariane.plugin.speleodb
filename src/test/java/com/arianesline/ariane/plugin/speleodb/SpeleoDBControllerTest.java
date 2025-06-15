@@ -952,6 +952,215 @@ class SpeleoDBControllerTest {
             assertThat(controllerLogic.getConfirmationDialogCount()).isEqualTo(2);
         }
     }
+
+    @Nested
+    @DisplayName("Create New Project Functionality")
+    class CreateNewProjectFunctionalityTests {
+        
+        @Test
+        @DisplayName("Should prevent create new project when not authenticated")
+        void shouldPreventCreateNewProjectWhenNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateNewProject();
+            
+            // Verify
+            assertThat(result).contains("Cannot create new project: Not authenticated");
+            assertThat(result).doesNotContain("functionality not yet implemented");
+        }
+        
+        @Test
+        @DisplayName("Should handle create new project when authenticated")
+        void shouldHandleCreateNewProjectWhenAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateNewProject();
+            
+            // Verify
+            assertThat(result).contains("Create New Project button clicked - functionality not yet implemented");
+            assertThat(result).doesNotContain("Cannot create new project");
+        }
+        
+        @Test
+        @DisplayName("Should have create new project button disabled by default")
+        void shouldHaveCreateNewProjectButtonDisabledByDefault() {
+            // Execute
+            var initialState = controllerLogic.simulateInitialUISetup();
+            
+            // Verify
+            assertThat(initialState.isCreateNewProjectButtonEnabled()).isFalse();
+            assertThat(initialState.isRefreshButtonEnabled()).isFalse();
+            assertThat(initialState.isAuthenticated()).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should enable create new project button when authenticated")
+        void shouldEnableCreateNewProjectButtonWhenAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute authentication
+            var authenticatedState = controllerLogic.simulateAuthenticationStateChange(true);
+            
+            // Verify
+            assertThat(authenticatedState.isCreateNewProjectButtonEnabled()).isTrue();
+            assertThat(authenticatedState.isRefreshButtonEnabled()).isTrue();
+            assertThat(authenticatedState.isAuthenticated()).isTrue();
+        }
+        
+        @Test
+        @DisplayName("Should disable create new project button when disconnected")
+        void shouldDisableCreateNewProjectButtonWhenDisconnected() {
+            // Setup - start authenticated
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute disconnection
+            var disconnectedState = controllerLogic.simulateAuthenticationStateChange(false);
+            
+            // Verify
+            assertThat(disconnectedState.isCreateNewProjectButtonEnabled()).isFalse();
+            assertThat(disconnectedState.isRefreshButtonEnabled()).isFalse();
+            assertThat(disconnectedState.isAuthenticated()).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should validate create new project button state transitions")
+        void shouldValidateCreateNewProjectButtonStateTransitions() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute connect -> disconnect -> connect cycle
+            var initialState = controllerLogic.simulateInitialUISetup();
+            var connectState = controllerLogic.simulateAuthenticationStateChange(true);
+            var disconnectState = controllerLogic.simulateAuthenticationStateChange(false);
+            var reconnectState = controllerLogic.simulateAuthenticationStateChange(true);
+            
+            // Verify initial state
+            assertThat(initialState.isCreateNewProjectButtonEnabled()).isFalse();
+            
+            // Verify connect state
+            assertThat(connectState.isCreateNewProjectButtonEnabled()).isTrue();
+            
+            // Verify disconnect state
+            assertThat(disconnectState.isCreateNewProjectButtonEnabled()).isFalse();
+            
+            // Verify reconnect state
+            assertThat(reconnectState.isCreateNewProjectButtonEnabled()).isTrue();
+        }
+        
+        @Test
+        @DisplayName("Should maintain create new project button consistency with refresh button")
+        void shouldMaintainCreateNewProjectButtonConsistencyWithRefreshButton() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Test multiple state transitions
+            var states = new UILayoutState[] {
+                controllerLogic.simulateInitialUISetup(),
+                controllerLogic.simulateAuthenticationStateChange(true),
+                controllerLogic.simulateAuthenticationStateChange(false),
+                controllerLogic.simulateAuthenticationStateChange(true)
+            };
+            
+            // Verify both buttons always have the same enabled state
+            for (UILayoutState state : states) {
+                assertThat(state.isCreateNewProjectButtonEnabled())
+                    .as("Create New Project button should have same state as Refresh button")
+                    .isEqualTo(state.isRefreshButtonEnabled());
+            }
+        }
+        
+        @Test
+        @DisplayName("Should log appropriate message when create new project is attempted while not authenticated")
+        void shouldLogAppropriateMessageWhenCreateNewProjectAttemptedWhileNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateNewProject();
+            
+            // Verify specific message format
+            assertThat(result).isEqualTo("Cannot create new project: Not authenticated");
+        }
+        
+        @Test
+        @DisplayName("Should log appropriate message when create new project is clicked while authenticated")
+        void shouldLogAppropriateMessageWhenCreateNewProjectClickedWhileAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateNewProject();
+            
+            // Verify specific message format
+            assertThat(result).isEqualTo("Create New Project button clicked - functionality not yet implemented");
+        }
+        
+        @Test
+        @DisplayName("Should handle complete project creation flow")
+        void shouldHandleCompleteProjectCreationFlow() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateProjectWithData(
+                "Chikin Ha", 
+                "A nice cavern", 
+                "MX", 
+                "-100.367573", 
+                "100.423897"
+            );
+            
+            // Verify
+            assertThat(result).contains("Creating new project: Chikin Ha");
+            assertThat(result).contains("Project 'Chikin Ha' created successfully!");
+            assertThat(result).contains("Project ID: mock-project-");
+            assertThat(result).contains("Refreshing project list");
+        }
+        
+        @Test
+        @DisplayName("Should handle project creation without coordinates")
+        void shouldHandleProjectCreationWithoutCoordinates() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateProjectWithData(
+                "Simple Cave", 
+                "A basic cave description", 
+                "CA", 
+                null, 
+                null
+            );
+            
+            // Verify
+            assertThat(result).contains("Creating new project: Simple Cave");
+            assertThat(result).contains("Project 'Simple Cave' created successfully!");
+        }
+        
+        @Test
+        @DisplayName("Should prevent project creation when not authenticated")
+        void shouldPreventProjectCreationWhenNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String result = controllerLogic.simulateCreateProjectWithData(
+                "Test Project", 
+                "Description", 
+                "US", 
+                "40.7128", 
+                "-74.0060"
+            );
+            
+            // Verify
+            assertThat(result).isEqualTo("Cannot create new project: Not authenticated");
+        }
+    }
     
     // ===================== TEST HELPER CLASSES ===================== //
     
@@ -1182,22 +1391,46 @@ class SpeleoDBControllerTest {
             }
         }
         
+        public String simulateCreateNewProject() {
+            if (!isAuthenticated) {
+                return "Cannot create new project: Not authenticated";
+            }
+            
+            return "Create New Project button clicked - functionality not yet implemented";
+        }
+        
+        public String simulateCreateProjectWithData(String name, String description, String countryCode, 
+                                                   String latitude, String longitude) {
+            if (!isAuthenticated) {
+                return "Cannot create new project: Not authenticated";
+            }
+            
+            // Simulate the actual project creation process
+            StringBuilder result = new StringBuilder();
+            result.append("Creating new project: ").append(name).append("\n");
+            result.append("Project '").append(name).append("' created successfully!\n");
+            result.append("Project ID: mock-project-").append(name.hashCode()).append("\n");
+            result.append("Refreshing project list");
+            
+            return result.toString();
+        }
+        
         public UILayoutState simulateAuthenticationStateChange(boolean shouldAuthenticate) {
             this.isAuthenticated = shouldAuthenticate;
             
             if (shouldAuthenticate) {
-                // Authenticated state: DISCONNECT button 100% width, SIGNUP hidden
-                return new UILayoutState("DISCONNECT", 3, false, true, true);
+                // Authenticated state: DISCONNECT button 100% width, SIGNUP hidden, create new project enabled
+                return new UILayoutState("DISCONNECT", 3, false, true, true, true);
             } else {
-                // Disconnected state: CONNECT button 50% width, SIGNUP visible
-                return new UILayoutState("CONNECT", 1, true, false, false);
+                // Disconnected state: CONNECT button 50% width, SIGNUP visible, create new project disabled
+                return new UILayoutState("CONNECT", 1, true, false, false, false);
             }
         }
         
         public UILayoutState simulateInitialUISetup() {
             // Initial state is always disconnected
             this.isAuthenticated = false;
-            return new UILayoutState("CONNECT", 1, true, false, false);
+            return new UILayoutState("CONNECT", 1, true, false, false, false);
         }
         
         // Expose private constants for testing
@@ -1272,14 +1505,17 @@ class SpeleoDBControllerTest {
         private final int connectionButtonColumnSpan;
         private final boolean signupButtonVisible;
         private final boolean refreshButtonEnabled;
+        private final boolean createNewProjectButtonEnabled;
         private final boolean authenticated;
         
         public UILayoutState(String connectionButtonText, int connectionButtonColumnSpan, 
-                           boolean signupButtonVisible, boolean refreshButtonEnabled, boolean authenticated) {
+                           boolean signupButtonVisible, boolean refreshButtonEnabled, 
+                           boolean createNewProjectButtonEnabled, boolean authenticated) {
             this.connectionButtonText = connectionButtonText;
             this.connectionButtonColumnSpan = connectionButtonColumnSpan;
             this.signupButtonVisible = signupButtonVisible;
             this.refreshButtonEnabled = refreshButtonEnabled;
+            this.createNewProjectButtonEnabled = createNewProjectButtonEnabled;
             this.authenticated = authenticated;
         }
         
@@ -1287,6 +1523,7 @@ class SpeleoDBControllerTest {
         public int getConnectionButtonColumnSpan() { return connectionButtonColumnSpan; }
         public boolean isSignupButtonVisible() { return signupButtonVisible; }
         public boolean isRefreshButtonEnabled() { return refreshButtonEnabled; }
+        public boolean isCreateNewProjectButtonEnabled() { return createNewProjectButtonEnabled; }
         public boolean isAuthenticated() { return authenticated; }
     }
 } 

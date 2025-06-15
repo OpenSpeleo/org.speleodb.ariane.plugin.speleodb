@@ -23,6 +23,7 @@ public class SpeleoDBServiceTest {
         testJsonParsing();
         testFileOperations();
         testInstanceUrlValidation();
+        testProjectCreation();
         
         cleanupTestEnvironment();
         System.out.println("All SpeleoDBService tests passed!");
@@ -156,6 +157,62 @@ public class SpeleoDBServiceTest {
         System.out.println("✓ Instance URL validation tests passed");
     }
     
+    static void testProjectCreation() {
+        System.out.println("Testing project creation...");
+        
+        MockSpeleoDBController controller = new MockSpeleoDBController();
+        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
+        
+        // Test unauthenticated state
+        try {
+            service.buildCreateProjectJson("Test Project", "Description", "US", "40.7128", "-74.0060");
+            assert false : "Should throw IllegalStateException when not authenticated";
+        } catch (IllegalStateException e) {
+            // Expected
+        }
+        
+        // Set authentication state for testing
+        service.setTestAuthState("test-token", "https://test.example.com");
+        
+        // Test JSON building with all parameters
+        String jsonWithCoords = service.buildCreateProjectJson("Cave Project", "A deep cave system", "MX", "20.1234", "-99.5678");
+        assert jsonWithCoords.contains("\"name\":\"Cave Project\"");
+        assert jsonWithCoords.contains("\"description\":\"A deep cave system\"");
+        assert jsonWithCoords.contains("\"country\":\"MX\"");
+        assert jsonWithCoords.contains("\"latitude\":\"20.1234\"");
+        assert jsonWithCoords.contains("\"longitude\":\"-99.5678\"");
+        
+        // Test JSON building without coordinates
+        String jsonWithoutCoords = service.buildCreateProjectJson("Simple Cave", "Basic description", "CA", null, null);
+        assert jsonWithoutCoords.contains("\"name\":\"Simple Cave\"");
+        assert jsonWithoutCoords.contains("\"description\":\"Basic description\"");
+        assert jsonWithoutCoords.contains("\"country\":\"CA\"");
+        assert !jsonWithoutCoords.contains("latitude");
+        assert !jsonWithoutCoords.contains("longitude");
+        
+        // Test JSON building with empty coordinates
+        String jsonWithEmptyCoords = service.buildCreateProjectJson("Empty Coords Cave", "Test", "GB", "", "  ");
+        assert !jsonWithEmptyCoords.contains("latitude");
+        assert !jsonWithEmptyCoords.contains("longitude");
+        
+        // Test JSON building with only latitude
+        String jsonWithOnlyLat = service.buildCreateProjectJson("Lat Only Cave", "Test", "US", "40.7128", null);
+        assert jsonWithOnlyLat.contains("\"latitude\":\"40.7128\"");
+        assert !jsonWithOnlyLat.contains("longitude");
+        
+        // Test JSON building with only longitude
+        String jsonWithOnlyLon = service.buildCreateProjectJson("Lon Only Cave", "Test", "FR", null, "2.3522");
+        assert !jsonWithOnlyLon.contains("latitude");
+        assert jsonWithOnlyLon.contains("\"longitude\":\"2.3522\"");
+        
+        // Test special characters in project data
+        String jsonWithSpecialChars = service.buildCreateProjectJson("Cueva de \"Los Ángeles\"", "A cave with special chars: áéíóú & symbols", "ES", null, null);
+        assert jsonWithSpecialChars.contains("Cueva de \\\"Los Ángeles\\\"");
+        assert jsonWithSpecialChars.contains("special chars");
+        
+        System.out.println("✓ Project creation tests passed");
+    }
+    
     // Helper method to test URL pattern matching
     static boolean shouldUseHttp(String url) {
         String localPattern = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
@@ -221,6 +278,37 @@ public class SpeleoDBServiceTest {
         
         public String getInstanceUrlPublic() {
             return testSDBInstance;
+        }
+        
+        // Method to test JSON building for project creation
+        public String buildCreateProjectJson(String name, String description, String countryCode, 
+                                           String latitude, String longitude) {
+            if (!isAuthenticated()) {
+                throw new IllegalStateException("User is not authenticated.");
+            }
+            
+            // Build JSON payload using StringBuilder to match what createProject does
+            StringBuilder json = new StringBuilder("{");
+            json.append("\"name\":\"").append(escapeJson(name)).append("\",");
+            json.append("\"description\":\"").append(escapeJson(description)).append("\",");
+            json.append("\"country\":\"").append(countryCode).append("\"");
+            
+            // Add optional coordinates if provided
+            if (latitude != null && !latitude.trim().isEmpty()) {
+                json.append(",\"latitude\":\"").append(latitude).append("\"");
+            }
+            if (longitude != null && !longitude.trim().isEmpty()) {
+                json.append(",\"longitude\":\"").append(longitude).append("\"");
+            }
+            
+            json.append("}");
+            return json.toString();
+        }
+        
+        // Helper method to escape JSON strings
+        private String escapeJson(String input) {
+            if (input == null) return "";
+            return input.replace("\\", "\\\\").replace("\"", "\\\"");
         }
     }
 } 

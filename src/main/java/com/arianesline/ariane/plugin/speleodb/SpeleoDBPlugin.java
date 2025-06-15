@@ -194,7 +194,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public String getName() {
-        return "SPELEO_DB";
+        return "SpeleoDB";
     }
 
     @Override

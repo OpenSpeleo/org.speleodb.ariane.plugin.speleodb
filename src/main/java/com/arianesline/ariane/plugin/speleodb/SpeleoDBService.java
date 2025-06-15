@@ -141,6 +141,79 @@ public class SpeleoDBService {
 
     /* ========================= PROJECT MANAGEMENT ======================== */
 
+    // -------------------------- Project Creation ------------------------- //
+
+    /**
+     * Creates a new project on SpeleoDB.
+     *
+     * @param name        the project name.
+     * @param description the project description.
+     * @param countryCode the ISO country code.
+     * @param latitude    the latitude (optional, can be null).
+     * @param longitude   the longitude (optional, can be null).
+     * @return A JsonObject containing the created project details.
+     * @throws Exception if the request fails.
+     */
+    public JsonObject createProject(String name, String description, String countryCode, 
+                                   String latitude, String longitude) throws Exception {
+        if (!isAuthenticated()) {
+            throw new IllegalStateException("User is not authenticated.");
+        }
+
+        var uri = new URI(SDB_instance + "/api/v1/projects/");
+
+        // Build JSON payload
+        var jsonBuilder = Json.createObjectBuilder()
+                .add("name", name)
+                .add("description", description)
+                .add("country", countryCode);
+
+        // Add optional coordinates if provided
+        if (latitude != null && !latitude.trim().isEmpty()) {
+            jsonBuilder.add("latitude", latitude);
+        }
+        if (longitude != null && !longitude.trim().isEmpty()) {
+            jsonBuilder.add("longitude", longitude);
+        }
+
+        JsonObject payload = jsonBuilder.build();
+        String requestBody = payload.toString();
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .setHeader("Content-Type", "application/json")
+                .setHeader("Authorization", "Token " + authToken)
+                .build();
+
+        HttpResponse<String> response;
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
+
+        if (response.statusCode() == 201) {
+            // Successfully created, parse and return the project data
+            try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+                JsonObject responseObject = reader.readObject();
+                return responseObject.getJsonObject("data");
+            }
+        } else {
+            // Handle different error cases
+            String errorMessage = "Failed to create project with status code: " + response.statusCode();
+            if (response.body() != null && !response.body().isEmpty()) {
+                try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+                    JsonObject errorObj = reader.readObject();
+                    if (errorObj.containsKey("error")) {
+                        errorMessage += " - " + errorObj.getString("error");
+                    }
+                } catch (Exception e) {
+                    // If we can't parse the error, just use the response body
+                    errorMessage += " - " + response.body();
+                }
+            }
+            throw new Exception(errorMessage);
+        }
+    }
+
     // -------------------------- Project Listing -------------------------- //
 
     /**

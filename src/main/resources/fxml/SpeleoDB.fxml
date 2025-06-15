@@ -210,8 +210,17 @@
                                     styleClass="aggregator">
                             <children>
                                 <ListView fx:id="projectListView" prefHeight="200.0" prefWidth="200.0"
-                                          AnchorPane.bottomAnchor="44.0" AnchorPane.leftAnchor="8.0"
+                                          AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0"
                                           AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0"/>
+                                <Button fx:id="createNewProjectButton" alignment="CENTER" contentDisplay="CENTER"
+                                        maxWidth="Infinity" mnemonicParsing="false" onAction="#onCreateNewProject"
+                                        styleClass="bold" text="Create New Project" textAlignment="CENTER"
+                                        AnchorPane.bottomAnchor="44.0" AnchorPane.leftAnchor="8.0"
+                                        AnchorPane.rightAnchor="8.0">
+                                    <font>
+                                        <Font name="System Bold" size="12.0"/>
+                                    </font>
+                                </Button>
                                 <Button fx:id="refreshProjectsButton" alignment="CENTER" contentDisplay="CENTER"
                                         maxWidth="Infinity" mnemonicParsing="false" onAction="#onRefreshProjects"
                                         styleClass="bold" text="Refresh Projects" textAlignment="CENTER"
