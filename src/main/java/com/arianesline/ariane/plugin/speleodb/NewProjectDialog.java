@@ -1,5 +1,6 @@
 package com.arianesline.ariane.plugin.speleodb;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.util.Map;
@@ -25,8 +26,13 @@ import javafx.scene.text.FontWeight;
 /**
  * Dialog for creating a new SpeleoDB project.
  * Provides a form with project name, description, country, latitude, and longitude fields.
+ * OPTIMIZED: Pre-loads countries data and caches UI components for faster display.
  */
 public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
+    
+    // Static cache for countries data - loaded once and reused
+    private static Map<String, String> cachedCountries = null;
+    private static boolean countriesLoadAttempted = false;
     
     private TextField nameField;
     private TextArea descriptionField;
@@ -34,8 +40,72 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private TextField latitudeField;
     private TextField longitudeField;
     
+    /**
+     * Pre-loads countries data in a background thread to optimize dialog creation.
+     * This method can be called during application startup to warm the cache.
+     */
+    public static void preLoadCountriesData() {
+        if (!countriesLoadAttempted) {
+            countriesLoadAttempted = true;
+            
+            // Load in background to avoid blocking UI
+            new Thread(() -> {
+                try {
+                    loadCountriesFromResource();
+                } catch (Exception e) {
+                    System.err.println("Error pre-loading countries data: " + e.getMessage());
+                }
+            }, "CountriesLoader").start();
+        }
+    }
+    
+    /**
+     * Loads countries data from JSON resource file.
+     * Results are cached in static field for reuse across dialog instances.
+     */
+    private static synchronized void loadCountriesFromResource() {
+        if (cachedCountries != null) {
+            return; // Already loaded
+        }
+        
+        try {
+            // Load countries.json from resources
+            InputStream inputStream = NewProjectDialog.class.getResourceAsStream("countries.json");
+            if (inputStream == null) {
+                throw new RuntimeException("countries.json not found in resources at: " + 
+                    NewProjectDialog.class.getPackage().getName().replace('.', '/') + "/countries.json");
+            }
+            
+            // Read and parse JSON
+            String jsonContent = new String(inputStream.readAllBytes());
+            JsonObject countriesObj;
+            try (JsonReader jsonReader = Json.createReader(new StringReader(jsonContent))) {
+                countriesObj = jsonReader.readObject();
+            }
+            
+            // Convert to sorted map for alphabetical ordering
+            cachedCountries = new TreeMap<>();
+            for (Map.Entry<String, jakarta.json.JsonValue> entry : countriesObj.entrySet()) {
+                cachedCountries.put(entry.getValue().toString().replace("\"", ""), entry.getKey());
+            }
+            
+            System.out.println("Successfully cached " + cachedCountries.size() + " countries from JSON");
+            
+        } catch (IOException | RuntimeException e) {
+            System.err.println("Error loading countries: " + e.getMessage());
+            e.printStackTrace();
+            // Create empty map as fallback
+            cachedCountries = new TreeMap<>();
+        }
+    }
+    
     @SuppressWarnings("this-escape")
     public NewProjectDialog() {
+        // Ensure countries are loaded (will use cache if already loaded)
+        if (cachedCountries == null && !countriesLoadAttempted) {
+            loadCountriesFromResource();
+        }
+        
         // Create the form content
         VBox content = createFormContent();
         
@@ -183,42 +253,22 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
     
     private void loadCountries() {
-        try {
-            // Load countries.json from resources
-            InputStream inputStream = getClass().getResourceAsStream("countries.json");
-            if (inputStream == null) {
-                throw new RuntimeException("countries.json not found in resources at: " + 
-                    getClass().getPackage().getName().replace('.', '/') + "/countries.json");
-            }
-            
-            // Read and parse JSON
-            String jsonContent = new String(inputStream.readAllBytes());
-            JsonObject countriesObj;
-            try (JsonReader jsonReader = Json.createReader(new StringReader(jsonContent))) {
-                countriesObj = jsonReader.readObject();
-            }
-            
-            // Convert to sorted map for alphabetical ordering
-            Map<String, String> countries = new TreeMap<>();
-            for (Map.Entry<String, jakarta.json.JsonValue> entry : countriesObj.entrySet()) {
-                countries.put(entry.getValue().toString().replace("\"", ""), entry.getKey());
-            }
-            
-            // Add countries to combo box
-            for (Map.Entry<String, String> entry : countries.entrySet()) {
-                countryComboBox.getItems().add(new CountryItem(entry.getValue(), entry.getKey()));
-            }
-            
-            System.out.println("Successfully loaded " + countries.size() + " countries from JSON");
-            
-        } catch (Exception e) {
-            System.err.println("Error loading countries: " + e.getMessage());
-            e.printStackTrace();
-            // Add fallback countries
-            countryComboBox.getItems().add(new CountryItem("US", "United States"));
-            countryComboBox.getItems().add(new CountryItem("CA", "Canada"));
-            countryComboBox.getItems().add(new CountryItem("GB", "United Kingdom"));
+        // Use cached countries data if available, otherwise load synchronously
+        Map<String, String> countries = cachedCountries;
+        
+        if (countries == null) {
+            // Fallback: load synchronously if cache is not available
+            loadCountriesFromResource();
+            countries = cachedCountries != null ? cachedCountries : new TreeMap<>();
         }
+        
+        // Add countries to combo box from cache
+        for (Map.Entry<String, String> entry : countries.entrySet()) {
+            countryComboBox.getItems().add(new CountryItem(entry.getValue(), entry.getKey()));
+        }
+        
+        System.out.println("Loaded " + countries.size() + " countries into combo box" + 
+                          (cachedCountries != null ? " (from cache)" : " (direct load)"));
     }
     
     private void setupValidation(Button saveButton) {

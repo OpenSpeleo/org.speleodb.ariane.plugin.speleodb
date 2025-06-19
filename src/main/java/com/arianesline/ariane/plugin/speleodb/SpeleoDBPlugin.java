@@ -16,6 +16,7 @@ import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
@@ -42,6 +43,13 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     // Reference to the active controller for shutdown handling
     private SpeleoDBController activeController = null;
     private Stage pluginStage = null;
+    
+    // Pre-created button types for shutdown dialog performance optimization
+    private static final ButtonType FAST_RELEASE_LOCK = new ButtonType("Yes, Release Lock");
+    private static final ButtonType FAST_KEEP_LOCK = new ButtonType("No, Keep Lock");
+    
+    // Pre-warmed shutdown dialog for instant display
+    private Alert preWarmedShutdownModal = null;
 
     @Override
     public synchronized File getSurveyFile() {
@@ -71,28 +79,52 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     /**
+     * Pre-warms the shutdown modal system to eliminate first-time display lag.
+     * Called during plugin initialization to prepare JavaFX Alert system.
+     */
+    private void preWarmShutdownModal() {
+        Platform.runLater(() -> {
+            if (preWarmedShutdownModal == null) {
+                preWarmedShutdownModal = new Alert(Alert.AlertType.CONFIRMATION);
+                preWarmedShutdownModal.setTitle("Application Shutdown");
+                preWarmedShutdownModal.setHeaderText("Project Lock Active");
+                preWarmedShutdownModal.setContentText("");
+                preWarmedShutdownModal.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
+            }
+        });
+    }
+
+    /**
      * Shows a confirmation dialog asking the user if they want to release the project lock before shutdown.
+     * OPTIMIZED: Uses pre-warmed modal + pre-created buttons for instant display.
      * 
      * @param projectName the name of the project that has an active lock
      * @return true if the user wants to release the lock, false otherwise
      */
     private boolean showShutdownConfirmation(String projectName) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Application Shutdown");
-        alert.setHeaderText("Project Lock Active");
-        alert.setContentText("You have an active lock on project \"" + projectName + "\".\n\n" +
-                            "Do you want to release the lock before closing the application?\n\n" +
-                            "• Yes: Release lock (other users can edit)\n" +
-                            "• No: Keep lock (will be released when connection times out)");
+        // Use pre-warmed modal for maximum speed, fallback to new modal if needed
+        Alert alert = (preWarmedShutdownModal != null) ? preWarmedShutdownModal : new Alert(Alert.AlertType.CONFIRMATION);
         
-        // Customize button text
-        ButtonType yesButton = new ButtonType("Yes, Release Lock");
-        ButtonType noButton = new ButtonType("No, Keep Lock");
-        alert.getButtonTypes().setAll(yesButton, noButton);
+        // Configure the modal (minimal operations for speed)
+        if (alert != preWarmedShutdownModal) {
+            alert.setTitle("Application Shutdown");
+            alert.setHeaderText("Project Lock Active");
+            alert.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
+        }
         
-        // Show dialog and wait for user response
+        // Build message efficiently using StringBuilder with pre-allocated capacity
+        StringBuilder message = new StringBuilder(200);
+        message.append("You have an active lock on project \"")
+               .append(projectName)
+               .append("\".\n\nDo you want to release the lock before closing the application?\n\n")
+               .append("• Yes: Release lock (other users can edit)\n")
+               .append("• No: Keep lock (will be released when connection times out)");
+        
+        alert.setContentText(message.toString());
+        
+        // Show and get result (optimized path)
         return alert.showAndWait()
-                   .map(response -> response == yesButton)
+                   .map(response -> response == FAST_RELEASE_LOCK)
                    .orElse(false);
     }
 
@@ -117,6 +149,9 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
         stage.setTitle("SpeleoDB");
         stage.show();
+        
+        // Pre-warm shutdown modal for instant display
+        preWarmShutdownModal();
     }
 
     @Override
@@ -134,6 +169,10 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             System.err.println("Error loading FXML for SpeleoDB UI Node: " + e.getMessage());
             e.printStackTrace();
         }
+        
+        // Pre-warm shutdown modal for instant display
+        preWarmShutdownModal();
+        
         return root1;
     }
 
