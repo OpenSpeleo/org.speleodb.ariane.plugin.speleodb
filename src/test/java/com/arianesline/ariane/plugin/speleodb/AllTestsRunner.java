@@ -14,25 +14,44 @@ import org.junit.platform.suite.api.SuiteDisplayName;
  * but may require special JavaFX initialization in some environments.
  */
 @Suite
-@SuiteDisplayName("SpeleoDB Plugin Test Suite")
+@SuiteDisplayName("SpeleoDB Plugin Complete Test Suite")
 @SelectClasses({
     // Enum and data structure tests
     SpeleoDBAccessLevelTest.class,
     
-    // Service layer tests
+    // Service layer tests - Core functionality
     HTTPRequestMultipartBodyTest.class,
     SpeleoDBServiceTest.class,
     SpeleoDBServiceSimpleTest.class,
     
-    // Controller tests
+    // Service layer tests - Advanced coverage (FIXED)
+    SpeleoDBServiceAdvancedTest.class,
+    
+    // Controller tests - Core functionality
     SpeleoDBControllerTest.class,
     SpeleoDBControllerStateTest.class,
+    
+    // Controller tests - Utility coverage (FIXED)
+    SpeleoDBControllerUtilityTest.class,
+    
+    // Dialog tests
+    NewProjectDialogTest.class,
     
     // Plugin tests
     SpeleoDBPluginTest.class,
     SpeleoDBPluginExtendedTest.class
 })
-class AllTestsRunner {
+public class AllTestsRunner {
     // This class serves as a test suite runner
     // No additional code needed - JUnit 5 handles everything
+    
+    /**
+     * Fixed Issues:
+     * - Removed overly complex mock implementations that caused compilation issues
+     * - Simplified test logic to focus on actual coverage gaps
+     * - Fixed import statements and proper Java conventions
+     * - Used proper testable subclasses instead of complex mocking
+     * - Added thread safety tests with reasonable concurrency levels
+     * - Focused on actual utility methods and edge cases that improve coverage
+     */
 } 

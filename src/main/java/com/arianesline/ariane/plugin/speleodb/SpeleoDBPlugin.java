@@ -108,6 +108,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             root1 = fxmlLoader.load();
 
         } catch (IOException e) {
+            System.err.println("Error loading FXML for SpeleoDB UI: " + e.getMessage());
+            e.printStackTrace();
         }
         Stage stage = new Stage();
         stage.initStyle(StageStyle.DECORATED);
@@ -129,6 +131,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             root1 = fxmlLoader.load();
 
         } catch (IOException e) {
+            System.err.println("Error loading FXML for SpeleoDB UI Node: " + e.getMessage());
+            e.printStackTrace();
         }
         return root1;
     }

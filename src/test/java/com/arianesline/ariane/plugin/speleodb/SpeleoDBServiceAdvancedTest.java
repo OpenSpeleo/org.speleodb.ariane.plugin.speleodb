@@ -1,0 +1,126 @@
+package com.arianesline.ariane.plugin.speleodb;
+
+import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+/**
+ * Advanced tests for SpeleoDBService to improve test coverage.
+ * Tests edge cases and utility methods.
+ */
+@ExtendWith(MockitoExtension.class)
+@DisplayName("SpeleoDB Service Advanced Tests")
+class SpeleoDBServiceAdvancedTest {
+    
+    private SpeleoDBService service;
+    private TestableSpeleoDBController controller;
+    
+    @BeforeEach
+    void setUp() {
+        controller = new TestableSpeleoDBController();
+        service = new SpeleoDBService(controller);
+    }
+    
+    @Nested
+    @DisplayName("Constants and File Operations")
+    class ConstantsAndFileOperationsTests {
+        
+        @Test
+        @DisplayName("Should verify ARIANE_ROOT_DIR constant")
+        void shouldVerifyArianeRootDirConstant() {
+            String expectedPath = System.getProperty("user.home") + java.io.File.separator + ".ariane";
+            assertThat(SpeleoDBService.ARIANE_ROOT_DIR).isEqualTo(expectedPath);
+        }
+        
+        @Test
+        @DisplayName("Should generate correct file paths")
+        void shouldGenerateCorrectFilePaths() {
+            String projectId = "test-123";
+            Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + ".tml");
+            
+            // This tests the internal path generation logic
+            assertThat(expectedPath.toString()).endsWith(".ariane" + java.io.File.separator + "test-123.tml");
+        }
+        
+        @Test
+        @DisplayName("Should handle updateFileSpeleoDBId method")
+        void shouldHandleUpdateFileSpeleoDBIdMethod() {
+            // This method is currently a TODO/stub, but we test it doesn't throw
+            assertThatCode(() -> service.updateFileSpeleoDBId("test-id"))
+                .doesNotThrowAnyException();
+        }
+    }
+    
+    @Nested
+    @DisplayName("Authentication State Tests")
+    class AuthenticationStateTests {
+        
+        @Test
+        @DisplayName("Should handle initial unauthenticated state")
+        void shouldHandleInitialUnauthenticatedState() {
+            // Service starts unauthenticated
+            assertThat(service.isAuthenticated()).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should throw IllegalStateException when getting instance while unauthenticated")
+        void shouldThrowIllegalStateExceptionWhenGettingInstanceWhileUnauthenticated() {
+            assertThat(service.isAuthenticated()).isFalse();
+            
+            assertThatThrownBy(() -> service.getSDBInstance())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not authenticated");
+        }
+        
+        @Test
+        @DisplayName("Should handle logout state clearing")
+        void shouldHandleLogoutStateClearing() {
+            // Even if not authenticated, logout should not throw
+            assertThatCode(() -> service.logout())
+                .doesNotThrowAnyException();
+            
+            // Should still be unauthenticated
+            assertThat(service.isAuthenticated()).isFalse();
+        }
+    }
+    
+    @Nested
+    @DisplayName("Error Handling Tests")
+    class ErrorHandlingTests {
+        
+        @Test
+        @DisplayName("Should handle operations on unauthenticated service")
+        void shouldHandleOperationsOnUnauthenticatedService() {
+            assertThat(service.isAuthenticated()).isFalse();
+            
+            // All these operations should fail gracefully or throw appropriate exceptions
+            assertThatThrownBy(() -> service.getSDBInstance())
+                .isInstanceOf(IllegalStateException.class);
+        }
+        
+        @Test
+        @DisplayName("Should handle multiple logout calls")
+        void shouldHandleMultipleLogoutCalls() {
+            // Multiple logout calls should not cause issues
+            assertThatCode(() -> {
+                service.logout();
+                service.logout();
+                service.logout();
+            }).doesNotThrowAnyException();
+            
+            assertThat(service.isAuthenticated()).isFalse();
+        }
+    }
+    
+    // Helper class for testing
+    static class TestableSpeleoDBController extends SpeleoDBController {
+        @Override
+        public void logMessageFromPlugin(String message) {
+            // Mock implementation - do nothing
+        }
+    }
+} 

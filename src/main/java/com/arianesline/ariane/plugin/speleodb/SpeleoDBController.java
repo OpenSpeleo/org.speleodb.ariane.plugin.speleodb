@@ -112,10 +112,8 @@ public class SpeleoDBController implements Initializable {
     @FXML
     private WebView aboutWebView;
 
-
-
     // SpeleoDBService instance for handling server communication.
-    private final SpeleoDBService speleoDBService = new SpeleoDBService(this);
+    private final SpeleoDBService speleoDBService;
 
     // Constants for Preferences keys and default values.
     private static final String PREF_EMAIL = "SDB_EMAIL";
@@ -128,6 +126,13 @@ public class SpeleoDBController implements Initializable {
     // Internal Controller Data
 
     private JsonObject currentProject = null;
+    
+    /**
+     * Constructor initializes the SpeleoDBService to avoid 'this' escape warning.
+     */
+    public SpeleoDBController() {
+        this.speleoDBService = new SpeleoDBService(this);
+    }
 
     // ========================= UTILITY FUNCTIONS ========================= //
 

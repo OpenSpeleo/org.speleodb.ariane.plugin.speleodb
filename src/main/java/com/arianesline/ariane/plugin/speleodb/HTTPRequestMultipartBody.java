@@ -149,7 +149,11 @@ public class HTTPRequestMultipartBody {
                         }
                         case File file -> {
                             out.write(OCTET_STREAM_HEADER);
-                            Files.copy(file.toPath(), out);
+                            try {
+                                Files.copy(file.toPath(), out);
+                            } catch (IOException copyException) {
+                                throw new IOException("Error copying file content: " + file.getName(), copyException);
+                            }
                         }
                         default -> {
                             out.write(OCTET_STREAM_HEADER);

@@ -35,6 +35,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private TextField longitudeField;
     
     public NewProjectDialog() {
+        initializeDialog();
+    }
+    
+    private void initializeDialog() {
         setTitle("Create New Project");
         setHeaderText("Enter project details");
         
