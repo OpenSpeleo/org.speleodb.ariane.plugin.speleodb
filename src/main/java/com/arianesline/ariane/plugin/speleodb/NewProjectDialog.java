@@ -34,17 +34,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private TextField latitudeField;
     private TextField longitudeField;
     
+    @SuppressWarnings("this-escape")
     public NewProjectDialog() {
-        initializeDialog();
-    }
-    
-    private void initializeDialog() {
-        setTitle("Create New Project");
-        setHeaderText("Enter project details");
-        
         // Create the form content
         VBox content = createFormContent();
-        getDialogPane().setContent(content);
         
         // Add buttons
         ButtonType saveButtonType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
@@ -71,6 +64,11 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             }
             return null;
         });
+        
+        // Set dialog properties
+        setTitle("Create New Project");
+        setHeaderText("Enter project details");
+        getDialogPane().setContent(content);
         
         // Focus on name field when dialog opens
         setOnShown(e -> nameField.requestFocus());
@@ -195,8 +193,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             
             // Read and parse JSON
             String jsonContent = new String(inputStream.readAllBytes());
-            JsonReader jsonReader = Json.createReader(new StringReader(jsonContent));
-            JsonObject countriesObj = jsonReader.readObject();
+            JsonObject countriesObj;
+            try (JsonReader jsonReader = Json.createReader(new StringReader(jsonContent))) {
+                countriesObj = jsonReader.readObject();
+            }
             
             // Convert to sorted map for alphabetical ordering
             Map<String, String> countries = new TreeMap<>();

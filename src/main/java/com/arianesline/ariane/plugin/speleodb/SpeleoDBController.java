@@ -61,8 +61,6 @@ import javafx.util.Duration;
  * Delegates server communication to SpeleoDBService.
  */
 public class SpeleoDBController implements Initializable {
-
-    //TODO: Find alternative   private final CoreContext core = CoreContext.getInstance();
     public static AtomicInteger messageIndexCounter = new AtomicInteger(0);
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
@@ -363,7 +361,6 @@ public class SpeleoDBController implements Initializable {
      */
     private void setupUI() {
         actionsTitlePane.setVisible(false);
-        aboutTitlePane.setExpanded(true);
         projectsTitlePane.setVisible(false);
         createNewProjectButton.setDisable(true); // Disabled until authenticated
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
@@ -387,6 +384,12 @@ public class SpeleoDBController implements Initializable {
 
         aboutWebView.getEngine().load(aboutUrl);
         //TODO: WebView has been removed. Create directly in UI elements describing the about
+
+        // Ensure the About pane is expanded by default in the Accordion
+        // This must be done after all UI setup to override Accordion's default behavior
+        Platform.runLater(() -> {
+            aboutTitlePane.setExpanded(true);
+        });
 
         serverLog.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
             // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
@@ -1136,6 +1139,11 @@ public class SpeleoDBController implements Initializable {
                 // Show success animation
                 showSuccessAnimation();
                 
+                // Clear the upload message text field after successful upload
+                Platform.runLater(() -> {
+                    uploadMessageTextField.clear();
+                });
+                
                 // Show confirmation popup asking if user wants to release the write lock
                 Platform.runLater(() -> {
                     boolean shouldReleaseLock = showReleaseLockConfirmation();
@@ -1211,6 +1219,31 @@ public class SpeleoDBController implements Initializable {
         } catch (IOException | URISyntaxException e) {
             logMessage("Failed to open signup page: " + e.getMessage());
             showErrorAnimation();
+        }
+    }
+    
+    /**
+     * Handles the "Learn About" button click event to open the SpeleoDB website.
+     */
+    @FXML
+    public void onLearnAbout(ActionEvent actionEvent) {
+        try {
+            String speleoBDUrl = "https://www.speleodb.org";
+            
+            // Open URL in default browser
+            if (java.awt.Desktop.isDesktopSupported()) {
+                java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
+                if (desktop.isSupported(java.awt.Desktop.Action.BROWSE)) {
+                    desktop.browse(new java.net.URI(speleoBDUrl));
+                    logMessage("Opened SpeleoDB website in browser: " + speleoBDUrl);
+                } else {
+                    logMessage("Browser not supported on this system");
+                }
+            } else {
+                logMessage("Desktop operations not supported on this system");
+            }
+        } catch (Exception e) {
+            logMessage("Failed to open SpeleoDB website: " + e.getMessage());
         }
     }
     
