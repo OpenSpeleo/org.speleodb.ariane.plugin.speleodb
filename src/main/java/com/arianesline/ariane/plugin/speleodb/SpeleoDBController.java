@@ -462,6 +462,70 @@ public class SpeleoDBController implements Initializable {
         });
     }
 
+    // ====================== INPUT VALIDATION METHODS ====================== //
+    
+    /**
+     * Validates OAuth token format using regex pattern.
+     * OAuth tokens should be exactly 40 hexadecimal characters (0-9, a-f).
+     * 
+     * @param token the OAuth token to validate
+     * @return true if token matches the expected format, false otherwise
+     */
+    private boolean validateOAuthToken(String token) {
+        if (token == null) {
+            return false;
+        }
+        
+        // Remove any whitespace and convert to lowercase for validation
+        String cleanToken = token.trim().toLowerCase();
+        
+        // Regex pattern: exactly 40 hexadecimal characters
+        String oauthPattern = "^[a-f0-9]{40}$";
+        
+        boolean isValid = cleanToken.matches(oauthPattern);
+        
+        if (isValid) {
+            logMessage("OAuth token format validation: PASSED");
+        } else {
+            logMessage("OAuth token format validation: FAILED - Expected 40 hex characters, got: " + 
+                      cleanToken.length() + " characters");
+        }
+        
+        return isValid;
+    }
+    
+    /**
+     * Shows an error modal dialog with the specified title and message.
+     * Uses the existing pre-warmed modal system for consistent styling and performance.
+     * 
+     * @param title the dialog title
+     * @param message the error message to display
+     */
+    private void showErrorModal(String title, String message) {
+        Platform.runLater(() -> {
+            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
+            errorAlert.setTitle(title);
+            errorAlert.setHeaderText("Input Validation Error");
+            errorAlert.setContentText(message);
+            
+            // Apply consistent styling with the rest of the application
+            errorAlert.getDialogPane().setStyle("-fx-font-size: 14px;");
+            
+            // Set owner window if available for proper modal behavior
+            try {
+                if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                    errorAlert.initOwner(speleoDBAnchorPane.getScene().getWindow());
+                }
+            } catch (Exception e) {
+                // Ignore initialization errors - modal will still work
+            }
+            
+            // Show the modal and also trigger the enhanced error animation
+            errorAlert.showAndWait();
+            showErrorAnimation("Invalid OAuth Token");
+        });
+    }
+
     // ==================== USER PREFERENCES' MANAGEMENT =================== //
 
     /**
@@ -483,6 +547,7 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Saves user preferences based on the current UI state.
+     * Validates OAuth token format before saving to prevent invalid tokens from being persisted.
      */
     private void savePreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
@@ -491,7 +556,21 @@ public class SpeleoDBController implements Initializable {
 
         if (rememberCredentialsCheckBox.isSelected()) {
             prefs.put(PREF_PASSWORD, passwordPasswordField.getText());
-            prefs.put(PREF_OAUTH_TOKEN, oauthtokenPasswordField.getText());
+            
+            // Validate OAuth token before saving
+            String oauthToken = oauthtokenPasswordField.getText();
+            if (oauthToken != null && !oauthToken.trim().isEmpty()) {
+                if (validateOAuthToken(oauthToken)) {
+                    prefs.put(PREF_OAUTH_TOKEN, oauthToken);
+                    logMessage("OAuth token saved to preferences (format validated)");
+                } else {
+                    // Don't save invalid token, but log the issue
+                    prefs.remove(PREF_OAUTH_TOKEN);
+                    logMessage("Warning: Invalid OAuth token format not saved to preferences");
+                }
+            } else {
+                prefs.put(PREF_OAUTH_TOKEN, oauthToken); // Save empty token
+            }
         } else {
             prefs.remove(PREF_PASSWORD);
             prefs.remove(PREF_OAUTH_TOKEN);
@@ -716,6 +795,18 @@ public class SpeleoDBController implements Initializable {
         String password = passwordPasswordField.getText();
         String oauthtoken = oauthtokenPasswordField.getText();
         String instance = instanceTextField.getText();
+
+        // Validate OAuth token format if provided
+        if (oauthtoken != null && !oauthtoken.trim().isEmpty()) {
+            if (!validateOAuthToken(oauthtoken)) {
+                logMessage("Invalid OAuth token format. Expected 40 hexadecimal characters.");
+                showErrorModal("Invalid OAuth Token", 
+                    "The OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).\n\n" +
+                    "Example: a1b2c3d4e5f6789012345678901234567890abcd\n\n" +
+                    "Please check your token and try again.");
+                return;
+            }
+        }
 
         logMessage("Connecting to " + instance);
         serverProgressIndicator.setVisible(true);

@@ -7,9 +7,12 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -1699,5 +1702,56 @@ class SpeleoDBControllerTest {
         public boolean isRefreshButtonEnabled() { return refreshButtonEnabled; }
         public boolean isCreateNewProjectButtonEnabled() { return createNewProjectButtonEnabled; }
         public boolean isAuthenticated() { return authenticated; }
+    }
+
+    /**
+     * Test OAuth token validation with various input formats
+     */
+    @Test
+    @DisplayName("Should validate OAuth token format correctly")
+    void shouldValidateOAuthTokenFormat() {
+        SpeleoDBController controller = new SpeleoDBController();
+        
+        // Use reflection to access the private validateOAuthToken method
+        try {
+            Method validateMethod = SpeleoDBController.class.getDeclaredMethod("validateOAuthToken", String.class);
+            validateMethod.setAccessible(true);
+            
+            // Valid tokens (40 hexadecimal characters)
+            assertTrue((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890abcd"));
+            assertTrue((Boolean) validateMethod.invoke(controller, "0123456789abcdef0123456789abcdef01234567"));
+            assertTrue((Boolean) validateMethod.invoke(controller, "ffffffffffffffffffffffffffffffffffffffff"));
+            assertTrue((Boolean) validateMethod.invoke(controller, "0000000000000000000000000000000000000000"));
+            
+            // Valid token with mixed case (should be normalized to lowercase)
+            assertTrue((Boolean) validateMethod.invoke(controller, "A1B2C3D4E5F6789012345678901234567890ABCD"));
+            assertTrue((Boolean) validateMethod.invoke(controller, "AbCdEf0123456789AbCdEf0123456789AbCdEf01"));
+            
+            // Valid token with whitespace (should be trimmed)
+            assertTrue((Boolean) validateMethod.invoke(controller, "  a1b2c3d4e5f6789012345678901234567890abcd  "));
+            assertTrue((Boolean) validateMethod.invoke(controller, "\ta1b2c3d4e5f6789012345678901234567890abcd\n"));
+            
+            // Invalid tokens - wrong length
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890abc"));   // 39 chars
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890abcde")); // 41 chars
+            assertFalse((Boolean) validateMethod.invoke(controller, ""));                                            // empty
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890"));        // 38 chars
+            
+            // Invalid tokens - non-hexadecimal characters
+            assertFalse((Boolean) validateMethod.invoke(controller, "g1b2c3d4e5f6789012345678901234567890abcd"));   // contains 'g'
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890abcz"));   // contains 'z'
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f678901234567890123456789@abcd"));   // contains '@'
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890ab d"));   // contains space
+            
+            // Invalid tokens - special characters
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4-5f6789012345678901234567890abcd"));   // contains '-'
+            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890ab.d"));   // contains '.'
+            
+            // Null token
+            assertFalse((Boolean) validateMethod.invoke(controller, (String) null));
+            
+        } catch (Exception e) {
+            Assertions.fail("Failed to test OAuth token validation: " + e.getMessage());
+        }
     }
 } 
