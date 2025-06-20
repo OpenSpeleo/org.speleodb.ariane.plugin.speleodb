@@ -1,11 +1,15 @@
 package com.arianesline.ariane.plugin.speleodb;
 
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -922,15 +926,55 @@ public class SpeleoDBController implements Initializable {
                         projectData.longitude
                     );
                     
-                    Platform.runLater(() -> {
-                        logMessage("Project '" + projectData.name + "' created successfully!");
-                        logMessage("Project ID: " + createdProject.getString("id"));
+                    logMessage("Project '" + projectData.name + "' created successfully!");
+                    logMessage("Project ID: " + createdProject.getString("id"));
+                    
+                    // Use centralized lock acquisition system with async heavy operations
+                    parentPlugin.executorService.execute(() -> {
+                        LockResult lockResult = acquireProjectLock(createdProject, "project creation");
                         
-                        // Show success animation
-                        showSuccessAnimation();
-                        
-                        // Refresh the project list to show the new project
-                        listProjects();
+                        if (lockResult.isAcquired()) {
+                            try {
+                                // Heavy operations on background thread
+                                logMessage("Setting up new project files...");
+                                
+                                // Create an empty TML file for the new project
+                                String projectId = createdProject.getString("id");
+                                Path emptyTmlFile = createEmptyTmlFile(projectId, projectData.name);
+                                
+                                // Load the survey file and update SpeleoDB ID through normal flow
+                                parentPlugin.loadSurvey(emptyTmlFile.toFile());
+                                checkAndUpdateSpeleoDBId(createdProject);
+                                
+                                // Update UI on JavaFX thread (lightweight operations only)
+                                Platform.runLater(() -> {
+                                    // Set as current project and enable UI controls
+                                    currentProject = createdProject;
+                                    actionsTitlePane.setVisible(true);
+                                    actionsTitlePane.setExpanded(true);
+                                    actionsTitlePane.setText("Actions on `" + createdProject.getString("name") + "`.");
+                                    uploadButton.setDisable(false);
+                                    unlockButton.setDisable(false);
+                                    
+                                    // Show success animation and refresh (lightweight)
+                                    showSuccessAnimation("Project created and locked for editing!");
+                                    listProjects();
+                                });
+                                
+                            } catch (Exception e) {
+                                logMessage("Error setting up new project: " + e.getMessage());
+                                Platform.runLater(() -> {
+                                    showErrorAnimation("Project created but setup failed");
+                                    listProjects();
+                                });
+                            }
+                        } else {
+                            // Lock acquisition failed - update UI
+                            Platform.runLater(() -> {
+                                showSuccessAnimation("Project created (lock acquisition failed)");
+                                listProjects();
+                            });
+                        }
                     });
                     
                 } catch (Exception e) {
@@ -950,6 +994,36 @@ public class SpeleoDBController implements Initializable {
             logMessage("New project creation cancelled");
         }
     }
+    
+    /**
+     * Creates an empty TML file for a new project by copying the template file.
+     * Uses the same approach as downloading TML files - simple binary file copy.
+     * The SpeleoDB ID will be updated through the normal application flow.
+     * 
+     * @param projectId the SpeleoDB project ID (used for filename)
+     * @param projectName the human-readable project name (for logging only)
+     * @return Path to the created TML file
+     * @throws IOException if file creation fails
+     */
+    private Path createEmptyTmlFile(String projectId, String projectName) throws IOException {
+        Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + ".tml");
+        
+        // Ensure the .ariane directory exists
+        Files.createDirectories(tmlFilePath.getParent());
+        
+        // Copy the template file from resources (same as download service approach)
+        try (var templateStream = getClass().getResourceAsStream("/tml/empty_project.tml")) {
+            if (templateStream == null) {
+                throw new IOException("Template file /tml/empty_project.tml not found in resources");
+            }
+            
+            // Simple binary copy - same approach as downloadProject()
+            Files.copy(templateStream, tmlFilePath, StandardCopyOption.REPLACE_EXISTING);
+            
+            logMessage("Created TML file from template: " + tmlFilePath.getFileName());
+            return tmlFilePath;
+        }
+    }
 
     // -------------------------- Project Opening -------------------------- //
 
@@ -957,51 +1031,35 @@ public class SpeleoDBController implements Initializable {
         var project = (JsonObject) ((Button) e.getSource()).getUserData();
 
         parentPlugin.executorService.execute(() -> {
-
-            AtomicBoolean lockIsAcquired = new AtomicBoolean(false);
-
             try {
-
-                if (!project.getString("permission").equals(READ_ONLY.name())) {
-                    logMessage("Locking " + project.getString("name"));
-
-                    if (speleoDBService.acquireOrRefreshProjectMutex(project)) {
-                        logMessage("Lock successful on  " + project.getString("name"));
-                        lockIsAcquired.set(true);
-                    } else {
-                        logMessage("Lock failed on  " + project.getString("name"));
-                    }
-                }
-
-                logMessage("Downloading projects " + project.getString("name"));
-
+                // Step 1: Try to acquire lock (if not read-only)
+                LockResult lockResult = acquireProjectLock(project, "project opening");
+                
+                // Step 2: Download project regardless of lock status
+                logMessage("Downloading project: " + project.getString("name"));
                 Path tml_filepath = speleoDBService.downloadProject(project);
 
                 if (Files.exists(tml_filepath)) {
-
+                    // Step 3: Load the project
                     parentPlugin.loadSurvey(tml_filepath.toFile());
-                    logMessage("Download successful of " + project.getString("name"));
+                    logMessage("Download successful: " + project.getString("name"));
                     currentProject = project;
                     checkAndUpdateSpeleoDBId(project);
 
-                    // Update UI first
+                    // Step 4: Update UI based on lock status
                     Platform.runLater(() -> {
                         serverProgressIndicator.setVisible(false);
                         actionsTitlePane.setVisible(true);
                         actionsTitlePane.setExpanded(true);
                         actionsTitlePane.setText("Actions on `" + currentProject.getString("name") + "`.");
 
-                        if (lockIsAcquired.get()) {
-                            uploadButton.setDisable(false);
-                            unlockButton.setDisable(false);
-                        } else {
-                            uploadButton.setDisable(true);
-                            unlockButton.setDisable(true);
-                        }
+                        // Enable/disable controls based on lock acquisition
+                        boolean hasLock = lockResult.isAcquired();
+                        uploadButton.setDisable(!hasLock);
+                        unlockButton.setDisable(!hasLock);
                     });
                     
-                    // Refresh project listing after all operations are complete
-                    // (no sleep needed - all operations above are now complete)
+                    // Step 5: Refresh project listing
                     try {
                         logMessage("Refreshing project listing after project opening...");
                         JsonArray projectList = speleoDBService.listProjects();
@@ -1022,10 +1080,15 @@ public class SpeleoDBController implements Initializable {
                         uploadButton.setDisable(true);
                         unlockButton.setDisable(true);
                     });
-
                 }
             } catch (IOException | InterruptedException | URISyntaxException ex) {
-                throw new RuntimeException(ex);
+                logMessage("Error opening project: " + ex.getMessage());
+                Platform.runLater(() -> {
+                    serverProgressIndicator.setVisible(false);
+                    actionsTitlePane.setVisible(false);
+                    uploadButton.setDisable(true);
+                    unlockButton.setDisable(true);
+                });
             } finally {
                 Platform.runLater(() -> {
                     projectListView.setDisable(false);
@@ -1405,4 +1468,135 @@ public class SpeleoDBController implements Initializable {
     public void logMessageFromPlugin(String message) {
         logMessage(message);
     }
+
+    // ====================== CENTRALIZED LOCK MANAGEMENT ====================== //
+    
+    /**
+     * Result of a lock acquisition attempt with detailed information
+     */
+    public static class LockResult {
+        private final boolean acquired;
+        private final String message;
+        private final JsonObject project;
+        private final Exception error;
+        
+        private LockResult(boolean acquired, String message, JsonObject project, Exception error) {
+            this.acquired = acquired;
+            this.message = message;
+            this.project = project;
+            this.error = error;
+        }
+        
+        public static LockResult success(JsonObject project, String message) {
+            return new LockResult(true, message, project, null);
+        }
+        
+        public static LockResult failure(JsonObject project, String message) {
+            return new LockResult(false, message, project, null);
+        }
+        
+        public static LockResult error(JsonObject project, String message, Exception error) {
+            return new LockResult(false, message, project, error);
+        }
+        
+        public boolean isAcquired() { return acquired; }
+        public String getMessage() { return message; }
+        public JsonObject getProject() { return project; }
+        public Exception getError() { return error; }
+        public boolean hasError() { return error != null; }
+    }
+    
+    /**
+     * Centralized lock acquisition with comprehensive error handling and logging.
+     * This method consolidates all lock acquisition logic to eliminate duplication.
+     * 
+     * @param project the project to acquire lock for
+     * @param context description of the operation context (e.g., "project creation", "project opening")
+     * @return LockResult with detailed information about the operation
+     */
+    private LockResult acquireProjectLock(JsonObject project, String context) {
+        String projectName = project.getString("name");
+        String projectId = project.getString("id");
+        
+        try {
+            // Check if project allows editing
+            String permission = project.getString("permission", "");
+            if (READ_ONLY.name().equals(permission)) {
+                String message = "Project '" + projectName + "' is read-only - no lock needed";
+                logMessage("🔒 " + message);
+                return LockResult.failure(project, message);
+            }
+            
+            logMessage("🔄 Acquiring lock for " + context + ": " + projectName);
+            
+            boolean lockAcquired = speleoDBService.acquireOrRefreshProjectMutex(project);
+            
+            if (lockAcquired) {
+                String successMessage = "✓ Lock acquired successfully for " + context + ": " + projectName;
+                logMessage(successMessage);
+                return LockResult.success(project, successMessage);
+            } else {
+                String failureMessage = "⚠️ Failed to acquire lock for " + context + ": " + projectName;
+                logMessage(failureMessage);
+                return LockResult.failure(project, failureMessage);
+            }
+            
+        } catch (Exception e) {
+            String errorMessage = "❌ Error acquiring lock for " + context + ": " + projectName + " - " + e.getMessage();
+            logMessage(errorMessage);
+            return LockResult.error(project, errorMessage, e);
+        }
+    }
+    
+    /**
+     * Acquires lock and updates UI state accordingly.
+     * This is the most common pattern used throughout the application.
+     * 
+     * @param project the project to acquire lock for
+     * @param context description of the operation context
+     * @param onSuccess callback executed on successful lock acquisition (on UI thread)
+     * @param onFailure callback executed on lock failure (on UI thread)
+     */
+    private void acquireProjectLockWithUI(JsonObject project, String context, 
+                                         Runnable onSuccess, Runnable onFailure) {
+        parentPlugin.executorService.execute(() -> {
+            LockResult result = acquireProjectLock(project, context);
+            
+            Platform.runLater(() -> {
+                if (result.isAcquired()) {
+                    // Set as current project if lock acquired
+                    currentProject = project;
+                    
+                    // Enable UI controls for editing
+                    actionsTitlePane.setVisible(true);
+                    actionsTitlePane.setExpanded(true);
+                    actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
+                    uploadButton.setDisable(false);
+                    unlockButton.setDisable(false);
+                    
+                    if (onSuccess != null) onSuccess.run();
+                } else {
+                    // Disable editing controls if lock not acquired
+                    uploadButton.setDisable(true);
+                    unlockButton.setDisable(true);
+                    
+                    if (onFailure != null) onFailure.run();
+                }
+            });
+        });
+    }
+    
+    /**
+     * Simplified lock acquisition for cases where only the boolean result is needed.
+     * Used primarily in tests and simple operations.
+     * 
+     * @param project the project to acquire lock for
+     * @param context description of the operation context
+     * @return true if lock was acquired, false otherwise
+     */
+    private boolean tryAcquireProjectLock(JsonObject project, String context) {
+        return acquireProjectLock(project, context).isAcquired();
+    }
+
+    // ========================== PROJECT OPENING ========================== //
 }
