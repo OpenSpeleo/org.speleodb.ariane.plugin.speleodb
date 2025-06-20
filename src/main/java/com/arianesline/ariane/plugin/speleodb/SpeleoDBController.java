@@ -1609,56 +1609,25 @@ public class SpeleoDBController implements Initializable {
                 // User confirmed switch - release current lock first
                 logMessage("User confirmed project switch. Releasing lock on: " + getCurrentProjectName());
                 
-                parentPlugin.executorService.execute(() -> {
-                    try {
-                        if (speleoDBService.releaseProjectMutex(currentProject)) {
-                            logMessage("Successfully released lock on: " + getCurrentProjectName());
-                            currentProject = null;
-                            
-                            Platform.runLater(() -> {
-                                actionsTitlePane.setVisible(false);
-                                actionsTitlePane.setExpanded(false);
-                                
-                                // Now proceed with the new project selection
-                                try {
-                                    logMessage("Proceeding with new project selection: " + selectedProjectName);
-                                    clickSpeleoDBProject(event);
-                                    
-                                    // Refresh project listing after project switch is complete
-                                    parentPlugin.executorService.execute(() -> {
-                                        try {
-                                            logMessage("Refreshing project listing after project switch...");
-                                            listProjects();
-                                        } catch (Exception e) {
-                                            logMessage("Error refreshing project listing: " + e.getMessage());
-                                        }
-                                    });
-                                    
-                                } catch (IOException | InterruptedException | URISyntaxException e) {
-                                    logMessage("Error switching to new project: " + e.getMessage());
-                                    Platform.runLater(() -> projectListView.setDisable(false));
-                                }
-                            });
-                        } else {
-                            logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
-                            showErrorAnimation("Failed to Release Lock");
+                // Use centralized lock release with UI integration
+                releaseProjectLockWithUI(currentProject, "project switch", 
+                    () -> {
+                        // Success callback: proceed with new project selection
+                        try {
+                            logMessage("Proceeding with new project selection: " + selectedProjectName);
+                            clickSpeleoDBProject(event);
+                        } catch (IOException | InterruptedException | URISyntaxException e) {
+                            logMessage("Error switching to new project: " + getSafeErrorMessage(e));
                             Platform.runLater(() -> projectListView.setDisable(false));
                         }
-                    } catch (IOException | InterruptedException | URISyntaxException e) {
-                        String errorMessage = getNetworkErrorMessage(e, "Lock release");
-                        logMessage("Error releasing lock: " + getSafeErrorMessage(e));
-                        
-                        if (isServerOfflineError(e)) {
-                            showErrorAnimation("Can't reach server");
-                        } else if (isTimeoutError(e)) {
-                            showErrorAnimation("Lock release timed out");
-                        } else {
-                            showErrorAnimation("Failed to Release Lock");
-                        }
-                        
+                    },
+                    () -> {
+                        // Failure callback: re-enable project list
+                        logMessage("Cannot switch projects - failed to release current lock");
                         Platform.runLater(() -> projectListView.setDisable(false));
-                    }
-                });
+                    },
+                    false // Don't show modal dialogs for project switch
+                );
                 
                 return;
             }
@@ -1731,47 +1700,18 @@ public class SpeleoDBController implements Initializable {
         uploadButton.setDisable(true);
         unlockButton.setDisable(true);
 
-        parentPlugin.executorService.execute(() -> {
-            try {
-                if (speleoDBService.releaseProjectMutex(currentProject)) {
-                    logMessage("Project " + currentProject.getString("name") + " unlocked");
-                    
-                    // Show success animation
-                    showSuccessAnimation();
-                    
-                    currentProject = null;
-
-                    Platform.runLater(() -> {
-                        actionsTitlePane.setVisible(false);
-                        actionsTitlePane.setExpanded(false);
-                        projectsTitlePane.setExpanded(true);
-                    });
-
-                    listProjects();
-                } else {
-                    logMessage("Failed to release lock for " + currentProject.getString("name"));
-                    showErrorAnimation("Failed to Release Lock");
-                }
-            } catch (IOException | InterruptedException | URISyntaxException e) {
-                String errorMessage = getNetworkErrorMessage(e, "Lock release");
-                logMessage("Error releasing lock: " + getSafeErrorMessage(e));
-                
-                if (isServerOfflineError(e)) {
-                    showErrorAnimation("Can't reach server");
-                    showErrorModal("Server Offline", errorMessage);
-                } else if (isTimeoutError(e)) {
-                    showErrorAnimation("Request timed out");
-                    showErrorModal("Lock Release Timeout", errorMessage);
-                } else {
-                    showErrorAnimation("Failed to Release Lock");
-                }
-            } finally {
-                Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                    uploadButton.setDisable(false);
-                    unlockButton.setDisable(false);
-                });
-            }
+        // Use centralized lock release with UI integration
+        releaseProjectLockWithUI(currentProject, "manual unlock", 
+            null, // No additional success callback needed
+            null, // No additional failure callback needed  
+            true  // Show modal dialogs for unlock operation
+        );
+        
+        // Always re-enable UI controls after operation
+        Platform.runLater(() -> {
+            serverProgressIndicator.setVisible(false);
+            uploadButton.setDisable(false);
+            unlockButton.setDisable(false);
         });
     }
 
@@ -1820,39 +1760,13 @@ public class SpeleoDBController implements Initializable {
                     
                     if (shouldReleaseLock) {
                         logMessage("User chose to release the write lock.");
-                        // Release the lock in background thread
-                        parentPlugin.executorService.execute(() -> {
-                            try {
-                                if (speleoDBService.releaseProjectMutex(currentProject)) {
-                                    logMessage("Project " + currentProject.getString("name") + " unlocked");
-                                    currentProject = null;
-
-                                    Platform.runLater(() -> {
-                                        actionsTitlePane.setVisible(false);
-                                        actionsTitlePane.setExpanded(false);
-                                        projectsTitlePane.setExpanded(true);
-                                    });
-
-                                    listProjects();
-                                } else {
-                                    logMessage("Failed to release lock for " + currentProject.getString("name"));
-                                    showErrorAnimation("Failed to Release Lock");
-                                }
-                            } catch (IOException | InterruptedException | URISyntaxException e) {
-                                String errorMessage = getNetworkErrorMessage(e, "Lock release");
-                                logMessage("Error releasing lock: " + getSafeErrorMessage(e));
-                                
-                                if (isServerOfflineError(e)) {
-                                    showErrorAnimation("Can't reach server");
-                                    showErrorModal("Server Offline", errorMessage);
-                                } else if (isTimeoutError(e)) {
-                                    showErrorAnimation("Request timed out");
-                                    showErrorModal("Lock Release Timeout", errorMessage);
-                                } else {
-                                    showErrorAnimation("Failed to Release Lock");
-                                }
-                            }
-                        });
+                        
+                        // Use centralized lock release with UI integration
+                        releaseProjectLockWithUI(currentProject, "post-upload", 
+                            null, // No additional success callback needed
+                            null, // No additional failure callback needed
+                            true  // Show modal dialogs for post-upload release
+                        );
                     } else {
                         logMessage("User chose to keep the write lock.");
                     }
@@ -1967,8 +1881,13 @@ public class SpeleoDBController implements Initializable {
      */
     public void releaseCurrentProjectLock() throws IOException, InterruptedException, URISyntaxException {
         if (currentProject != null) {
-            speleoDBService.releaseProjectMutex(currentProject);
-            currentProject = null;
+            // Use centralized lock release for shutdown - simple version without UI updates
+            LockReleaseResult result = releaseProjectLock(currentProject, "application shutdown");
+            
+            if (result.hasError()) {
+                // Re-throw exception for shutdown handling
+                throw new IOException("Failed to release lock during shutdown: " + result.getMessage(), result.getError());
+            }
         }
     }
     
@@ -2019,6 +1938,172 @@ public class SpeleoDBController implements Initializable {
     }
     
     /**
+     * Result of a lock release attempt with detailed information
+     */
+    public static class LockReleaseResult {
+        private final boolean released;
+        private final String message;
+        private final JsonObject project;
+        private final Exception error;
+        
+        private LockReleaseResult(boolean released, String message, JsonObject project, Exception error) {
+            this.released = released;
+            this.message = message;
+            this.project = project;
+            this.error = error;
+        }
+        
+        public static LockReleaseResult success(JsonObject project, String message) {
+            return new LockReleaseResult(true, message, project, null);
+        }
+        
+        public static LockReleaseResult failure(JsonObject project, String message) {
+            return new LockReleaseResult(false, message, project, null);
+        }
+        
+        public static LockReleaseResult error(JsonObject project, String message, Exception error) {
+            return new LockReleaseResult(false, message, project, error);
+        }
+        
+        public boolean isReleased() { return released; }
+        public String getMessage() { return message; }
+        public JsonObject getProject() { return project; }
+        public Exception getError() { return error; }
+        public boolean hasError() { return error != null; }
+    }
+    
+    /**
+     * Centralized lock release with comprehensive error handling and logging.
+     * This method consolidates all lock release logic to eliminate duplication.
+     * 
+     * @param project the project to release lock for
+     * @param context description of the operation context (e.g., "project switch", "unlock", "post-upload")
+     * @return LockReleaseResult with detailed information about the operation
+     */
+    private LockReleaseResult releaseProjectLock(JsonObject project, String context) {
+        if (project == null) {
+            return LockReleaseResult.failure(null, "No project provided for lock release");
+        }
+        
+        String projectName = project.getString("name");
+        logMessage("Releasing lock for project '" + projectName + "' (context: " + context + ")");
+        
+        try {
+            boolean success = speleoDBService.releaseProjectMutex(project);
+            
+            if (success) {
+                String successMessage = "Successfully released lock on: " + projectName;
+                logMessage(successMessage);
+                return LockReleaseResult.success(project, successMessage);
+            } else {
+                String failureMessage = "Failed to release lock for " + projectName;
+                logMessage(failureMessage);
+                return LockReleaseResult.failure(project, failureMessage);
+            }
+            
+        } catch (Exception e) {
+            String errorMessage = "Error releasing lock for " + projectName + ": " + getSafeErrorMessage(e);
+            logMessage(errorMessage);
+            return LockReleaseResult.error(project, errorMessage, e);
+        }
+    }
+    
+    /**
+     * Centralized lock release with UI integration and comprehensive error handling.
+     * Handles all UI updates, animations, and modal displays based on the release result.
+     * 
+     * @param project the project to release lock for
+     * @param context description of the operation context
+     * @param onSuccess callback to execute on successful lock release (optional)
+     * @param onFailure callback to execute on failed lock release (optional)
+     * @param showModals whether to show error modals for network issues
+     */
+    private void releaseProjectLockWithUI(JsonObject project, String context, 
+                                        Runnable onSuccess, Runnable onFailure, boolean showModals) {
+        
+        parentPlugin.executorService.execute(() -> {
+            LockReleaseResult result = releaseProjectLock(project, context);
+            
+            Platform.runLater(() -> {
+                if (result.isReleased()) {
+                    // Success: Clear current project and update UI
+                    currentProject = null;
+                    
+                    // Update UI state
+                    actionsTitlePane.setVisible(false);
+                    actionsTitlePane.setExpanded(false);
+                    projectsTitlePane.setExpanded(true);
+                    
+                    // Show success animation
+                    showSuccessAnimation("Lock Released");
+                    
+                    // Execute success callback
+                    if (onSuccess != null) {
+                        onSuccess.run();
+                    }
+                    
+                    // Refresh project list
+                    parentPlugin.executorService.execute(() -> {
+                        try {
+                            listProjects();
+                        } catch (Exception e) {
+                            logMessage("Error refreshing project list after lock release: " + getSafeErrorMessage(e));
+                        }
+                    });
+                    
+                } else if (result.hasError()) {
+                    // Network/Exception error: Handle with appropriate animations and modals
+                    Exception error = result.getError();
+                    String networkErrorMessage = getNetworkErrorMessage(error, "Lock release");
+                    
+                    if (isServerOfflineError(error)) {
+                        showErrorAnimation("Can't reach server");
+                        if (showModals) {
+                            showErrorModal("Server Offline", networkErrorMessage);
+                        }
+                    } else if (isTimeoutError(error)) {
+                        showErrorAnimation("Lock release timed out");
+                        if (showModals) {
+                            showErrorModal("Lock Release Timeout", networkErrorMessage);
+                        }
+                    } else {
+                        showErrorAnimation("Failed to Release Lock");
+                        if (showModals) {
+                            showErrorModal("Lock Release Error", result.getMessage());
+                        }
+                    }
+                    
+                    // Execute failure callback
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
+                    
+                } else {
+                    // Service-level failure (returned false)
+                    showErrorAnimation("Failed to Release Lock");
+                    
+                    // Execute failure callback
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
+                }
+            });
+        });
+    }
+    
+    /**
+     * Simple boolean wrapper for lock release operations.
+     * Use this when you only need to know if the release succeeded or failed.
+     * 
+     * @param project the project to release lock for
+     * @param context description of the operation context
+     * @return true if lock was successfully released, false otherwise
+     */
+    private boolean tryReleaseProjectLock(JsonObject project, String context) {
+        return releaseProjectLock(project, context).isReleased();
+    }
+    
+    /**
      * Centralized lock acquisition with comprehensive error handling and logging.
      * This method consolidates all lock acquisition logic to eliminate duplication.
      * 
@@ -2040,7 +2125,7 @@ public class SpeleoDBController implements Initializable {
             }
             
             logMessage("🔄 Acquiring lock for " + context + ": " + projectName);
-            
+        
             boolean lockAcquired = speleoDBService.acquireOrRefreshProjectMutex(project);
             
             if (lockAcquired) {
@@ -2109,6 +2194,4 @@ public class SpeleoDBController implements Initializable {
     private boolean tryAcquireProjectLock(JsonObject project, String context) {
         return acquireProjectLock(project, context).isAcquired();
     }
-
-    // ========================== PROJECT OPENING ========================== //
 }
