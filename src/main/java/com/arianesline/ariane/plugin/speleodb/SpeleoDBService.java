@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.regex.Pattern;
 
@@ -360,25 +361,67 @@ public class SpeleoDBService {
 
         Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + ".tml");
 
-        if (response.statusCode() == 200) {
-            // Clean any old version
-            if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
-
-            Files.write(tml_filepath, response.body(), StandardOpenOption.CREATE_NEW);
-
-            return tml_filepath;
-        } else if (response.statusCode() == 404) {
-            // case project has no TML file
-            // Clean any old version
-
-            if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
-
-            return tml_filepath;
+        switch (response.statusCode()) {
+            case 200 -> {
+                // Clean any old version
+                if (Files.exists(tml_filepath)) Files.delete(tml_filepath);
+                
+                Files.write(tml_filepath, response.body(), StandardOpenOption.CREATE_NEW);
+                
+                return tml_filepath;
+            }
+            case 422 -> {
+                // HTTP 422: Project exists but is empty - create empty TML file.
+                return createEmptyTmlFileFromTemplate(SDB_projectId, project.getString("name", "Unknown Project"));
+            }
+            default -> {
+                // Log the unexpected status code via controller if available
+                String errorMessage = "Unexpected HTTP status code during project download: " + response.statusCode() + 
+                                    " for project: " + project.getString("name", "Unknown Project");
+                
+                if (controller != null) {
+                    controller.logMessageFromPlugin(errorMessage);
+                }
+                
+                // Throw exception with detailed information
+                throw new RuntimeException("Download failed with unexpected status code: " + response.statusCode() + 
+                                         ". Expected: 200 (success), or 422 (project empty)");
+            }
         }
+    }
 
-        // TODO: Add missing response code management
-
-        return null;
+    /**
+     * Creates an empty TML file for a project by copying the template file.
+     * This method is shared between project creation and HTTP 422 download scenarios.
+     * Uses the same approach as downloading TML files - simple binary file copy.
+     * 
+     * @param projectId the SpeleoDB project ID (used for filename)
+     * @param projectName the human-readable project name (for logging only)
+     * @return Path to the created TML file
+     * @throws IOException if file creation fails
+     */
+    public Path createEmptyTmlFileFromTemplate(String projectId, String projectName) throws IOException {
+        Path tmlFilePath = Paths.get(ARIANE_ROOT_DIR + File.separator + projectId + ".tml");
+        
+        // Ensure the .ariane directory exists
+        Files.createDirectories(tmlFilePath.getParent());
+        
+        // Copy the template file from resources (same as download service approach)
+        try (var templateStream = getClass().getResourceAsStream("/tml/empty_project.tml")) {
+            if (templateStream == null) {
+                throw new IOException("Template file /tml/empty_project.tml not found in resources");
+            }
+            
+            // Simple binary copy - same approach as downloadProject()
+            Files.copy(templateStream, tmlFilePath, StandardCopyOption.REPLACE_EXISTING);
+            
+            // Log via controller if available
+            if (controller != null) {
+                controller.logMessageFromPlugin("Created TML file from template: " + tmlFilePath.getFileName());
+            }
+            
+            return tmlFilePath;
+        }
     }
 
     // ---------------------- Project Mutex  ------------------------ //

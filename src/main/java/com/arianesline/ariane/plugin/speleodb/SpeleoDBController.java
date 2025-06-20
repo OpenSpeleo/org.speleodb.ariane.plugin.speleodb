@@ -1046,9 +1046,9 @@ public class SpeleoDBController implements Initializable {
                                 // Heavy operations on background thread
                                 logMessage("Setting up new project files...");
                                 
-                                // Create an empty TML file for the new project
+                                // Create an empty TML file for the new project using shared service method
                                 String projectId = createdProject.getString("id");
-                                Path emptyTmlFile = createEmptyTmlFile(projectId, projectData.name);
+                                Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.name);
                                 
                                 // Load the survey file and update SpeleoDB ID through normal flow
                                 parentPlugin.loadSurvey(emptyTmlFile.toFile());
@@ -1103,35 +1103,7 @@ public class SpeleoDBController implements Initializable {
         }
     }
     
-    /**
-     * Creates an empty TML file for a new project by copying the template file.
-     * Uses the same approach as downloading TML files - simple binary file copy.
-     * The SpeleoDB ID will be updated through the normal application flow.
-     * 
-     * @param projectId the SpeleoDB project ID (used for filename)
-     * @param projectName the human-readable project name (for logging only)
-     * @return Path to the created TML file
-     * @throws IOException if file creation fails
-     */
-    private Path createEmptyTmlFile(String projectId, String projectName) throws IOException {
-        Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + ".tml");
-        
-        // Ensure the .ariane directory exists
-        Files.createDirectories(tmlFilePath.getParent());
-        
-        // Copy the template file from resources (same as download service approach)
-        try (var templateStream = getClass().getResourceAsStream("/tml/empty_project.tml")) {
-            if (templateStream == null) {
-                throw new IOException("Template file /tml/empty_project.tml not found in resources");
-            }
-            
-            // Simple binary copy - same approach as downloadProject()
-            Files.copy(templateStream, tmlFilePath, StandardCopyOption.REPLACE_EXISTING);
-            
-            logMessage("Created TML file from template: " + tmlFilePath.getFileName());
-            return tmlFilePath;
-        }
-    }
+
 
     // -------------------------- Project Opening -------------------------- //
 

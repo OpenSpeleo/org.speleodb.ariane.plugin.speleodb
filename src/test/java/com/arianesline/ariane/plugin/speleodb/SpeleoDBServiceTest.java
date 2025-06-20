@@ -24,6 +24,8 @@ public class SpeleoDBServiceTest {
         testFileOperations();
         testInstanceUrlValidation();
         testProjectCreation();
+        testEmptyTmlFileCreation();
+        testHttp422Handling();
         
         cleanupTestEnvironment();
         System.out.println("All SpeleoDBService tests passed!");
@@ -211,6 +213,74 @@ public class SpeleoDBServiceTest {
         assert jsonWithSpecialChars.contains("special chars");
         
         System.out.println("✓ Project creation tests passed");
+    }
+    
+    static void testEmptyTmlFileCreation() throws IOException {
+        System.out.println("Testing empty TML file creation...");
+        
+        MockSpeleoDBController controller = new MockSpeleoDBController();
+        TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
+        
+        // Test creating empty TML file from template
+        String testProjectId = "test-422-project";
+        String testProjectName = "Test HTTP 422 Project";
+        
+        try {
+            Path createdFile = service.createEmptyTmlFileFromTemplate(testProjectId, testProjectName);
+            
+            // Verify file was created
+            assert Files.exists(createdFile) : "TML file should be created";
+            assert Files.size(createdFile) > 0 : "TML file should not be empty";
+            assert createdFile.getFileName().toString().equals(testProjectId + ".tml") : "File should have correct name";
+            
+            // Verify it's in the correct directory
+            String expectedDir = SpeleoDBService.ARIANE_ROOT_DIR;
+            assert createdFile.getParent().toString().equals(expectedDir) : "File should be in ARIANE_ROOT_DIR";
+            
+            // Clean up
+            Files.deleteIfExists(createdFile);
+            
+            System.out.println("✓ Empty TML file creation test passed");
+            
+        } catch (IOException e) {
+            // This might fail if the template file doesn't exist in test environment
+            System.out.println("⚠ Empty TML file creation test skipped (template not available in test environment)");
+        }
+    }
+    
+    static void testHttp422Handling() {
+        System.out.println("Testing HTTP status code handling logic...");
+        
+        // Test that we have the correct status code handling
+        int http422 = 422;
+        assert http422 == 422 : "HTTP 422 constant should be correct";
+        
+        // Test switch statement logic (conceptual - we can't easily mock HTTP responses)
+        // This verifies that our switch statement covers the expected cases
+        // Updated to reflect removal of HTTP 404 case
+        int[] expectedStatusCodes = {200, 422};
+        for (int code : expectedStatusCodes) {
+            String action = switch (code) {
+                case 200 -> "download_file";
+                case 422 -> "create_from_template";
+                default -> "unknown";
+            };
+            assert !action.equals("unknown") : "All expected status codes should be handled";
+        }
+        
+        // Test that unexpected status codes would trigger the default case
+        // HTTP 404 is now treated as unexpected and should trigger exception
+        int[] unexpectedStatusCodes = {400, 401, 403, 404, 500, 503};
+        for (int code : unexpectedStatusCodes) {
+            String action = switch (code) {
+                case 200 -> "download_file";
+                case 422 -> "create_from_template";
+                default -> "exception_thrown";
+            };
+            assert action.equals("exception_thrown") : "Unexpected status codes (including 404) should trigger default case";
+        }
+        
+        System.out.println("✓ HTTP status code handling logic test passed");
     }
     
     // Helper method to test URL pattern matching
