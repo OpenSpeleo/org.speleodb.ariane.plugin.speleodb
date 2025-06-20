@@ -352,20 +352,22 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Shows an error animation overlay with customizable message.
+     * Enhanced with a more prominent red ERROR styling.
      * 
-     * @param message the error message to display (optional, defaults to "Error")
+     * @param message the error message to display (optional, defaults to "ERROR")
      */
     private void showErrorAnimation(String message) {
         Platform.runLater(() -> {
             // Use default message if none provided
-            String displayMessage = (message == null || message.trim().isEmpty()) ? "Error" : message;
+            String displayMessage = (message == null || message.trim().isEmpty()) ? "ERROR" : message;
             
-            // Create temporary error indicator
-            Label errorLabel = new Label("✗ " + displayMessage);
-            errorLabel.setStyle("-fx-background-color: #F44336; -fx-text-fill: white; " +
-                              "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
-                              "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                              "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);");
+            // Create temporary error indicator with enhanced styling
+            Label errorLabel = new Label("❌ " + displayMessage);
+            errorLabel.setStyle("-fx-background-color: #DC143C; -fx-text-fill: white; " +
+                              "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
+                              "-fx-font-weight: bold; -fx-border-radius: 10; " +
+                              "-fx-border-color: #B22222; -fx-border-width: 2; " +
+                              "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3);");
             
             // Position it in the center-top of the main pane
             AnchorPane.setTopAnchor(errorLabel, 20.0);
@@ -376,17 +378,38 @@ public class SpeleoDBController implements Initializable {
             
             speleoDBAnchorPane.getChildren().add(errorLabel);
             
-            // Animate the error message
+            // Enhanced animation with shake effect
             errorLabel.setOpacity(0.0);
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(400), errorLabel);
+            
+            // Fade in animation
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(300), errorLabel);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
-            fadeIn.play();
             
-            // Auto-hide after 4 seconds
+            // Add subtle shake animation for error emphasis
+            Timeline shakeTimeline = new Timeline(
+                new KeyFrame(Duration.millis(0), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
+                new KeyFrame(Duration.millis(50), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), -5)),
+                new KeyFrame(Duration.millis(100), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 5)),
+                new KeyFrame(Duration.millis(150), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), -3)),
+                new KeyFrame(Duration.millis(200), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 3)),
+                new KeyFrame(Duration.millis(250), 
+                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0))
+            );
+            
+            // Play animations
+            fadeIn.play();
+            fadeIn.setOnFinished(e -> shakeTimeline.play());
+            
+            // Auto-hide after 5 seconds (longer for errors)
             Timeline hideTimeline = new Timeline(
-                new KeyFrame(Duration.seconds(4), e -> {
-                    FadeTransition fadeOut = new FadeTransition(Duration.millis(400), errorLabel);
+                new KeyFrame(Duration.seconds(5), e -> {
+                    FadeTransition fadeOut = new FadeTransition(Duration.millis(500), errorLabel);
                     fadeOut.setFromValue(1.0);
                     fadeOut.setToValue(0.0);
                     fadeOut.setOnFinished(event -> speleoDBAnchorPane.getChildren().remove(errorLabel));
@@ -398,10 +421,10 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Shows an error animation with the default "Error" message.
+     * Shows an error animation with the default "ERROR" message.
      */
     private void showErrorAnimation() {
-        showErrorAnimation("Error");
+        showErrorAnimation("ERROR");
     }
 
     /**
@@ -719,7 +742,7 @@ public class SpeleoDBController implements Initializable {
 
             } catch (Exception e) {
                 logMessage("Connection failed: " + e.getMessage());
-                showErrorAnimation();
+                showErrorAnimation("Connection Failed: " + e.getMessage());
                 Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
         });
@@ -907,7 +930,7 @@ public class SpeleoDBController implements Initializable {
                 handleProjectListResponse(projectList);
             } catch (Exception e) {
                 logMessage("Failed to list projects: " + e.getMessage());
-                showErrorAnimation();
+                showErrorAnimation("Failed to Load Projects");
             } finally {
                 Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
@@ -939,7 +962,7 @@ public class SpeleoDBController implements Initializable {
                 Platform.runLater(() -> logMessage("Project list refreshed successfully"));
             } catch (Exception e) {
                 logMessage("Failed to refresh projects: " + e.getMessage());
-                showErrorAnimation();
+                showErrorAnimation("Failed to Refresh Projects");
             } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
@@ -1088,7 +1111,7 @@ public class SpeleoDBController implements Initializable {
                 } catch (Exception e) {
                     Platform.runLater(() -> {
                         logMessage("Failed to create project: " + e.getMessage());
-                        showErrorAnimation();
+                        showErrorAnimation("Project Creation Failed");
                     });
                 } finally {
                     Platform.runLater(() -> {
@@ -1249,8 +1272,9 @@ public class SpeleoDBController implements Initializable {
                                 }
                             });
                         } else {
-                            logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
-                            Platform.runLater(() -> projectListView.setDisable(false));
+                                                    logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
+                        showErrorAnimation("Failed to Release Lock");
+                        Platform.runLater(() -> projectListView.setDisable(false));
                         }
                     } catch (IOException | InterruptedException | URISyntaxException e) {
                         logMessage("Error releasing lock: " + e.getMessage());
@@ -1438,7 +1462,7 @@ public class SpeleoDBController implements Initializable {
                 
             } catch (Exception e) {
                 logMessage("Upload failed: " + e.getMessage());
-                showErrorAnimation();
+                showErrorAnimation("Upload Failed: " + e.getMessage());
             } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
