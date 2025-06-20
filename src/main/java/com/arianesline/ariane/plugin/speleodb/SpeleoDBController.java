@@ -306,19 +306,70 @@ public class SpeleoDBController implements Initializable {
             // Use default message if none provided
             String displayMessage = (message == null || message.trim().isEmpty()) ? "Success" : message;
             
-            // Create temporary success indicator
+            // Create temporary success indicator with auto-sizing
             Label successLabel = new Label("✓ " + displayMessage);
             successLabel.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; " +
                                 "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
                                 "-fx-font-weight: bold; -fx-border-radius: 8; " +
                                 "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);");
             
-            // Position it in the center-top of the main pane
-            AnchorPane.setTopAnchor(successLabel, 20.0);
-            AnchorPane.setLeftAnchor(successLabel, 50.0);
-            AnchorPane.setRightAnchor(successLabel, 50.0);
-            successLabel.setMaxWidth(Double.MAX_VALUE);
+            // Allow text wrapping for longer messages
+            successLabel.setWrapText(true);
             successLabel.setAlignment(javafx.geometry.Pos.CENTER);
+            
+            // Let the label size itself to content, but set reasonable constraints
+            successLabel.setMinWidth(150);  // Minimum width for short messages
+            successLabel.setMaxWidth(800);  // Increased maximum width for longer messages
+            successLabel.setPrefWidth(Label.USE_COMPUTED_SIZE);  // Use computed size based on content
+            
+            // Get the scene for positioning relative to the entire window
+            if (speleoDBAnchorPane.getScene() != null) {
+                // Add to scene root instead of constrained pane
+                javafx.scene.Parent root = speleoDBAnchorPane.getScene().getRoot();
+                if (root instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane rootPane = (javafx.scene.layout.Pane) root;
+                    
+                    // Position relative to scene dimensions
+                    successLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+                        double sceneWidth = speleoDBAnchorPane.getScene().getWidth();
+                        double labelWidth = newBounds.getWidth();
+                        double leftPosition = Math.max(10, (sceneWidth - labelWidth) / 2);
+                        successLabel.setLayoutX(leftPosition);
+                        successLabel.setLayoutY(20); // Top margin
+                    });
+                    
+                    rootPane.getChildren().add(successLabel);
+                    
+                    // Animate the success message
+                    successLabel.setOpacity(0.0);
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(400), successLabel);
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    fadeIn.play();
+                    
+                    // Auto-hide after 4 seconds
+                    Timeline hideTimeline = new Timeline(
+                        new KeyFrame(Duration.seconds(4), e -> {
+                            FadeTransition fadeOut = new FadeTransition(Duration.millis(400), successLabel);
+                            fadeOut.setFromValue(1.0);
+                            fadeOut.setToValue(0.0);
+                            fadeOut.setOnFinished(event -> rootPane.getChildren().remove(successLabel));
+                            fadeOut.play();
+                        })
+                    );
+                    hideTimeline.play();
+                    return;
+                }
+            }
+            
+            // Fallback: use original approach if scene root is not accessible
+            AnchorPane.setTopAnchor(successLabel, 20.0);
+            successLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+                double paneWidth = speleoDBAnchorPane.getWidth();
+                double labelWidth = newBounds.getWidth();
+                double leftPosition = Math.max(10, (paneWidth - labelWidth) / 2);
+                AnchorPane.setLeftAnchor(successLabel, leftPosition);
+            });
             
             speleoDBAnchorPane.getChildren().add(successLabel);
             
@@ -361,7 +412,7 @@ public class SpeleoDBController implements Initializable {
             // Use default message if none provided
             String displayMessage = (message == null || message.trim().isEmpty()) ? "ERROR" : message;
             
-            // Create temporary error indicator with enhanced styling
+            // Create temporary error indicator with enhanced styling and auto-sizing
             Label errorLabel = new Label("❌ " + displayMessage);
             errorLabel.setStyle("-fx-background-color: #DC143C; -fx-text-fill: white; " +
                               "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
@@ -369,12 +420,84 @@ public class SpeleoDBController implements Initializable {
                               "-fx-border-color: #B22222; -fx-border-width: 2; " +
                               "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3);");
             
-            // Position it in the center-top of the main pane
-            AnchorPane.setTopAnchor(errorLabel, 20.0);
-            AnchorPane.setLeftAnchor(errorLabel, 50.0);
-            AnchorPane.setRightAnchor(errorLabel, 50.0);
-            errorLabel.setMaxWidth(Double.MAX_VALUE);
+            // Allow text wrapping for longer messages
+            errorLabel.setWrapText(true);
             errorLabel.setAlignment(javafx.geometry.Pos.CENTER);
+            
+            // Let the label size itself to content, but set reasonable constraints
+            errorLabel.setMinWidth(200);  // Minimum width for short messages
+            errorLabel.setMaxWidth(900);  // Increased maximum width for longer error messages
+            errorLabel.setPrefWidth(Label.USE_COMPUTED_SIZE);  // Use computed size based on content
+            
+            // Get the scene for positioning relative to the entire window
+            if (speleoDBAnchorPane.getScene() != null) {
+                // Add to scene root instead of constrained pane
+                javafx.scene.Parent root = speleoDBAnchorPane.getScene().getRoot();
+                if (root instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane rootPane = (javafx.scene.layout.Pane) root;
+                    
+                    // Position relative to scene dimensions
+                    errorLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+                        double sceneWidth = speleoDBAnchorPane.getScene().getWidth();
+                        double labelWidth = newBounds.getWidth();
+                        double leftPosition = Math.max(10, (sceneWidth - labelWidth) / 2);
+                        errorLabel.setLayoutX(leftPosition);
+                        errorLabel.setLayoutY(20); // Top margin
+                    });
+                    
+                    rootPane.getChildren().add(errorLabel);
+                    
+                    // Enhanced animation with shake effect
+                    errorLabel.setOpacity(0.0);
+                    
+                    // Fade in animation
+                    FadeTransition fadeIn = new FadeTransition(Duration.millis(300), errorLabel);
+                    fadeIn.setFromValue(0.0);
+                    fadeIn.setToValue(1.0);
+                    
+                    // Add subtle shake animation for error emphasis
+                    Timeline shakeTimeline = new Timeline(
+                        new KeyFrame(Duration.millis(0), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
+                        new KeyFrame(Duration.millis(50), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), -5)),
+                        new KeyFrame(Duration.millis(100), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 5)),
+                        new KeyFrame(Duration.millis(150), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), -3)),
+                        new KeyFrame(Duration.millis(200), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 3)),
+                        new KeyFrame(Duration.millis(250), 
+                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0))
+                    );
+                    
+                    // Play animations
+                    fadeIn.play();
+                    fadeIn.setOnFinished(e -> shakeTimeline.play());
+                    
+                    // Auto-hide after 5 seconds (longer for errors)
+                    Timeline hideTimeline = new Timeline(
+                        new KeyFrame(Duration.seconds(5), e -> {
+                            FadeTransition fadeOut = new FadeTransition(Duration.millis(500), errorLabel);
+                            fadeOut.setFromValue(1.0);
+                            fadeOut.setToValue(0.0);
+                            fadeOut.setOnFinished(event -> rootPane.getChildren().remove(errorLabel));
+                            fadeOut.play();
+                        })
+                    );
+                    hideTimeline.play();
+                    return;
+                }
+            }
+            
+            // Fallback: use original approach if scene root is not accessible
+            AnchorPane.setTopAnchor(errorLabel, 20.0);
+            errorLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+                double paneWidth = speleoDBAnchorPane.getWidth();
+                double labelWidth = newBounds.getWidth();
+                double leftPosition = Math.max(10, (paneWidth - labelWidth) / 2);
+                AnchorPane.setLeftAnchor(errorLabel, leftPosition);
+            });
             
             speleoDBAnchorPane.getChildren().add(errorLabel);
             
@@ -462,6 +585,116 @@ public class SpeleoDBController implements Initializable {
         });
     }
 
+    // ===================== NETWORK ERROR DETECTION ======================= //
+    
+    /**
+     * Safely extracts a meaningful error message from an exception.
+     * Handles cases where getMessage() returns null by falling back to exception class name.
+     * 
+     * @param exception the exception to extract message from
+     * @return a non-null error message
+     */
+    private String getSafeErrorMessage(Exception exception) {
+        if (exception == null) return "Unknown error";
+        
+        String message = exception.getMessage();
+        if (message != null && !message.trim().isEmpty()) {
+            return message;
+        }
+        
+        // Fall back to exception class name if message is null or empty
+        return exception.getClass().getSimpleName();
+    }
+    
+    /**
+     * Analyzes an exception to determine if it's a server offline error.
+     * Detects various network connectivity issues that indicate the server is unreachable.
+     * 
+     * @param exception the exception to analyze
+     * @return true if the error indicates the server is offline/unreachable
+     */
+    private boolean isServerOfflineError(Exception exception) {
+        if (exception == null) return false;
+        
+        String message = exception.getMessage();
+        if (message == null) message = "";
+        message = message.toLowerCase();
+        
+        // Check exception type
+        String exceptionType = exception.getClass().getSimpleName().toLowerCase();
+        
+        // Connection refused, host unreachable, network errors
+        return message.contains("connection refused") ||
+               message.contains("no route to host") ||
+               message.contains("host unreachable") ||
+               message.contains("network is unreachable") ||
+               message.contains("connection reset") ||
+               message.contains("connection timed out") ||
+               message.contains("unknown host") ||
+               message.contains("name resolution failed") ||
+               exceptionType.contains("connectexception") ||
+               exceptionType.contains("unknownhostexception") ||
+               exceptionType.contains("noroutetohostexception") ||
+               exceptionType.contains("sockettimeoutexception") ||
+               exceptionType.contains("httptimeoutexception");
+    }
+    
+    /**
+     * Analyzes an exception to determine if it's a timeout error.
+     * Detects various timeout scenarios during network operations.
+     * 
+     * @param exception the exception to analyze
+     * @return true if the error indicates a timeout occurred
+     */
+    private boolean isTimeoutError(Exception exception) {
+        if (exception == null) return false;
+        
+        String message = exception.getMessage();
+        if (message == null) message = "";
+        message = message.toLowerCase();
+        
+        // Check exception type
+        String exceptionType = exception.getClass().getSimpleName().toLowerCase();
+        
+        // Various timeout conditions
+        return message.contains("timed out") ||
+               message.contains("timeout") ||
+               message.contains("read timeout") ||
+               message.contains("connect timeout") ||
+               message.contains("operation timeout") ||
+               exceptionType.contains("timeout") ||
+               exceptionType.contains("sockettimeoutexception") ||
+               exceptionType.contains("httptimeoutexception") ||
+               exceptionType.contains("interruptedexception");
+    }
+    
+    /**
+     * Creates an appropriate error message based on the type of network error.
+     * Provides user-friendly messages for different error scenarios.
+     * 
+     * @param exception the exception that occurred
+     * @param operation the operation that was being performed (e.g., "Connection", "Upload")
+     * @return a user-friendly error message
+     */
+    private String getNetworkErrorMessage(Exception exception, String operation) {
+        if (isServerOfflineError(exception)) {
+            return "Can't reach server - Please check:\n" +
+                   "• Server is online and accessible\n" +
+                   "• Network connection is working\n" +
+                   "• Server URL is correct\n" +
+                   "• Firewall isn't blocking the connection";
+        } else if (isTimeoutError(exception)) {
+            return "Request timed out - Server may be:\n" +
+                   "• Overloaded or slow to respond\n" +
+                   "• Experiencing network issues\n" +
+                   "• Temporarily unavailable\n" +
+                   "Try again in a few moments";
+        } else {
+            // Generic network error
+            return operation + " failed: " + exception.getMessage();
+        }
+    }
+
     // ====================== INPUT VALIDATION METHODS ====================== //
     
     /**
@@ -496,7 +729,6 @@ public class SpeleoDBController implements Initializable {
     
     /**
      * Shows an error modal dialog with the specified title and message.
-     * Uses the existing pre-warmed modal system for consistent styling and performance.
      * 
      * @param title the dialog title
      * @param message the error message to display
@@ -505,24 +737,15 @@ public class SpeleoDBController implements Initializable {
         Platform.runLater(() -> {
             Alert errorAlert = new Alert(Alert.AlertType.ERROR);
             errorAlert.setTitle(title);
-            errorAlert.setHeaderText("Input Validation Error");
+            errorAlert.setHeaderText(null);
             errorAlert.setContentText(message);
             
-            // Apply consistent styling with the rest of the application
-            errorAlert.getDialogPane().setStyle("-fx-font-size: 14px;");
-            
-            // Set owner window if available for proper modal behavior
-            try {
-                if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
-                    errorAlert.initOwner(speleoDBAnchorPane.getScene().getWindow());
-                }
-            } catch (Exception e) {
-                // Ignore initialization errors - modal will still work
+            // Set owner for proper modal behavior
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                errorAlert.initOwner(speleoDBAnchorPane.getScene().getWindow());
             }
             
-            // Show the modal and also trigger the enhanced error animation
             errorAlert.showAndWait();
-            showErrorAnimation("Invalid OAuth Token");
         });
     }
 
@@ -832,8 +1055,19 @@ public class SpeleoDBController implements Initializable {
                 listProjects();
 
             } catch (Exception e) {
-                logMessage("Connection failed: " + e.getMessage());
-                showErrorAnimation("Connection Failed: " + e.getMessage());
+                String errorMessage = getNetworkErrorMessage(e, "Connection");
+                logMessage("Connection failed: " + getSafeErrorMessage(e));
+                
+                if (isServerOfflineError(e)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(e)) {
+                    showErrorAnimation("Request timed out");
+                    showErrorModal("Connection Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Connection Failed: " + e.getMessage());
+                }
+                
                 Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
         });
@@ -1020,8 +1254,18 @@ public class SpeleoDBController implements Initializable {
                 JsonArray projectList = speleoDBService.listProjects();
                 handleProjectListResponse(projectList);
             } catch (Exception e) {
-                logMessage("Failed to list projects: " + e.getMessage());
-                showErrorAnimation("Failed to Load Projects");
+                String errorMessage = getNetworkErrorMessage(e, "Project listing");
+                logMessage("Failed to list projects: " + getSafeErrorMessage(e));
+                
+                if (isServerOfflineError(e)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(e)) {
+                    showErrorAnimation("Request timed out");
+                    showErrorModal("Request Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Failed to Load Projects");
+                }
             } finally {
                 Platform.runLater(() -> serverProgressIndicator.setVisible(false));
             }
@@ -1052,8 +1296,18 @@ public class SpeleoDBController implements Initializable {
                 handleProjectListResponse(projectList);
                 Platform.runLater(() -> logMessage("Project list refreshed successfully"));
             } catch (Exception e) {
+                String errorMessage = getNetworkErrorMessage(e, "Project refresh");
                 logMessage("Failed to refresh projects: " + e.getMessage());
-                showErrorAnimation("Failed to Refresh Projects");
+                
+                if (isServerOfflineError(e)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(e)) {
+                    showErrorAnimation("Request timed out");
+                    showErrorModal("Request Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Failed to Refresh Projects");
+                }
             } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
@@ -1201,8 +1455,18 @@ public class SpeleoDBController implements Initializable {
                     
                 } catch (Exception e) {
                     Platform.runLater(() -> {
+                        String errorMessage = getNetworkErrorMessage(e, "Project creation");
                         logMessage("Failed to create project: " + e.getMessage());
-                        showErrorAnimation("Project Creation Failed");
+                        
+                        if (isServerOfflineError(e)) {
+                            showErrorAnimation("Can't reach server");
+                            showErrorModal("Server Offline", errorMessage);
+                        } else if (isTimeoutError(e)) {
+                            showErrorAnimation("Request timed out");
+                            showErrorModal("Creation Timeout", errorMessage);
+                        } else {
+                            showErrorAnimation("Project Creation Failed");
+                        }
                     });
                 } finally {
                     Platform.runLater(() -> {
@@ -1276,7 +1540,20 @@ public class SpeleoDBController implements Initializable {
                     });
                 }
             } catch (IOException | InterruptedException | URISyntaxException ex) {
-                logMessage("Error opening project: " + ex.getMessage());
+                String errorMessage = getNetworkErrorMessage(ex, "Project download");
+                String safeMessage = getSafeErrorMessage(ex);
+                logMessage("Error opening project: " + safeMessage);
+                
+                if (isServerOfflineError(ex)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(ex)) {
+                    showErrorAnimation("Download timed out");
+                    showErrorModal("Download Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Download Failed");
+                }
+                
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
                     actionsTitlePane.setVisible(false);
@@ -1363,12 +1640,22 @@ public class SpeleoDBController implements Initializable {
                                 }
                             });
                         } else {
-                                                    logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
-                        showErrorAnimation("Failed to Release Lock");
-                        Platform.runLater(() -> projectListView.setDisable(false));
+                            logMessage("Failed to release lock on: " + getCurrentProjectName() + ". Cannot switch projects.");
+                            showErrorAnimation("Failed to Release Lock");
+                            Platform.runLater(() -> projectListView.setDisable(false));
                         }
                     } catch (IOException | InterruptedException | URISyntaxException e) {
-                        logMessage("Error releasing lock: " + e.getMessage());
+                        String errorMessage = getNetworkErrorMessage(e, "Lock release");
+                        logMessage("Error releasing lock: " + getSafeErrorMessage(e));
+                        
+                        if (isServerOfflineError(e)) {
+                            showErrorAnimation("Can't reach server");
+                        } else if (isTimeoutError(e)) {
+                            showErrorAnimation("Lock release timed out");
+                        } else {
+                            showErrorAnimation("Failed to Release Lock");
+                        }
+                        
                         Platform.runLater(() -> projectListView.setDisable(false));
                     }
                 });
@@ -1463,11 +1750,21 @@ public class SpeleoDBController implements Initializable {
                     listProjects();
                 } else {
                     logMessage("Failed to release lock for " + currentProject.getString("name"));
-                    showErrorAnimation();
+                    showErrorAnimation("Failed to Release Lock");
                 }
             } catch (IOException | InterruptedException | URISyntaxException e) {
-                logMessage("Error releasing lock: " + e.getMessage());
-                showErrorAnimation();
+                String errorMessage = getNetworkErrorMessage(e, "Lock release");
+                logMessage("Error releasing lock: " + getSafeErrorMessage(e));
+                
+                if (isServerOfflineError(e)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(e)) {
+                    showErrorAnimation("Request timed out");
+                    showErrorModal("Lock Release Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Failed to Release Lock");
+                }
             } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
@@ -1539,11 +1836,21 @@ public class SpeleoDBController implements Initializable {
                                     listProjects();
                                 } else {
                                     logMessage("Failed to release lock for " + currentProject.getString("name"));
-                                    showErrorAnimation();
+                                    showErrorAnimation("Failed to Release Lock");
                                 }
                             } catch (IOException | InterruptedException | URISyntaxException e) {
-                                logMessage("Error releasing lock: " + e.getMessage());
-                                showErrorAnimation();
+                                String errorMessage = getNetworkErrorMessage(e, "Lock release");
+                                logMessage("Error releasing lock: " + getSafeErrorMessage(e));
+                                
+                                if (isServerOfflineError(e)) {
+                                    showErrorAnimation("Can't reach server");
+                                    showErrorModal("Server Offline", errorMessage);
+                                } else if (isTimeoutError(e)) {
+                                    showErrorAnimation("Request timed out");
+                                    showErrorModal("Lock Release Timeout", errorMessage);
+                                } else {
+                                    showErrorAnimation("Failed to Release Lock");
+                                }
                             }
                         });
                     } else {
@@ -1552,8 +1859,18 @@ public class SpeleoDBController implements Initializable {
                 });
                 
             } catch (Exception e) {
-                logMessage("Upload failed: " + e.getMessage());
-                showErrorAnimation("Upload Failed: " + e.getMessage());
+                String errorMessage = getNetworkErrorMessage(e, "Upload");
+                logMessage("Upload failed: " + getSafeErrorMessage(e));
+                
+                if (isServerOfflineError(e)) {
+                    showErrorAnimation("Can't reach server");
+                    showErrorModal("Server Offline", errorMessage);
+                } else if (isTimeoutError(e)) {
+                    showErrorAnimation("Upload timed out");
+                    showErrorModal("Upload Timeout", errorMessage);
+                } else {
+                    showErrorAnimation("Upload Failed: " + getSafeErrorMessage(e));
+                }
             } finally {
                 Platform.runLater(() -> {
                     serverProgressIndicator.setVisible(false);
@@ -1590,7 +1907,7 @@ public class SpeleoDBController implements Initializable {
             java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
             logMessage("Opening signup page: " + signupUrl);
         } catch (IOException | URISyntaxException e) {
-            logMessage("Failed to open signup page: " + e.getMessage());
+            logMessage("Failed to open signup page: " + getSafeErrorMessage(e));
             showErrorAnimation();
         }
     }
@@ -1616,7 +1933,7 @@ public class SpeleoDBController implements Initializable {
                 logMessage("Desktop operations not supported on this system");
             }
         } catch (IOException | URISyntaxException e) {
-            logMessage("Failed to open SpeleoDB website: " + e.getMessage());
+            logMessage("Failed to open SpeleoDB website: " + getSafeErrorMessage(e));
         }
     }
     
