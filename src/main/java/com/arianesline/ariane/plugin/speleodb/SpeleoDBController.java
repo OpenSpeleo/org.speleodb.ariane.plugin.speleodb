@@ -1287,7 +1287,7 @@ public class SpeleoDBController implements Initializable {
         
         // Provide visual feedback
         refreshProjectsButton.setDisable(true);
-        refreshProjectsButton.setText("Refreshing...");
+        refreshProjectsButton.setText("Refreshing ...");
         serverProgressIndicator.setVisible(true);
         
         parentPlugin.executorService.execute(() -> {
@@ -1388,7 +1388,7 @@ public class SpeleoDBController implements Initializable {
             
             // Disable the button while creating project
             createNewProjectButton.setDisable(true);
-            createNewProjectButton.setText("Creating...");
+            createNewProjectButton.setText("Creating ...");
             serverProgressIndicator.setVisible(true);
             
             parentPlugin.executorService.execute(() -> {
@@ -1723,19 +1723,9 @@ public class SpeleoDBController implements Initializable {
      * @param commitMessage the commit message for the upload
      */
     private void uploadProjectWithMessage(String commitMessage) {
-        //TODO: Find alternative
         parentPlugin.saveSurvey();
 
-      /*
-        if (UndoRedo.maxActionNumber > 0) {
-            core.mainController.saveTML(false);
-        } else {
-            logMessage("No changes to the project detected");
-            return;
-        }
-       */
-
-        logMessage("Uploading project " + currentProject.getString("name") + " ...");
+        logMessage("Uploading project " + currentProject.getString("name") + "  ...");
         
         serverProgressIndicator.setVisible(true);
         uploadButton.setDisable(true);

@@ -213,7 +213,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
         
         countryComboBox = new ComboBox<>();
-        countryComboBox.setPromptText("Select a country...");
+        countryComboBox.setPromptText("Select a country ...");
         countryComboBox.setPrefWidth(350);
         
         // Load countries from JSON file

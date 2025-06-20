@@ -376,7 +376,7 @@ public class TestFixturesTest {
         String checksum2 = TestFixtures.calculateChecksum(testFile);
         assertEquals(checksum, checksum2, "Checksum should be consistent");
         
-        System.out.println("✓ Checksum calculation working: " + checksum.substring(0, 16) + "...");
+        System.out.println("✓ Checksum calculation working: " + checksum.substring(0, 16) + " ...");
         
         // Clean up
         Files.delete(testFile);

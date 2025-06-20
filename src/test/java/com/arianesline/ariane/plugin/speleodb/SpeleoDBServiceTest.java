@@ -52,7 +52,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testUrlHandling() {
-        System.out.println("Testing URL handling...");
+        System.out.println("Testing URL handling ...");
         
         // Test local URLs should use http://
         assert shouldUseHttp("localhost");
@@ -70,7 +70,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testAuthenticationState() {
-        System.out.println("Testing authentication state...");
+        System.out.println("Testing authentication state ...");
         
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
@@ -98,7 +98,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testJsonParsing() {
-        System.out.println("Testing JSON parsing...");
+        System.out.println("Testing JSON parsing ...");
         
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
@@ -117,7 +117,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testFileOperations() throws IOException {
-        System.out.println("Testing file operations...");
+        System.out.println("Testing file operations ...");
         
         // Test project file path generation
         String projectId = "test-project-123";
@@ -138,7 +138,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testInstanceUrlValidation() {
-        System.out.println("Testing instance URL validation...");
+        System.out.println("Testing instance URL validation ...");
         
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
@@ -160,7 +160,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testProjectCreation() {
-        System.out.println("Testing project creation...");
+        System.out.println("Testing project creation ...");
         
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
@@ -216,7 +216,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testEmptyTmlFileCreation() throws IOException {
-        System.out.println("Testing empty TML file creation...");
+        System.out.println("Testing empty TML file creation ...");
         
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
@@ -249,7 +249,7 @@ public class SpeleoDBServiceTest {
     }
     
     static void testHttp422Handling() {
-        System.out.println("Testing HTTP status code handling logic...");
+        System.out.println("Testing HTTP status code handling logic ...");
         
         // Test that we have the correct status code handling
         int http422 = 422;

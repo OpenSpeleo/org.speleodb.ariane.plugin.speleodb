@@ -777,7 +777,7 @@ class SpeleoDBControllerTest {
             
             // Verify
             assertThat(buttonStates.getInitialState()).isEqualTo("Refresh Projects");
-            assertThat(buttonStates.getDuringRefreshState()).isEqualTo("Refreshing...");
+            assertThat(buttonStates.getDuringRefreshState()).isEqualTo("Refreshing ...");
             assertThat(buttonStates.getFinalState()).isEqualTo("Refresh Projects");
             assertThat(buttonStates.isInitiallyEnabled()).isTrue();
             assertThat(buttonStates.isDuringRefreshEnabled()).isFalse();
@@ -1522,7 +1522,7 @@ class SpeleoDBControllerTest {
         public RefreshButtonStates simulateRefreshButtonStates() {
             return new RefreshButtonStates(
                 "Refresh Projects",     // initial state
-                "Refreshing...",        // during refresh state
+                "Refreshing ...",        // during refresh state
                 "Refresh Projects",     // final state
                 true,                   // initially enabled
                 false,                  // disabled during refresh

@@ -6,7 +6,7 @@ package com.arianesline.ariane.plugin.speleodb;
 public class TestConfigSuccess {
     public static void main(String[] args) {
         System.out.println("=== Testing .env File Success Case ===");
-        System.out.println("This should succeed and show configuration status...");
+        System.out.println("This should succeed and show configuration status ...");
         System.out.println();
         
         try {

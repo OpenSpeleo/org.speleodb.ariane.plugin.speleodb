@@ -13,7 +13,7 @@ public class APITestRunner {
     
     public static void main(String[] args) {
         System.out.println("=== SpeleoDB API Test Runner ===");
-        System.out.println("Starting API test suite...");
+        System.out.println("Starting API test suite ...");
         System.out.println();
         
         try {
@@ -35,7 +35,7 @@ public class APITestRunner {
                 System.exit(1);
             }
             
-            System.out.println("✅ Configuration looks good. Running tests...");
+            System.out.println("✅ Configuration looks good. Running tests ...");
             System.out.println();
             
             // Initialize service
@@ -68,10 +68,10 @@ public class APITestRunner {
      * Run basic connectivity test
      */
     private static void runBasicConnectivityTest(SpeleoDBService service) throws Exception {
-        System.out.println("Running basic connectivity test...");
+        System.out.println("Running basic connectivity test ...");
         
         // Test authentication
-        System.out.print("  Testing authentication... ");
+        System.out.print("  Testing authenticatio ... ");
         long authStart = System.currentTimeMillis();
         
         String oauthToken = TestEnvironmentConfig.get(TestEnvironmentConfig.SPELEODB_OAUTH_TOKEN);
@@ -89,7 +89,7 @@ public class APITestRunner {
         System.out.println("✅ PASSED (" + authTime + "ms)");
         
         // Test project list API
-        System.out.print("  Testing project list API... ");
+        System.out.print("  Testing project list API ... ");
         long listStart = System.currentTimeMillis();
         
         JsonArray projects = service.listProjects();

@@ -57,7 +57,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testAtomicOperations() {
-        System.out.println("Testing atomic operations...");
+        System.out.println("Testing atomic operations ...");
         
         // Test AtomicBoolean state management
         AtomicBoolean lockAcquired = new AtomicBoolean(false);
@@ -83,7 +83,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testJsonArrayHandling() {
-        System.out.println("Testing JSON array handling...");
+        System.out.println("Testing JSON array handling ...");
         
         // Test empty project list
         JsonArray emptyArray = Json.createArrayBuilder().build();
@@ -124,7 +124,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testErrorHandling() {
-        System.out.println("Testing error handling...");
+        System.out.println("Testing error handling ...");
         
         // Test handling of missing JSON properties
         JsonObject incompleteProject = Json.createObjectBuilder()
@@ -158,7 +158,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testEdgeCases() {
-        System.out.println("Testing edge cases...");
+        System.out.println("Testing edge cases ...");
         
         // Test date string parsing edge cases
         String dateWithMicroseconds = "2024-01-15T10:30:00.123456";
@@ -191,7 +191,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testStateTransitions() {
-        System.out.println("Testing state transitions...");
+        System.out.println("Testing state transitions ...");
         
         // Test authentication state transitions
         boolean isAuthenticated = false;
@@ -229,7 +229,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testPropertyFileHandling() throws IOException {
-        System.out.println("Testing property file handling...");
+        System.out.println("Testing property file handling ...");
         
         // Test creating debug properties
         Path debugProps = Paths.get(TEST_RESOURCES_DIR + File.separator + "debug.properties");
@@ -264,7 +264,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testStringValidation() {
-        System.out.println("Testing string validation...");
+        System.out.println("Testing string validation ...");
         
         // Test email validation patterns
         String validEmail = "user@example.com";
@@ -302,7 +302,7 @@ public class SpeleoDBControllerStateTest {
     }
     
     static void testUIStateLogic() {
-        System.out.println("Testing UI state logic...");
+        System.out.println("Testing UI state logic ...");
         
         // Test button state logic
         boolean isAuthenticated = false;
