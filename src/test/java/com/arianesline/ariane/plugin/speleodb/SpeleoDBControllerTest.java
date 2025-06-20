@@ -1162,6 +1162,152 @@ class SpeleoDBControllerTest {
         }
     }
     
+    @Nested
+    @DisplayName("Project Sorting Functionality")
+    class ProjectSortingFunctionalityTests {
+        
+        @Test
+        @DisplayName("Should prevent sort by name when not authenticated")
+        void shouldPreventSortByNameWhenNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String result = controllerLogic.simulateSortByName();
+            
+            // Verify
+            assertThat(result).contains("Cannot sort projects: Not authenticated");
+        }
+        
+        @Test
+        @DisplayName("Should allow sort by name when authenticated")
+        void shouldAllowSortByNameWhenAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateSortByName();
+            
+            // Verify
+            assertThat(result).contains("User requested sort by name");
+        }
+        
+        @Test
+        @DisplayName("Should prevent sort by date when not authenticated")
+        void shouldPreventSortByDateWhenNotAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(false);
+            
+            // Execute
+            String result = controllerLogic.simulateSortByDate();
+            
+            // Verify
+            assertThat(result).contains("Cannot sort projects: Not authenticated");
+        }
+        
+        @Test
+        @DisplayName("Should allow sort by date when authenticated")
+        void shouldAllowSortByDateWhenAuthenticated() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String result = controllerLogic.simulateSortByDate();
+            
+            // Verify
+            assertThat(result).contains("User requested sort by date");
+        }
+        
+        @Test
+        @DisplayName("Should change sort mode when sorting by name")
+        void shouldChangeSortModeWhenSortingByName() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            controllerLogic.setSortMode("BY_DATE"); // Start with date mode
+            
+            // Execute
+            controllerLogic.simulateSortByName();
+            
+            // Verify
+            assertThat(controllerLogic.getCurrentSortMode()).isEqualTo("BY_NAME");
+        }
+        
+        @Test
+        @DisplayName("Should change sort mode when sorting by date")
+        void shouldChangeSortModeWhenSortingByDate() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            controllerLogic.setSortMode("BY_NAME"); // Start with name mode
+            
+            // Execute
+            controllerLogic.simulateSortByDate();
+            
+            // Verify
+            assertThat(controllerLogic.getCurrentSortMode()).isEqualTo("BY_DATE");
+        }
+        
+        @Test
+        @DisplayName("Should handle multiple sort mode changes")
+        void shouldHandleMultipleSortModeChanges() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute multiple sort changes
+            controllerLogic.simulateSortByDate();
+            controllerLogic.simulateSortByName();
+            controllerLogic.simulateSortByDate();
+            
+            // Verify final state
+            assertThat(controllerLogic.getCurrentSortMode()).isEqualTo("BY_DATE");
+        }
+        
+        @Test
+        @DisplayName("Should maintain sort mode consistency")
+        void shouldMaintainSortModeConsistency() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String nameResult = controllerLogic.simulateSortByName();
+            String dateResult = controllerLogic.simulateSortByDate();
+            
+            // Verify both operations succeeded and mode changed
+            assertThat(nameResult).contains("User requested sort by name");
+            assertThat(dateResult).contains("User requested sort by date");
+            assertThat(controllerLogic.getCurrentSortMode()).isEqualTo("BY_DATE");
+        }
+        
+        @Test
+        @DisplayName("Should log appropriate messages for sort operations")
+        void shouldLogAppropriateMessagesForSortOperations() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute
+            String nameResult = controllerLogic.simulateSortByName();
+            String dateResult = controllerLogic.simulateSortByDate();
+            
+            // Verify logging messages
+            assertThat(nameResult).contains("User requested sort by name");
+            assertThat(dateResult).contains("User requested sort by date");
+        }
+        
+        @Test
+        @DisplayName("Should handle sort operations when no cached data exists")
+        void shouldHandleSortOperationsWhenNoCachedDataExists() {
+            // Setup
+            controllerLogic.setAuthenticated(true);
+            
+            // Execute sort operations without any cached project data
+            String nameResult = controllerLogic.simulateSortByName();
+            String dateResult = controllerLogic.simulateSortByDate();
+            
+            // Verify operations complete without errors
+            assertThat(nameResult).contains("User requested sort by name");
+            assertThat(dateResult).contains("User requested sort by date");
+        }
+    }
+    
     // ===================== TEST HELPER CLASSES ===================== //
     
     /**
@@ -1177,6 +1323,7 @@ class SpeleoDBControllerTest {
         private int confirmationDialogCount = 0;
         private boolean isAuthenticated = false;
         private boolean simulateRefreshError = false;
+        private String currentSortMode = "BY_NAME";
         
         public void setDebugMode(boolean debugMode) {
             this.debugMode = debugMode;
@@ -1440,6 +1587,33 @@ class SpeleoDBControllerTest {
         public String getPrefInstance() { return "SDB_INSTANCE"; }
         public String getPrefSaveCreds() { return "SDB_SAVECREDS"; }
         public String getDefaultInstance() { return "www.speleoDB.org"; }
+        
+        // Sorting functionality methods
+        public String getCurrentSortMode() {
+            return currentSortMode;
+        }
+        
+        public void setSortMode(String sortMode) {
+            this.currentSortMode = sortMode;
+        }
+        
+        public String simulateSortByName() {
+            if (!isAuthenticated) {
+                return "Cannot sort projects: Not authenticated";
+            }
+            
+            currentSortMode = "BY_NAME";
+            return "User requested sort by name";
+        }
+        
+        public String simulateSortByDate() {
+            if (!isAuthenticated) {
+                return "Cannot sort projects: Not authenticated";
+            }
+            
+            currentSortMode = "BY_DATE";
+            return "User requested sort by date";
+        }
     }
     
     /**

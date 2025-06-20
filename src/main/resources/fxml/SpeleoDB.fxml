@@ -174,7 +174,35 @@
 					<content>
 						<AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" styleClass="aggregator">
 							<children>
-								<ListView fx:id="projectListView" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0" />
+								<ListView fx:id="projectListView" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="116.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0" />
+								<!-- Sorting buttons -->
+								<GridPane AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0">
+									<columnConstraints>
+										<ColumnConstraints percentWidth="50.0" />
+										<ColumnConstraints percentWidth="50.0" />
+									</columnConstraints>
+									<rowConstraints>
+										<RowConstraints minHeight="30.0" />
+									</rowConstraints>
+									<children>
+										<Button fx:id="sortByNameButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSortByName" styleClass="sort-button-active" text="📝 Sort by Name" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS">
+											<font>
+												<Font name="System Bold" size="10.0" />
+											</font>
+											<GridPane.margin>
+												<Insets right="2.0" />
+											</GridPane.margin>
+										</Button>
+										<Button fx:id="sortByDateButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSortByDate" styleClass="sort-button" text="📅 Sort by Date" textAlignment="CENTER" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS">
+											<font>
+												<Font name="System Bold" size="10.0" />
+											</font>
+											<GridPane.margin>
+												<Insets left="2.0" />
+											</GridPane.margin>
+										</Button>
+									</children>
+								</GridPane>
 								<Button fx:id="createNewProjectButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onCreateNewProject" styleClass="bold" text="Create New Project" textAlignment="CENTER" AnchorPane.bottomAnchor="44.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0">
 									<font>
 										<Font name="System Bold" size="12.0" />

@@ -13,6 +13,9 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -87,6 +90,12 @@ public class SpeleoDBController implements Initializable {
     private Button createNewProjectButton;
     @FXML
     private Button refreshProjectsButton;
+    
+    @FXML
+    private Button sortByNameButton;
+    
+    @FXML
+    private Button sortByDateButton;
     @FXML
     private PasswordField oauthtokenPasswordField;
     @FXML
@@ -125,6 +134,13 @@ public class SpeleoDBController implements Initializable {
 
     // Internal Controller Data
     private JsonObject currentProject = null;
+    
+    // Sorting state
+    public enum SortMode { BY_NAME, BY_DATE }
+    private SortMode currentSortMode = SortMode.BY_NAME; // Default to sort by name
+    
+    // Store the original project data for sorting without API calls
+    private JsonArray cachedProjectList = null;
     
     // Pre-warmed modal for instant display (initialized once)
     private Alert preWarmedModal = null;
@@ -653,6 +669,9 @@ public class SpeleoDBController implements Initializable {
         setupUI();
         setupKeyboardShortcuts();
         
+        // Initialize sorting button styles (default to sort by name)
+        updateSortButtonStyles();
+        
         // Pre-warm modal system for instant display (eliminates first-time lag)
         preWarmModalSystem();
         
@@ -827,16 +846,56 @@ public class SpeleoDBController implements Initializable {
      */
     private void handleProjectListResponse(JsonArray projectList) {
         logMessage("Project listing successful on " + speleoDBService.getSDBInstance());
+        
+        // Cache the project data for sorting without API calls
+        cachedProjectList = projectList;
+        
+        // Use the shared method to rebuild the project list
+        rebuildProjectListFromCache();
+    }
+    
+    /**
+     * Shared method to rebuild the project list from cached data.
+     * Used by both refresh and sort operations to ensure consistent behavior.
+     */
+    private void rebuildProjectListFromCache() {
+        if (cachedProjectList == null) {
+            logMessage("No cached project data available");
+            return;
+        }
+        
         Platform.runLater(() -> {
             projectListView.getItems().clear();
-            for (JsonValue jsonValue : projectList) {
-                JsonObject projectItem = jsonValue.asJsonObject();
+            
+            // Convert JsonArray to List for sorting
+            List<JsonObject> projects = new ArrayList<>();
+            for (JsonValue jsonValue : cachedProjectList) {
+                projects.add(jsonValue.asJsonObject());
+            }
+            
+            // Sort projects based on current sort mode
+            if (currentSortMode == SortMode.BY_NAME) {
+                projects.sort(Comparator.comparing(project -> 
+                    project.getString("name", "").toLowerCase()));
+                logMessage("Projects sorted by name (A-Z)");
+            } else { // BY_DATE
+                projects.sort(Comparator.comparing((JsonObject project) -> 
+                    project.getString("modified_date", "")).reversed()); // Most recent first
+                logMessage("Projects sorted by modified_date (newest first)");
+            }
+            
+            // Create UI elements for sorted projects
+            for (JsonObject projectItem : projects) {
                 VBox card = createProjectCard(projectItem);
                 Button button = createProjectButton(card, projectItem);
                 projectListView.getItems().add(button);
             }
+            
+            // Update button styles to reflect current sort mode
+            updateSortButtonStyles();
+            
+            logMessage("Project list rebuilt with " + projects.size() + " projects");
         });
-
     }
 
     private void listProjects() {
@@ -889,6 +948,55 @@ public class SpeleoDBController implements Initializable {
                 });
             }
         });
+    }
+    
+    /**
+     * Handles the sort by name button click event.
+     * Uses the shared rebuildProjectListFromCache method.
+     */
+    @FXML
+    public void onSortByName(ActionEvent actionEvent) {
+        if (!speleoDBService.isAuthenticated()) {
+            logMessage("Cannot sort projects: Not authenticated");
+            return;
+        }
+        
+        logMessage("User requested sort by name");
+        currentSortMode = SortMode.BY_NAME;
+        rebuildProjectListFromCache();
+    }
+    
+    /**
+     * Handles the sort by date button click event.
+     * Uses the shared rebuildProjectListFromCache method.
+     */
+    @FXML
+    public void onSortByDate(ActionEvent actionEvent) {
+        if (!speleoDBService.isAuthenticated()) {
+            logMessage("Cannot sort projects: Not authenticated");
+            return;
+        }
+        
+        logMessage("User requested sort by date");
+        currentSortMode = SortMode.BY_DATE;
+        rebuildProjectListFromCache();
+    }
+    
+    /**
+     * Updates the visual style of sorting buttons based on current sort mode
+     */
+    private void updateSortButtonStyles() {
+        if (currentSortMode == SortMode.BY_NAME) {
+            sortByNameButton.getStyleClass().clear();
+            sortByNameButton.getStyleClass().add("sort-button-active");
+            sortByDateButton.getStyleClass().clear();
+            sortByDateButton.getStyleClass().add("sort-button");
+        } else {
+            sortByNameButton.getStyleClass().clear();
+            sortByNameButton.getStyleClass().add("sort-button");
+            sortByDateButton.getStyleClass().clear();
+            sortByDateButton.getStyleClass().add("sort-button-active");
+        }
     }
 
     /**
