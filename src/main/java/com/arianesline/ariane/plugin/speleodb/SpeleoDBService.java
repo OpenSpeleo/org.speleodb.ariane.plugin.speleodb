@@ -69,6 +69,27 @@ public class SpeleoDBService {
     /* ===================== AUTHENTICATION MANAGEMENT ===================== */
 
     /**
+     * Creates an HTTP client with the appropriate protocol version based on the instance URL.
+     * Uses HTTP/1.1 for HTTP connections (better compatibility with local servers)
+     * Uses HTTP/2 for HTTPS connections (better performance for remote servers)
+     * 
+     * @return HttpClient configured with the appropriate protocol version
+     */
+    private HttpClient createHttpClient() {
+        if (SDB_instance.startsWith("http://")) {
+            // Use HTTP/1.1 for HTTP connections (better compatibility)
+            return HttpClient.newBuilder()
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .build();
+        } else {
+            // Use HTTP/2 for HTTPS connections (better performance)
+            return HttpClient.newBuilder()
+                    .version(HttpClient.Version.HTTP_2)
+                    .build();
+        }
+    }
+
+    /**
      * Parses the authentication token from the JSON response.
      *
      * @param responseBody the response body containing the JSON data.
@@ -106,12 +127,13 @@ public class SpeleoDBService {
             // Authenticate using email and password.
             String requestBody = String.format("{\"email\": \"%s\", \"password\": \"%s\"}", email, password);
             request = HttpRequest.newBuilder(uri)
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .setHeader("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, java.nio.charset.StandardCharsets.UTF_8))
+                    .setHeader("Content-Type", "application/json; charset=utf-8")
+                    .version(HttpClient.Version.HTTP_1_1)  // Force HTTP/1.1 like curl
                     .build();
         }
 
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = createHttpClient();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == 200) {
@@ -186,7 +208,7 @@ public class SpeleoDBService {
                 .build();
 
         HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 
@@ -236,7 +258,7 @@ public class SpeleoDBService {
                 .build();
 
         HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 
@@ -291,7 +313,7 @@ public class SpeleoDBService {
          .build();
 
         HttpResponse<byte[]> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
         }
 
@@ -331,7 +353,7 @@ public class SpeleoDBService {
                 build();
 
         HttpResponse<byte[]> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
         }
 
@@ -379,7 +401,7 @@ public class SpeleoDBService {
 
 
         HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 
@@ -405,7 +427,7 @@ public class SpeleoDBService {
                 build();
 
         HttpResponse<String> response;
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = createHttpClient()) {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
         }
 

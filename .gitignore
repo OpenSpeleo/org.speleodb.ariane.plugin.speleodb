@@ -33,3 +33,7 @@ build/
 
 
 bin/
+
+.env
+
+*.java~
