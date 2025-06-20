@@ -275,6 +275,6 @@
 			</panes>
 		</Accordion>
 		<TextArea fx:id="serverLog" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
-		<ProgressIndicator fx:id="serverProgressIndicator" visible="false" AnchorPane.bottomAnchor="12.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
+		<ProgressIndicator fx:id="serverProgressIndicator" visible="false" prefWidth="200.0" prefHeight="200.0" AnchorPane.leftAnchor="60.0" AnchorPane.rightAnchor="60.0" AnchorPane.topAnchor="250.0" />
 	</children>
 </AnchorPane>

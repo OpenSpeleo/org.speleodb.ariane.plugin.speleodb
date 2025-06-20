@@ -314,3 +314,53 @@ and open the template in the editor.
     -fx-background-color: -text-neutral-fill;
 }
 
+/* Progress Indicator styling - larger size and brighter blue color */
+.progress-indicator {
+    -fx-progress-color: #4da6ff !important;
+    -fx-pref-width: 80px !important;
+    -fx-pref-height: 80px !important;
+    -fx-max-width: 80px !important;
+    -fx-max-height: 80px !important;
+    -fx-min-width: 80px !important;
+    -fx-min-height: 80px !important;
+}
+
+.progress-indicator .indicator {
+    -fx-progress-color: #4da6ff !important;
+}
+
+.progress-indicator .track {
+    -fx-background-color: transparent !important;
+}
+
+.progress-indicator .percentage {
+    -fx-fill: #4da6ff !important;
+}
+
+/* Disabled state styling - subtle grayed out look */
+.button:disabled {
+    -fx-opacity: 0.6;
+    -fx-text-fill: #888888;
+}
+
+.text-field:disabled, .password-field:disabled {
+    -fx-opacity: 0.6;
+    -fx-text-fill: #999999;
+}
+
+.check-box:disabled {
+    -fx-opacity: 0.6;
+}
+
+.list-view:disabled {
+    -fx-opacity: 0.6;
+}
+
+.titled-pane:disabled {
+    -fx-opacity: 0.6;
+}
+
+.titled-pane:disabled .title {
+    -fx-text-fill: #999999;
+}
+

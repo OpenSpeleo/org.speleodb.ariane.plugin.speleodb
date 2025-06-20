@@ -21,6 +21,7 @@ public class TestFixtures {
     
     private static final Random random = new Random();
     private static final String testRunId = String.valueOf(System.currentTimeMillis());
+    private static final java.util.concurrent.atomic.AtomicInteger uniqueCounter = new java.util.concurrent.atomic.AtomicInteger(0);
     
     // Track created projects for cleanup
     private static final List<JsonObject> createdProjects = new ArrayList<>();
@@ -165,8 +166,9 @@ public class TestFixtures {
         
         String adjective = adjectives[random.nextInt(adjectives.length)];
         String noun = nouns[random.nextInt(nouns.length)];
+        int uniqueId = uniqueCounter.incrementAndGet();
         
-        return adjective + " " + noun + " - Test " + testRunId;
+        return adjective + " " + noun + " - Test " + testRunId + "-" + uniqueId;
     }
     
     /**
