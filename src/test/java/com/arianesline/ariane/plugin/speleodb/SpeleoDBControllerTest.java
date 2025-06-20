@@ -2,17 +2,19 @@ package com.arianesline.ariane.plugin.speleodb;
 
 import java.awt.Desktop;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import org.junit.jupiter.api.Assertions;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 
 /**
@@ -50,6 +53,30 @@ class SpeleoDBControllerTest {
     private ActionEvent mockActionEvent;
     
     private SpeleoDBControllerLogic controllerLogic;
+    
+    /**
+     * Initialize JavaFX Platform for tests that require it.
+     * This prevents "Toolkit not initialized" errors when testing JavaFX components.
+     */
+    @BeforeAll
+    static void initializeJavaFX() {
+        try {
+            // Initialize JavaFX Platform if not already initialized
+            if (!Platform.isFxApplicationThread()) {
+                // Start JavaFX Platform
+                Platform.startup(() -> {
+                    // Empty runnable - just need to start the platform
+                });
+                
+                // Give the platform a moment to initialize
+                Thread.sleep(100);
+            }
+        } catch (Exception e) {
+            // If JavaFX is already initialized or can't be initialized, that's fine
+            // The tests will either work or fail with more specific error messages
+            System.out.println("JavaFX Platform initialization: " + e.getMessage());
+        }
+    }
     
     @BeforeEach
     void setUp() {
@@ -146,7 +173,7 @@ class SpeleoDBControllerTest {
                 verify(mockDesktop).browse(URI.create("https://www.speleodb.org/signup/"));
                 assertThat(result).contains("Opening signup page: https://www.speleodb.org/signup/");
             } catch (Exception e) {
-                fail("Should not throw exception", e);
+                fail("Should not throw exception: " + e.getMessage());
             }
         }
         
@@ -167,7 +194,7 @@ class SpeleoDBControllerTest {
                 // Verify error handling
                 assertThat(result).contains("Failed to open signup page: Browser not available");
             } catch (Exception e) {
-                fail("Should not throw exception", e);
+                fail("Should not throw exception: " + e.getMessage());
             }
         }
         
@@ -1709,11 +1736,13 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should validate OAuth token format correctly")
     void shouldValidateOAuthTokenFormat() {
-        SpeleoDBController controller = new SpeleoDBController();
+        SpeleoDBController controller = null;
+        Method validateMethod = null;
         
         // Use reflection to access the private validateOAuthToken method
         try {
-            Method validateMethod = SpeleoDBController.class.getDeclaredMethod("validateOAuthToken", String.class);
+            controller = new SpeleoDBController();
+            validateMethod = SpeleoDBController.class.getDeclaredMethod("validateOAuthToken", String.class);
             validateMethod.setAccessible(true);
             
             // Valid tokens (40 hexadecimal characters)
@@ -1750,7 +1779,16 @@ class SpeleoDBControllerTest {
             assertFalse((Boolean) validateMethod.invoke(controller, (String) null));
             
         } catch (Exception e) {
-            Assertions.fail("Failed to test OAuth token validation: " + e.getMessage());
+            String errorDetails = "Failed to test OAuth token validation. ";
+            if (controller == null) {
+                errorDetails += "Controller creation failed. ";
+            }
+            if (validateMethod == null) {
+                errorDetails += "Method lookup failed. ";
+            }
+            errorDetails += "Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            errorDetails += ". Cause: " + (e.getCause() != null ? e.getCause().toString() : "None");
+            Assertions.fail(errorDetails);
         }
     }
 
@@ -1760,10 +1798,12 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should detect server offline errors correctly")
     void shouldDetectServerOfflineErrors() {
-        SpeleoDBController controller = new SpeleoDBController();
+        SpeleoDBController controller = null;
+        Method isServerOfflineMethod = null;
         
         try {
-            Method isServerOfflineMethod = SpeleoDBController.class.getDeclaredMethod("isServerOfflineError", Exception.class);
+            controller = new SpeleoDBController();
+            isServerOfflineMethod = SpeleoDBController.class.getDeclaredMethod("isServerOfflineError", Exception.class);
             isServerOfflineMethod.setAccessible(true);
             
             // Test connection refused
@@ -1798,7 +1838,16 @@ class SpeleoDBControllerTest {
             assertFalse((Boolean) isServerOfflineMethod.invoke(controller, genericError));
             
         } catch (Exception e) {
-            Assertions.fail("Failed to test server offline error detection: " + e.getMessage());
+            String errorDetails = "Failed to test server offline error detection. ";
+            if (controller == null) {
+                errorDetails += "Controller creation failed. ";
+            }
+            if (isServerOfflineMethod == null) {
+                errorDetails += "Method lookup failed. ";
+            }
+            errorDetails += "Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            errorDetails += ". Cause: " + (e.getCause() != null ? e.getCause().toString() : "None");
+            Assertions.fail(errorDetails);
         }
     }
     
@@ -1808,10 +1857,12 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should detect timeout errors correctly")
     void shouldDetectTimeoutErrors() {
-        SpeleoDBController controller = new SpeleoDBController();
+        SpeleoDBController controller = null;
+        Method isTimeoutMethod = null;
         
         try {
-            Method isTimeoutMethod = SpeleoDBController.class.getDeclaredMethod("isTimeoutError", Exception.class);
+            controller = new SpeleoDBController();
+            isTimeoutMethod = SpeleoDBController.class.getDeclaredMethod("isTimeoutError", Exception.class);
             isTimeoutMethod.setAccessible(true);
             
             // Test connection timed out
@@ -1842,7 +1893,16 @@ class SpeleoDBControllerTest {
             assertFalse((Boolean) isTimeoutMethod.invoke(controller, genericError));
             
         } catch (Exception e) {
-            Assertions.fail("Failed to test timeout error detection: " + e.getMessage());
+            String errorDetails = "Failed to test timeout error detection. ";
+            if (controller == null) {
+                errorDetails += "Controller creation failed. ";
+            }
+            if (isTimeoutMethod == null) {
+                errorDetails += "Method lookup failed. ";
+            }
+            errorDetails += "Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            errorDetails += ". Cause: " + (e.getCause() != null ? e.getCause().toString() : "None");
+            Assertions.fail(errorDetails);
         }
     }
     
@@ -1852,10 +1912,12 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should generate appropriate network error messages")
     void shouldGenerateNetworkErrorMessages() {
-        SpeleoDBController controller = new SpeleoDBController();
+        SpeleoDBController controller = null;
+        Method getNetworkErrorMethod = null;
         
         try {
-            Method getNetworkErrorMethod = SpeleoDBController.class.getDeclaredMethod("getNetworkErrorMessage", Exception.class, String.class);
+            controller = new SpeleoDBController();
+            getNetworkErrorMethod = SpeleoDBController.class.getDeclaredMethod("getNetworkErrorMessage", Exception.class, String.class);
             getNetworkErrorMethod.setAccessible(true);
             
             // Test server offline message
@@ -1870,7 +1932,7 @@ class SpeleoDBControllerTest {
             String timeoutMessage = (String) getNetworkErrorMethod.invoke(controller, timeout, "Upload");
             assertTrue(timeoutMessage.contains("Request timed out"));
             assertTrue(timeoutMessage.contains("Overloaded"));
-            assertTrue(timeoutMessage.contains("Try again"));
+            assertTrue(timeoutMessage.contains("Try again in a few moments"));
             
             // Test generic error message
             Exception genericError = new Exception("Invalid credentials");
@@ -1879,7 +1941,16 @@ class SpeleoDBControllerTest {
             assertTrue(genericMessage.contains("Invalid credentials"));
             
         } catch (Exception e) {
-            Assertions.fail("Failed to test network error message generation: " + e.getMessage());
+            String errorDetails = "Failed to test network error message generation. ";
+            if (controller == null) {
+                errorDetails += "Controller creation failed. ";
+            }
+            if (getNetworkErrorMethod == null) {
+                errorDetails += "Method lookup failed. ";
+            }
+            errorDetails += "Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            errorDetails += ". Cause: " + (e.getCause() != null ? e.getCause().toString() : "None");
+            Assertions.fail(errorDetails);
         }
     }
 
@@ -1926,10 +1997,12 @@ class SpeleoDBControllerTest {
     @Test
     @DisplayName("Should safely extract error messages from exceptions")
     void shouldSafelyExtractErrorMessages() {
-        SpeleoDBController controller = new SpeleoDBController();
+        SpeleoDBController controller = null;
+        Method getSafeErrorMethod = null;
         
         try {
-            Method getSafeErrorMethod = SpeleoDBController.class.getDeclaredMethod("getSafeErrorMessage", Exception.class);
+            controller = new SpeleoDBController();
+            getSafeErrorMethod = SpeleoDBController.class.getDeclaredMethod("getSafeErrorMessage", Exception.class);
             getSafeErrorMethod.setAccessible(true);
             
             // Test with exception that has a message
@@ -1957,7 +2030,16 @@ class SpeleoDBControllerTest {
             assertThat(result5).isEqualTo("IOException");
             
         } catch (Exception e) {
-            Assertions.fail("Failed to test safe error message extraction: " + e.getMessage());
+            String errorDetails = "Failed to test safe error message extraction. ";
+            if (controller == null) {
+                errorDetails += "Controller creation failed. ";
+            }
+            if (getSafeErrorMethod == null) {
+                errorDetails += "Method lookup failed. ";
+            }
+            errorDetails += "Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            errorDetails += ". Cause: " + (e.getCause() != null ? e.getCause().toString() : "None");
+            Assertions.fail(errorDetails);
         }
     }
 } 

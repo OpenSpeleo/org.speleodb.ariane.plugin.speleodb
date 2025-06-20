@@ -629,14 +629,11 @@ public class SpeleoDBController implements Initializable {
                message.contains("host unreachable") ||
                message.contains("network is unreachable") ||
                message.contains("connection reset") ||
-               message.contains("connection timed out") ||
                message.contains("unknown host") ||
                message.contains("name resolution failed") ||
                exceptionType.contains("connectexception") ||
                exceptionType.contains("unknownhostexception") ||
-               exceptionType.contains("noroutetohostexception") ||
-               exceptionType.contains("sockettimeoutexception") ||
-               exceptionType.contains("httptimeoutexception");
+               exceptionType.contains("noroutetohostexception");
     }
     
     /**
@@ -1405,53 +1402,44 @@ public class SpeleoDBController implements Initializable {
                     logMessage("Project '" + projectData.name + "' created successfully!");
                     logMessage("Project ID: " + createdProject.getString("id"));
                     
-                    // Use centralized lock acquisition system with async heavy operations
-                    parentPlugin.executorService.execute(() -> {
-                        LockResult lockResult = acquireProjectLock(createdProject, "project creation");
-                        
-                        if (lockResult.isAcquired()) {
-                            try {
-                                // Heavy operations on background thread
-                                logMessage("Setting up new project files...");
-                                
-                                // Create an empty TML file for the new project using shared service method
-                                String projectId = createdProject.getString("id");
-                                Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.name);
-                                
-                                // Load the survey file and update SpeleoDB ID through normal flow
-                                parentPlugin.loadSurvey(emptyTmlFile.toFile());
-                                checkAndUpdateSpeleoDBId(createdProject);
-                                
-                                // Update UI on JavaFX thread (lightweight operations only)
-                                Platform.runLater(() -> {
-                                    // Set as current project and enable UI controls
-                                    currentProject = createdProject;
-                                    actionsTitlePane.setVisible(true);
-                                    actionsTitlePane.setExpanded(true);
-                                    actionsTitlePane.setText("Actions on `" + createdProject.getString("name") + "`.");
-                                    uploadButton.setDisable(false);
-                                    unlockButton.setDisable(false);
+                    // Use centralized lock acquisition with UI integration
+                    acquireProjectLockWithUI(createdProject, "project creation",
+                        () -> {
+                            // Success callback: Set up project files and load survey
+                            parentPlugin.executorService.execute(() -> {
+                                try {
+                                    logMessage("Setting up new project files ...");
                                     
-                                    // Show success animation and refresh (lightweight)
-                                    showSuccessAnimation("Project created and locked for editing!");
-                                    listProjects();
-                                });
-                                
-                            } catch (Exception e) {
-                                logMessage("Error setting up new project: " + e.getMessage());
-                                Platform.runLater(() -> {
-                                    showErrorAnimation("Project created but setup failed");
-                                    listProjects();
-                                });
-                            }
-                        } else {
-                            // Lock acquisition failed - update UI
+                                    // Create an empty TML file for the new project using shared service method
+                                    String projectId = createdProject.getString("id");
+                                    Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.name);
+                                    
+                                    // Load the survey file and update SpeleoDB ID through normal flow
+                                    parentPlugin.loadSurvey(emptyTmlFile.toFile());
+                                    checkAndUpdateSpeleoDBId(createdProject);
+                                    
+                                    Platform.runLater(() -> {
+                                        showSuccessAnimation("Project created and locked for editing!");
+                                        listProjects();
+                                    });
+                                    
+                                } catch (Exception e) {
+                                    logMessage("Error setting up new project: " + getSafeErrorMessage(e));
+                                    Platform.runLater(() -> {
+                                        showErrorAnimation("Project created but setup failed");
+                                        listProjects();
+                                    });
+                                }
+                            });
+                        },
+                        () -> {
+                            // Failure callback: Project created but lock failed
                             Platform.runLater(() -> {
-                                showSuccessAnimation("Project created (lock acquisition failed)");
                                 listProjects();
                             });
-                        }
-                    });
+                        },
+                        true // Show modal dialogs for project creation
+                    );
                     
                 } catch (Exception e) {
                     Platform.runLater(() -> {
@@ -1490,41 +1478,45 @@ public class SpeleoDBController implements Initializable {
 
         parentPlugin.executorService.execute(() -> {
             try {
-                // Step 1: Try to acquire lock (if not read-only)
-                LockResult lockResult = acquireProjectLock(project, "project opening");
-                
-                // Step 2: Download project regardless of lock status
+                // Step 1: Download project first
                 logMessage("Downloading project: " + project.getString("name"));
                 Path tml_filepath = speleoDBService.downloadProject(project);
 
                 if (Files.exists(tml_filepath)) {
-                    // Step 3: Load the project
+                    // Step 2: Load the project
                     parentPlugin.loadSurvey(tml_filepath.toFile());
                     logMessage("Download successful: " + project.getString("name"));
-                    currentProject = project;
                     checkAndUpdateSpeleoDBId(project);
 
-                    // Step 4: Update UI based on lock status
+                    // Step 3: Try to acquire lock with UI integration (handles all UI updates)
                     Platform.runLater(() -> {
-                        serverProgressIndicator.setVisible(false);
-                        actionsTitlePane.setVisible(true);
-                        actionsTitlePane.setExpanded(true);
-                        actionsTitlePane.setText("Actions on `" + currentProject.getString("name") + "`.");
-
-                        // Enable/disable controls based on lock acquisition
-                        boolean hasLock = lockResult.isAcquired();
-                        uploadButton.setDisable(!hasLock);
-                        unlockButton.setDisable(!hasLock);
+                        acquireProjectLockWithUI(project, "project opening",
+                            () -> {
+                                // Success callback: Refresh project listing
+                                parentPlugin.executorService.execute(() -> {
+                                    try {
+                                        logMessage("Refreshing project listing after project opening...");
+                                        JsonArray projectList = speleoDBService.listProjects();
+                                        handleProjectListResponse(projectList);
+                                    } catch (Exception refreshEx) {
+                                        logMessage("Error refreshing project listing: " + getSafeErrorMessage(refreshEx));
+                                    }
+                                });
+                            },
+                            () -> {
+                                // Failure callback: Still refresh project listing
+                                parentPlugin.executorService.execute(() -> {
+                                    try {
+                                        JsonArray projectList = speleoDBService.listProjects();
+                                        handleProjectListResponse(projectList);
+                                    } catch (Exception refreshEx) {
+                                        logMessage("Error refreshing project listing: " + getSafeErrorMessage(refreshEx));
+                                    }
+                                });
+                            },
+                            true // Show modal dialogs for project opening
+                        );
                     });
-                    
-                    // Step 5: Refresh project listing
-                    try {
-                        logMessage("Refreshing project listing after project opening...");
-                        JsonArray projectList = speleoDBService.listProjects();
-                        handleProjectListResponse(projectList);
-                    } catch (Exception refreshEx) {
-                        logMessage("Error refreshing project listing: " + refreshEx.getMessage());
-                    }
 
                 } else {
                     logMessage("Download failed");
@@ -1537,6 +1529,7 @@ public class SpeleoDBController implements Initializable {
                         actionsTitlePane.setText("Actions");
                         uploadButton.setDisable(true);
                         unlockButton.setDisable(true);
+                        showErrorAnimation("Download Failed");
                     });
                 }
             } catch (IOException | InterruptedException | URISyntaxException ex) {
@@ -2129,45 +2122,96 @@ public class SpeleoDBController implements Initializable {
             }
             
         } catch (Exception e) {
-            String errorMessage = "❌ Error acquiring lock for " + context + ": " + projectName + " - " + e.getMessage();
+            String errorMessage = "❌ Error acquiring lock for " + context + ": " + projectName + " - " + getSafeErrorMessage(e);
             logMessage(errorMessage);
             return LockResult.error(project, errorMessage, e);
         }
     }
     
     /**
-     * Acquires lock and updates UI state accordingly.
-     * This is the most common pattern used throughout the application.
+     * Centralized lock acquisition with UI integration and comprehensive error handling.
+     * Handles all UI updates, animations, and modal displays based on the acquisition result.
      * 
      * @param project the project to acquire lock for
      * @param context description of the operation context
-     * @param onSuccess callback executed on successful lock acquisition (on UI thread)
-     * @param onFailure callback executed on lock failure (on UI thread)
+     * @param onSuccess callback to execute on successful lock acquisition (optional)
+     * @param onFailure callback to execute on failed lock acquisition (optional)
+     * @param showModals whether to show error modals for network issues
      */
     private void acquireProjectLockWithUI(JsonObject project, String context, 
-                                         Runnable onSuccess, Runnable onFailure) {
+                                         Runnable onSuccess, Runnable onFailure, boolean showModals) {
         parentPlugin.executorService.execute(() -> {
             LockResult result = acquireProjectLock(project, context);
             
             Platform.runLater(() -> {
                 if (result.isAcquired()) {
-                    // Set as current project if lock acquired
+                    // Success: Set as current project and enable UI controls
                     currentProject = project;
                     
-                    // Enable UI controls for editing
+                    // Update UI state for editing
                     actionsTitlePane.setVisible(true);
                     actionsTitlePane.setExpanded(true);
                     actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
                     uploadButton.setDisable(false);
                     unlockButton.setDisable(false);
                     
-                    if (onSuccess != null) onSuccess.run();
-                } else {
-                    // Disable editing controls if lock not acquired
+                    // Show success animation
+                    showSuccessAnimation("Lock Acquired");
+                    
+                    // Execute success callback
+                    if (onSuccess != null) {
+                        onSuccess.run();
+                    }
+                    
+                } else if (result.hasError()) {
+                    // Network/Exception error: Handle with appropriate animations and modals
+                    Exception error = result.getError();
+                    String networkErrorMessage = getNetworkErrorMessage(error, "Lock acquisition");
+                    
+                    if (isServerOfflineError(error)) {
+                        showErrorAnimation("Can't reach server");
+                        if (showModals) {
+                            showErrorModal("Server Offline", networkErrorMessage);
+                        }
+                    } else if (isTimeoutError(error)) {
+                        showErrorAnimation("Lock acquisition timed out");
+                        if (showModals) {
+                            showErrorModal("Lock Acquisition Timeout", networkErrorMessage);
+                        }
+                    } else {
+                        showErrorAnimation("Failed to Acquire Lock");
+                        if (showModals) {
+                            showErrorModal("Lock Acquisition Error", result.getMessage());
+                        }
+                    }
+                    
+                    // Disable editing controls
                     uploadButton.setDisable(true);
                     unlockButton.setDisable(true);
                     
-                    if (onFailure != null) onFailure.run();
+                    // Execute failure callback
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
+                    
+                } else {
+                    // Service-level failure (returned false) - e.g., read-only project, already locked
+                    String failureReason = result.getMessage();
+                    
+                    if (failureReason.contains("read-only")) {
+                        showSuccessAnimation("Project opened (read-only)");
+                    } else {
+                        showErrorAnimation("Lock not available");
+                    }
+                    
+                    // Disable editing controls for read-only or locked projects
+                    uploadButton.setDisable(true);
+                    unlockButton.setDisable(true);
+                    
+                    // Execute failure callback
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
                 }
             });
         });
