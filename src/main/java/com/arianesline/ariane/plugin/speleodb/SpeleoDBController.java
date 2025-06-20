@@ -118,6 +118,8 @@ public class SpeleoDBController implements Initializable {
     private TitledPane projectsTitlePane;
     @FXML
     private WebView aboutWebView;
+    @FXML
+    private Button resetButton;
 
     // SpeleoDBService instance for handling server communication.
     private SpeleoDBService speleoDBService;
@@ -1007,23 +1009,22 @@ public class SpeleoDBController implements Initializable {
     // ********************* Authentication Management ********************* //
 
     /**
-     * Connects to the SpeleoDB instance using the provided credentials.
+     * Establishes a connection to SpeleoDB using the provided credentials.
+     * Validates the OAuth token format before attempting connection.
+     * Updates the UI state based on the connection result.
      */
     private void connectToSpeleoDB() {
-
         String email = emailTextField.getText();
         String password = passwordPasswordField.getText();
-        String oauthtoken = oauthtokenPasswordField.getText();
+        String oauthToken = oauthtokenPasswordField.getText();
         String instance = instanceTextField.getText();
 
         // Validate OAuth token format if provided
-        if (oauthtoken != null && !oauthtoken.trim().isEmpty()) {
-            if (!validateOAuthToken(oauthtoken)) {
-                logMessage("Invalid OAuth token format. Expected 40 hexadecimal characters.");
+        if (oauthToken != null && !oauthToken.trim().isEmpty()) {
+            if (!validateOAuthToken(oauthToken)) {
                 showErrorModal("Invalid OAuth Token", 
-                    "The OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).\n\n" +
-                    "Example: a1b2c3d4e5f6789012345678901234567890abcd\n\n" +
-                    "Please check your token and try again.");
+                    "OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).\n\n" +
+                    "Please check your token format and try again.");
                 return;
             }
         }
@@ -1033,20 +1034,28 @@ public class SpeleoDBController implements Initializable {
 
         parentPlugin.executorService.execute(() -> {
             try {
-                speleoDBService.authenticate(email, password, oauthtoken, instance);
+                speleoDBService = new SpeleoDBService(this);
+                speleoDBService.authenticate(email, password, oauthToken, instance);
                 logMessage("Connected successfully.");
                 savePreferences();
 
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
                     projectsTitlePane.setExpanded(true);
-                    createNewProjectButton.setDisable(false); // Enable create new project button
-                    refreshProjectsButton.setDisable(false); // Enable refresh button
-                    connectionButton.setText("DISCONNECT");
+                    createNewProjectButton.setDisable(false);
+                    refreshProjectsButton.setDisable(false);
                     
-                    // When authenticated: DISCONNECT button takes 100% width, SIGNUP button hidden
-                    javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3); // Span all 3 columns
+                    // Update UI state for connected mode
+                    connectionButton.setText("DISCONNECT");
+                    javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3); // Span all 3 columns (100%)
                     signupButton.setVisible(false);
+                    
+                    actionsTitlePane.setVisible(true);
+                    
+                    // Disable connection form fields while connected
+                    setConnectionFormEnabled(false);
+                    
+                    serverProgressIndicator.setVisible(false);
                 });
 
                 listProjects();
@@ -1055,42 +1064,112 @@ public class SpeleoDBController implements Initializable {
                 String errorMessage = getNetworkErrorMessage(e, "Connection");
                 logMessage("Connection failed: " + getSafeErrorMessage(e));
                 
-                if (isServerOfflineError(e)) {
-                    showErrorAnimation("Can't reach server");
-                    showErrorModal("Server Offline", errorMessage);
-                } else if (isTimeoutError(e)) {
-                    showErrorAnimation("Request timed out");
-                    showErrorModal("Connection Timeout", errorMessage);
-                } else {
-                    showErrorAnimation("Connection Failed: " + e.getMessage());
-                }
-                
-                Platform.runLater(() -> serverProgressIndicator.setVisible(false));
+                Platform.runLater(() -> {
+                    if (isServerOfflineError(e)) {
+                        showErrorAnimation("Can't reach server");
+                        showErrorModal("Server Offline", errorMessage);
+                    } else if (isTimeoutError(e)) {
+                        showErrorAnimation("Request timed out");
+                        showErrorModal("Connection Timeout", errorMessage);
+                    } else {
+                        showErrorAnimation("Connection Failed: " + getSafeErrorMessage(e));
+                    }
+                    
+                    serverProgressIndicator.setVisible(false);
+                });
             }
         });
     }
 
     /**
-     * Disconnects from the SpeleoDB instance.
+     * Disconnects from SpeleoDB and updates the UI state.
+     * Clears the current project, updates button states, and hides project-related UI elements.
      */
     private void disconnectFromSpeleoDB() {
-        String SDB_instance = speleoDBService.getSDBInstance();
-        logMessage("Disconnected from " + SDB_instance);
-        speleoDBService.logout();
-        projectListView.getItems().clear();
-        actionsTitlePane.setVisible(false);
-        projectsTitlePane.setVisible(false);
-        createNewProjectButton.setDisable(true); // Disable create new project button
-        refreshProjectsButton.setDisable(true); // Disable refresh button
-        connectionButton.setText("CONNECT");
+        String SDB_instance = speleoDBService != null ? speleoDBService.getSDBInstance() : "SpeleoDB";
         
-        // When disconnected: CONNECT and SIGNUP buttons visible 50/50
+        if (speleoDBService != null) {
+            speleoDBService.logout();
+        }
+        
+        currentProject = null;
+        
+        // Clear cached project list and UI
+        cachedProjectList = null;
+        projectListView.getItems().clear();
+        
+        // Update UI state for disconnected mode
+        connectionButton.setText("CONNECT");
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
         
-        if (!rememberCredentialsCheckBox.isSelected())
+        actionsTitlePane.setVisible(false);
+        projectsTitlePane.setVisible(false);
+        createNewProjectButton.setDisable(true);
+        refreshProjectsButton.setDisable(true);
+        
+        // Re-enable connection form fields
+        setConnectionFormEnabled(true);
+        
+        // Clear password if remember me is not checked
+        if (!rememberCredentialsCheckBox.isSelected()) {
             passwordPasswordField.clear();
+        }
+        
         logMessage("Disconnected from " + SDB_instance);
+    }
+    
+    /**
+     * Enables or disables the connection form fields.
+     * When connected, fields are disabled to prevent changes during active session.
+     * When disconnected, fields are enabled to allow user input.
+     * 
+     * @param enabled true to enable the fields, false to disable them
+     */
+    private void setConnectionFormEnabled(boolean enabled) {
+        emailTextField.setDisable(!enabled);
+        passwordPasswordField.setDisable(!enabled);
+        oauthtokenPasswordField.setDisable(!enabled);
+        instanceTextField.setDisable(!enabled);
+        rememberCredentialsCheckBox.setDisable(!enabled);
+        resetButton.setDisable(!enabled);
+    }
+    
+    /**
+     * Resets the connection form to default values.
+     * Clears email, password, and OAuth token fields, and resets instance to default.
+     * Only available when not connected to prevent accidental data loss.
+     */
+    @FXML
+    public void onResetConnectionForm(ActionEvent actionEvent) {
+        // Only allow reset when not connected
+        if (speleoDBService != null && speleoDBService.isAuthenticated()) {
+            showErrorAnimation("Cannot reset form while connected");
+            return;
+        }
+        
+        // Show confirmation dialog
+        boolean confirmed = showConfirmationModal(
+            "Reset Connection Form",
+            "This will clear all connection form fields and reset the instance to default.\n\nAre you sure you want to continue?",
+            "Reset",
+            "Cancel"
+        );
+        
+        if (confirmed) {
+            // Reset all form fields
+            emailTextField.setText("");
+            passwordPasswordField.setText("");
+            oauthtokenPasswordField.setText("");
+            instanceTextField.setText(DEFAULT_INSTANCE);
+            rememberCredentialsCheckBox.setSelected(true);
+            
+            // Clear saved preferences if remember me was unchecked
+            savePreferences();
+            
+            logMessage("Connection form reset to defaults");
+            showSuccessAnimation("Form reset successfully");
+        }
     }
 
     /**

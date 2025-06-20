@@ -1768,7 +1768,6 @@ class SpeleoDBControllerTest {
             // Invalid tokens - non-hexadecimal characters
             assertFalse((Boolean) validateMethod.invoke(controller, "g1b2c3d4e5f6789012345678901234567890abcd"));   // contains 'g'
             assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890abcz"));   // contains 'z'
-            assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f678901234567890123456789@abcd"));   // contains '@'
             assertFalse((Boolean) validateMethod.invoke(controller, "a1b2c3d4e5f6789012345678901234567890ab d"));   // contains space
             
             // Invalid tokens - special characters
@@ -2042,4 +2041,6 @@ class SpeleoDBControllerTest {
             Assertions.fail(errorDetails);
         }
     }
+    
+
 } 

@@ -9,6 +9,7 @@
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
@@ -34,140 +35,157 @@
 			<panes>
 				<TitledPane fx:id="connectionTitlePane" animated="false" text="Connection">
 					<content>
-						<AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0" styleClass="aggregator">
-							<children>
-								<GridPane AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
-									<columnConstraints>
-										<ColumnConstraints hgrow="ALWAYS" minWidth="10.0" />
-									</columnConstraints>
-									<rowConstraints>
-										<RowConstraints minHeight="40.0" vgrow="SOMETIMES" />                       <!-- Row 0 - SpeleoDB Title -->
-										<RowConstraints minHeight="120.0" vgrow="SOMETIMES" />                      <!-- Row 1 - Description -->
-										<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 2 - Instance -->
-										<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 3 - Separator -->
-										<RowConstraints minHeight="25.0" vgrow="SOMETIMES" />                       <!-- Row 4 - Label -->
-										<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 5 - Email -->
-										<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 6 - Password -->
-										<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 7 - Separator -->
-										<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 8 - OAuth -->
-										<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 9 - Separator -->
-										<RowConstraints minHeight="35.0" vgrow="SOMETIMES" />                       <!-- Row 10 - Checkbox -->
-										<RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 11 - Connect/Signup -->
-										<RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 12 - Learn About -->
-										<!-- <RowConstraints /> -->
-									</rowConstraints>
+						<ScrollPane fitToWidth="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED" styleClass="aggregator">
+							<content>
+								<AnchorPane minHeight="0.0" minWidth="0.0" styleClass="aggregator">
 									<children>
-										<!-- SpeleoDB Title at Row 0 -->
-										<Label text="SpeleoDB" textFill="WHITE" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.valignment="CENTER">
-											<GridPane.margin>
-												<Insets bottom="5.0" top="5.0" />
-											</GridPane.margin>
-                                            <styleClass>
-												<String fx:value="bold" />
-											</styleClass>
-										</Label>
-										<!-- Description Text at Row 1 -->
-										<Label text="SpeleoDB, developed by the Underwater Speleological and Archaeological Heritage Institute (USAH Institute), a 501(c)(3) nonprofit, supports the cave survey and exploration community. It prioritizes privacy, data ownership, and proper credit, encouraging open collaboration while ensuring individuals keep control of their work. Guided by a steering committee, SpeleoDB promotes a more connected and cooperative future for cave exploration." textAlignment="JUSTIFY" textFill="WHITE" wrapText="true" GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER">
-											<font>
-												<Font size="14.0" />
-											</font>
-											<GridPane.margin>
-												<Insets bottom="15.0" />
-											</GridPane.margin>
-										</Label>
-										<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER">
-											<Label alignment="CENTER" text="Instance">
-												<styleClass>
-													<String fx:value="small" />
-													<String fx:value="textheader" />
-												</styleClass>
-											</Label>
-											<TextField fx:id="instanceTextField" maxWidth="Infinity" prefHeight="25.0" />
-										</VBox>
-										<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="3" GridPane.valignment="CENTER" />
-										<Label text="Provide Email &amp; Password or OAuth Token" textFill="WHITE" GridPane.halignment="CENTER" GridPane.rowIndex="4" GridPane.valignment="CENTER">
-											<styleClass>
-												<String fx:value="bold" />
-											</styleClass>
-										</Label>
-										<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="5" GridPane.valignment="CENTER">
-											<Label alignment="CENTER" text="Email">
-												<styleClass>
-													<String fx:value="small" />
-													<String fx:value="textheader" />
-												</styleClass>
-											</Label>
-											<TextField fx:id="emailTextField" maxWidth="Infinity" prefHeight="25.0" />
-											<GridPane.margin>
-												<Insets top="4.0" />
-											</GridPane.margin>
-										</VBox>
-										<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="6" GridPane.valignment="CENTER">
-											<Label alignment="CENTER" text="Password">
-												<styleClass>
-													<String fx:value="small" />
-													<String fx:value="textheader" />
-												</styleClass>
-											</Label>
-											<PasswordField fx:id="passwordPasswordField" maxWidth="Infinity" />
-											<GridPane.margin>
-												<Insets top="4.0" />
-											</GridPane.margin>
-										</VBox>
-										<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="7" GridPane.valignment="CENTER" />
-										<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="8" GridPane.valignment="CENTER">
-											<Label alignment="CENTER" text="OAuth Token">
-												<styleClass>
-													<String fx:value="small" />
-													<String fx:value="textheader" />
-												</styleClass>
-											</Label>
-											<PasswordField fx:id="oauthtokenPasswordField" maxWidth="Infinity" />
-											<GridPane.margin>
-												<Insets top="4.0" />
-											</GridPane.margin>
-										</VBox>
-										<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="9" GridPane.valignment="CENTER" />
-										<CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false" text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="10" GridPane.valignment="CENTER">
-											<styleClass>
-												<String fx:value="small" />
-												<String fx:value="textheader" />
-											</styleClass>
-											<GridPane.margin>
-												<Insets left="12.0" right="12.0" top="4.0" />
-											</GridPane.margin>
-										</CheckBox>
-										<GridPane AnchorPane.topAnchor="8.0" GridPane.halignment="CENTER" GridPane.rowIndex="11" GridPane.valignment="CENTER">
+										<GridPane AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0" AnchorPane.bottomAnchor="8.0">
 											<columnConstraints>
-												<ColumnConstraints percentWidth="45.0" />
-												<ColumnConstraints percentWidth="10.0" />
-												<ColumnConstraints percentWidth="45.0" />
+												<ColumnConstraints hgrow="ALWAYS" minWidth="10.0" />
 											</columnConstraints>
-											<children>
-												<Button fx:id="connectionButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onHandleAuthentication" styleClass="bold" text="CONNECT" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
-													<font>
-														<Font name="System Bold" size="12.0" />
-													</font>
-												</Button>
-												<Button fx:id="signupButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSignupSpeleoDB" styleClass="bold" text="SIGNUP" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
-													<font>
-														<Font name="System Bold" size="12.0" />
-													</font>
-												</Button>
-											</children>
 											<rowConstraints>
-												<RowConstraints />
+												<RowConstraints minHeight="40.0" vgrow="SOMETIMES" />                       <!-- Row 0 - SpeleoDB Title -->
+												<RowConstraints minHeight="120.0" vgrow="SOMETIMES" />                      <!-- Row 1 - Description -->
+												<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 2 - Instance -->
+												<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 3 - Separator -->
+												<RowConstraints minHeight="25.0" vgrow="SOMETIMES" />                       <!-- Row 4 - Label -->
+												<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 5 - Email -->
+												<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 6 - Password -->
+												<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 7 - Separator -->
+												<RowConstraints minHeight="50.0" vgrow="SOMETIMES" />                       <!-- Row 8 - OAuth -->
+												<RowConstraints minHeight="20.0" vgrow="SOMETIMES" />                       <!-- Row 9 - Separator -->
+												<RowConstraints minHeight="35.0" vgrow="SOMETIMES" />                       <!-- Row 10 - Checkbox -->
+												<RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 11 - Reset Button -->
+												<RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 12 - Connect/Signup -->
+												<RowConstraints fillHeight="false" minHeight="50.0" valignment="CENTER" />  <!-- Row 13 - Learn About -->
+												<!-- <RowConstraints /> -->
 											</rowConstraints>
+											<children>
+												<!-- SpeleoDB Title at Row 0 -->
+												<Label text="SpeleoDB" textFill="WHITE" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.valignment="CENTER">
+													<GridPane.margin>
+														<Insets bottom="5.0" top="5.0" />
+													</GridPane.margin>
+													<styleClass>
+														<String fx:value="bold" />
+													</styleClass>
+												</Label>
+												<!-- Description Text at Row 1 -->
+												<Label text="SpeleoDB, developed by the Underwater Speleological and Archaeological Heritage Institute (USAH Institute), a 501(c)(3) nonprofit, supports the cave survey and exploration community. It prioritizes privacy, data ownership, and proper credit, encouraging open collaboration while ensuring individuals keep control of their work. Guided by a steering committee, SpeleoDB promotes a more connected and cooperative future for cave exploration." textAlignment="JUSTIFY" textFill="WHITE" wrapText="true" GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER">
+													<font>
+														<Font size="14.0" />
+													</font>
+													<GridPane.margin>
+														<Insets bottom="15.0" />
+													</GridPane.margin>
+												</Label>
+												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER">
+													<Label alignment="CENTER" text="Instance">
+														<styleClass>
+															<String fx:value="small" />
+															<String fx:value="textheader" />
+														</styleClass>
+													</Label>
+													<TextField fx:id="instanceTextField" maxWidth="Infinity" prefHeight="25.0" />
+												</VBox>
+												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="3" GridPane.valignment="CENTER" />
+												<Label text="Provide Email &amp; Password or OAuth Token" textFill="WHITE" GridPane.halignment="CENTER" GridPane.rowIndex="4" GridPane.valignment="CENTER">
+													<styleClass>
+														<String fx:value="bold" />
+													</styleClass>
+												</Label>
+												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="5" GridPane.valignment="CENTER">
+													<Label alignment="CENTER" text="Email">
+														<styleClass>
+															<String fx:value="small" />
+															<String fx:value="textheader" />
+														</styleClass>
+													</Label>
+													<TextField fx:id="emailTextField" maxWidth="Infinity" prefHeight="25.0" />
+													<GridPane.margin>
+														<Insets top="4.0" />
+													</GridPane.margin>
+												</VBox>
+												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="6" GridPane.valignment="CENTER">
+													<Label alignment="CENTER" text="Password">
+														<styleClass>
+															<String fx:value="small" />
+															<String fx:value="textheader" />
+														</styleClass>
+													</Label>
+													<PasswordField fx:id="passwordPasswordField" maxWidth="Infinity" />
+													<GridPane.margin>
+														<Insets top="4.0" />
+													</GridPane.margin>
+												</VBox>
+												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="7" GridPane.valignment="CENTER" />
+												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="8" GridPane.valignment="CENTER">
+													<Label alignment="CENTER" text="OAuth Token">
+														<styleClass>
+															<String fx:value="small" />
+															<String fx:value="textheader" />
+														</styleClass>
+													</Label>
+													<PasswordField fx:id="oauthtokenPasswordField" maxWidth="Infinity" />
+													<GridPane.margin>
+														<Insets top="4.0" />
+													</GridPane.margin>
+												</VBox>
+												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="9" GridPane.valignment="CENTER" />
+												<CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false" text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="10" GridPane.valignment="CENTER">
+													<styleClass>
+														<String fx:value="small" />
+														<String fx:value="textheader" />
+													</styleClass>
+													<GridPane.margin>
+														<Insets left="12.0" right="12.0" top="4.0" />
+													</GridPane.margin>
+												</CheckBox>
+
+												<Button fx:id="resetButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onResetConnectionForm" styleClass="bold" text="🔄 Reset Form" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="11" GridPane.valignment="CENTER">
+													<font>
+														<Font name="System Bold" size="10.0" />
+													</font>
+													<GridPane.margin>
+														<Insets top="5.0" />
+													</GridPane.margin>
+												</Button>
+
+												<GridPane AnchorPane.topAnchor="8.0" GridPane.halignment="CENTER" GridPane.rowIndex="12" GridPane.valignment="CENTER">
+													<columnConstraints>
+														<ColumnConstraints percentWidth="45.0" />
+														<ColumnConstraints percentWidth="10.0" />
+														<ColumnConstraints percentWidth="45.0" />
+													</columnConstraints>
+													<children>
+														<Button fx:id="connectionButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onHandleAuthentication" styleClass="bold" text="CONNECT" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
+															<font>
+																<Font name="System Bold" size="12.0" />
+															</font>
+														</Button>
+														<Button fx:id="signupButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onSignupSpeleoDB" styleClass="bold" text="SIGNUP" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.valignment="CENTER">
+															<font>
+																<Font name="System Bold" size="12.0" />
+															</font>
+														</Button>
+													</children>
+													<rowConstraints>
+														<RowConstraints />
+													</rowConstraints>
+												</GridPane>
+
+												<Button fx:id="learnAboutButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onLearnAbout" styleClass="bold" text="Learn about SpeleoDB" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="13" GridPane.valignment="CENTER">
+													<font>
+														<Font name="System Bold" size="12.0" />
+													</font>
+												</Button>
+
+											</children>
 										</GridPane>
-										<Button fx:id="learnAboutButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onLearnAbout" styleClass="bold" text="Learn about SpeleoDB" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="12" GridPane.valignment="CENTER">
-											<font>
-												<Font name="System Bold" size="12.0" />
-											</font>
-										</Button>
 									</children>
-								</GridPane>
-							</children>
-						</AnchorPane>
+								</AnchorPane>
+							</content>
+						</ScrollPane>
 					</content>
 				</TitledPane>
 				<TitledPane fx:id="projectsTitlePane" animated="false" text="Projects">
