@@ -10,6 +10,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 /**
  * Simple unit tests for SpeleoDBService covering basic functionality and edge cases.
  * Tests fundamental behaviors without complex mocking.
@@ -83,11 +84,11 @@ class SpeleoDBServiceSimpleTest {
             };
             
             for (String projectId : projectIds) {
-                Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + ".tml");
+                Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
                 
                 assertThat(expectedPath).isNotNull();
                 assertThat(expectedPath.toString()).contains(projectId);
-                assertThat(expectedPath.toString()).endsWith(".tml");
+                assertThat(expectedPath.toString()).endsWith(PATHS.TML_FILE_EXTENSION);
                 assertThat(expectedPath.toString()).contains(SpeleoDBService.ARIANE_ROOT_DIR);
             }
         }
@@ -97,14 +98,14 @@ class SpeleoDBServiceSimpleTest {
         void shouldHandleExtremeProjectIdLengths() {
             // Very short ID
             String shortId = "a";
-            Path shortPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, shortId + ".tml");
+            Path shortPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, shortId + PATHS.TML_FILE_EXTENSION);
             assertThat(shortPath.toString()).contains("a.tml");
             
             // Very long ID
             String longId = "very-long-project-id-" + "x".repeat(200);
-            Path longPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, longId + ".tml");
+            Path longPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, longId + PATHS.TML_FILE_EXTENSION);
             assertThat(longPath.toString()).contains(longId);
-            assertThat(longPath.toString()).endsWith(".tml");
+            assertThat(longPath.toString()).endsWith(PATHS.TML_FILE_EXTENSION);
         }
         
         @Test
@@ -120,7 +121,7 @@ class SpeleoDBServiceSimpleTest {
             
             for (String specialId : specialIds) {
                 assertThatCode(() -> {
-                    Path path = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, specialId + ".tml");
+                    Path path = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, specialId + PATHS.TML_FILE_EXTENSION);
                     // Just test that path creation doesn't throw exceptions
                     assertThat(path).isNotNull();
                 }).doesNotThrowAnyException();

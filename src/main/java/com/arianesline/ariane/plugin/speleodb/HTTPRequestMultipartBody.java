@@ -6,12 +6,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.*;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MULTIPART;
 
 /**
  * Helper class for building HTTP multipart form data request bodies.
@@ -149,13 +150,12 @@ public class HTTPRequestMultipartBody {
                     out.write(CONTENT_TYPE_PREFIX);
                     out.write(record.getContentType().getBytes(StandardCharsets.UTF_8));
                     out.write(CRLF);
+                    out.write(CRLF); // Empty line after content-type header
                 } else {
-                    out.write(OCTET_STREAM_HEADER);
+                    out.write(OCTET_STREAM_HEADER); // Already includes \r\n\r\n
                 }
                 
-                out.write(CRLF);
-                
-                // Write file content
+                // Write file content directly - no extra CRLF needed
                 Path filePath = record.getFile().toPath();
                 byte[] fileBytes = Files.readAllBytes(filePath);
                 out.write(fileBytes);

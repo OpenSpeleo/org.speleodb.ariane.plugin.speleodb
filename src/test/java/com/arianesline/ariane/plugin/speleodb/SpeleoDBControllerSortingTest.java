@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
+
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonArrayBuilder;
@@ -39,42 +41,42 @@ class SpeleoDBControllerSortingTest {
         @DisplayName("Should have correct default sort mode")
         void shouldHaveCorrectDefaultSortMode() {
             // Verify default sort mode is BY_NAME
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_NAME);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_NAME);
         }
         
         @Test
         @DisplayName("Should change sort mode to BY_DATE")
         void shouldChangeSortModeToByDate() {
             // Execute
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Verify
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_DATE);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_DATE);
         }
         
         @Test
         @DisplayName("Should change sort mode to BY_NAME")
         void shouldChangeSortModeToByName() {
             // Setup - start with BY_DATE
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Verify
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_NAME);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_NAME);
         }
         
         @Test
         @DisplayName("Should handle multiple sort mode changes")
         void shouldHandleMultipleSortModeChanges() {
             // Execute multiple changes
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Verify final state
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_DATE);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_DATE);
         }
     }
     
@@ -146,7 +148,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestProjectData();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -164,7 +166,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createCaseInsensitiveTestData();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -182,7 +184,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestProjectDataWithDates();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -200,7 +202,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestDataWithMissingNames();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -218,7 +220,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestDataWithMissingDates();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -314,7 +316,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestProjectData();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             String result = sortingLogic.simulateRebuildFromCache();
@@ -340,7 +342,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray testData = createTestProjectDataWithDates();
             sortingLogic.cacheProjectData(testData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             String result = sortingLogic.simulateRebuildFromCache();
@@ -388,7 +390,7 @@ class SpeleoDBControllerSortingTest {
             // Verify workflow
             assertThat(nameSort).contains("Sort by name requested");
             assertThat(dateSort).contains("Sort by date requested");
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_DATE);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_DATE);
         }
         
         @Test
@@ -404,7 +406,7 @@ class SpeleoDBControllerSortingTest {
             String refreshResult = sortingLogic.simulateRefreshResponse(testData); // Refresh again
             
             // Verify sort mode is maintained
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_DATE);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_DATE);
             assertThat(refreshResult).contains("Projects sorted by modified_date (newest first)");
         }
         
@@ -438,13 +440,13 @@ class SpeleoDBControllerSortingTest {
             
             // Execute and measure performance for name sorting
             long startTime = System.nanoTime();
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             List<JsonObject> sortedByName = sortingLogic.getSortedProjects();
             long nameTime = System.nanoTime() - startTime;
             
             // Execute and measure performance for date sorting
             startTime = System.nanoTime();
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             List<JsonObject> sortedByDate = sortingLogic.getSortedProjects();
             long dateTime = System.nanoTime() - startTime;
             
@@ -467,7 +469,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray identicalNamesData = createIdenticalNamesTestData();
             sortingLogic.cacheProjectData(identicalNamesData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -486,7 +488,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray identicalDatesData = createIdenticalDatesTestData();
             sortingLogic.cacheProjectData(identicalDatesData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -506,7 +508,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray specialCharsData = createSpecialCharactersTestData();
             sortingLogic.cacheProjectData(specialCharsData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -527,7 +529,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray numericData = createNumericNamesTestData();
             sortingLogic.cacheProjectData(numericData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -546,7 +548,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray longNamesData = createLongNamesTestData();
             sortingLogic.cacheProjectData(longNamesData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -564,7 +566,7 @@ class SpeleoDBControllerSortingTest {
             // Setup
             JsonArray malformedDatesData = createMalformedDatesTestData();
             sortingLogic.cacheProjectData(malformedDatesData);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             List<JsonObject> sortedProjects = sortingLogic.getSortedProjects();
@@ -588,11 +590,11 @@ class SpeleoDBControllerSortingTest {
             sortingLogic.cacheProjectData(testData);
             
             // Execute multiple sort operations
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             List<JsonObject> firstNameSort = new ArrayList<>(sortingLogic.getSortedProjects());
             
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             List<JsonObject> secondNameSort = new ArrayList<>(sortingLogic.getSortedProjects());
             
             // Verify - results should be identical (stable sort)
@@ -617,9 +619,9 @@ class SpeleoDBControllerSortingTest {
             for (int i = 0; i < 10; i++) {
                 Thread thread = new Thread(() -> {
                     try {
-                        sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+                        sortingLogic.setSortMode(SortMode.BY_NAME);
                         sortingLogic.getSortedProjects();
-                        sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+                        sortingLogic.setSortMode(SortMode.BY_DATE);
                         sortingLogic.getSortedProjects();
                     } catch (Exception e) {
                         synchronized (exceptions) {
@@ -653,7 +655,7 @@ class SpeleoDBControllerSortingTest {
         @DisplayName("Should track button style changes for name sorting")
         void shouldTrackButtonStyleChangesForNameSorting() {
             // Setup
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_NAME);
+            sortingLogic.setSortMode(SortMode.BY_NAME);
             
             // Execute
             String styleInfo = sortingLogic.simulateButtonStyleUpdate();
@@ -667,7 +669,7 @@ class SpeleoDBControllerSortingTest {
         @DisplayName("Should track button style changes for date sorting")
         void shouldTrackButtonStyleChangesForDateSorting() {
             // Setup
-            sortingLogic.setSortMode(SpeleoDBController.SortMode.BY_DATE);
+            sortingLogic.setSortMode(SortMode.BY_DATE);
             
             // Execute
             String styleInfo = sortingLogic.simulateButtonStyleUpdate();
@@ -683,15 +685,15 @@ class SpeleoDBControllerSortingTest {
             // Execute rapid changes
             for (int i = 0; i < 50; i++) {
                 sortingLogic.setSortMode(i % 2 == 0 ? 
-                    SpeleoDBController.SortMode.BY_NAME : 
-                    SpeleoDBController.SortMode.BY_DATE);
+                    SortMode.BY_NAME : 
+                    SortMode.BY_DATE);
                 String styleInfo = sortingLogic.simulateButtonStyleUpdate();
                 assertThat(styleInfo).isNotEmpty();
             }
             
             // Verify final state - after 50 iterations (0-49), the last iteration is i=49 which is odd
             // So the final mode should be BY_DATE (since 49 % 2 != 0)
-            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SpeleoDBController.SortMode.BY_DATE);
+            assertThat(sortingLogic.getCurrentSortMode()).isEqualTo(SortMode.BY_DATE);
         }
     }
 
@@ -956,15 +958,15 @@ class SpeleoDBControllerSortingTest {
      * Test logic class that simulates the sorting functionality without JavaFX dependencies.
      */
     static class SpeleoDBControllerSortingLogic {
-        private SpeleoDBController.SortMode currentSortMode = SpeleoDBController.SortMode.BY_NAME;
+        private SortMode currentSortMode = SortMode.BY_NAME;
         private JsonArray cachedProjectList = null;
         private boolean isAuthenticated = false;
         
-        public SpeleoDBController.SortMode getCurrentSortMode() {
+        public SortMode getCurrentSortMode() {
             return currentSortMode;
         }
         
-        public void setSortMode(SpeleoDBController.SortMode sortMode) {
+        public void setSortMode(SortMode sortMode) {
             this.currentSortMode = sortMode;
         }
         
@@ -994,7 +996,7 @@ class SpeleoDBControllerSortingTest {
                 projects.add(cachedProjectList.getJsonObject(i));
             }
             
-            if (currentSortMode == SpeleoDBController.SortMode.BY_NAME) {
+            if (currentSortMode == SortMode.BY_NAME) {
                 projects.sort((a, b) -> {
                     String nameA = a.getString("name", "").toLowerCase();
                     String nameB = b.getString("name", "").toLowerCase();
@@ -1016,7 +1018,7 @@ class SpeleoDBControllerSortingTest {
                 return "Cannot sort projects: Not authenticated";
             }
             
-            currentSortMode = SpeleoDBController.SortMode.BY_NAME;
+            currentSortMode = SortMode.BY_NAME;
             return "Sort by name requested";
         }
         
@@ -1025,7 +1027,7 @@ class SpeleoDBControllerSortingTest {
                 return "Cannot sort projects: Not authenticated";
             }
             
-            currentSortMode = SpeleoDBController.SortMode.BY_DATE;
+            currentSortMode = SortMode.BY_DATE;
             return "Sort by date requested";
         }
         
@@ -1037,7 +1039,7 @@ class SpeleoDBControllerSortingTest {
             List<JsonObject> projects = getSortedProjects();
             
             String sortMessage;
-            if (currentSortMode == SpeleoDBController.SortMode.BY_NAME) {
+            if (currentSortMode == SortMode.BY_NAME) {
                 sortMessage = "Projects sorted by name (A-Z)";
             } else {
                 sortMessage = "Projects sorted by modified_date (newest first)";
@@ -1053,7 +1055,7 @@ class SpeleoDBControllerSortingTest {
         
         public String simulateButtonStyleUpdate() {
             // Simulate the updateSortButtonStyles() method from the controller
-            if (currentSortMode == SpeleoDBController.SortMode.BY_NAME) {
+            if (currentSortMode == SortMode.BY_NAME) {
                 return "Name button: ACTIVE, Date button: INACTIVE";
             } else {
                 return "Name button: INACTIVE, Date button: ACTIVE";

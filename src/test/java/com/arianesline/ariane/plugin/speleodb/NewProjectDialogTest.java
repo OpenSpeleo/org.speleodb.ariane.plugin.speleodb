@@ -144,11 +144,11 @@ class NewProjectDialogTest {
                 name, description, countryCode, latitude, longitude
             );
             
-            assertThat(projectData.name).isEqualTo(name);
-            assertThat(projectData.description).isEqualTo(description);
-            assertThat(projectData.countryCode).isEqualTo(countryCode);
-            assertThat(projectData.latitude).isEqualTo(latitude);
-            assertThat(projectData.longitude).isEqualTo(longitude);
+            assertThat(projectData.getName()).isEqualTo(name);
+            assertThat(projectData.getDescription()).isEqualTo(description);
+            assertThat(projectData.getCountryCode()).isEqualTo(countryCode);
+            assertThat(projectData.getLatitude()).isEqualTo(latitude);
+            assertThat(projectData.getLongitude()).isEqualTo(longitude);
         }
         
         @Test
@@ -162,11 +162,11 @@ class NewProjectDialogTest {
                 name, description, countryCode, null, null
             );
             
-            assertThat(projectData.name).isEqualTo(name);
-            assertThat(projectData.description).isEqualTo(description);
-            assertThat(projectData.countryCode).isEqualTo(countryCode);
-            assertThat(projectData.latitude).isNull();
-            assertThat(projectData.longitude).isNull();
+            assertThat(projectData.getName()).isEqualTo(name);
+            assertThat(projectData.getDescription()).isEqualTo(description);
+            assertThat(projectData.getCountryCode()).isEqualTo(countryCode);
+            assertThat(projectData.getLatitude()).isNull();
+            assertThat(projectData.getLongitude()).isNull();
         }
         
         @Test
@@ -253,11 +253,11 @@ class NewProjectDialogTest {
             );
             
             assertThat(expectedResult).isNotNull();
-            assertThat(expectedResult.name).isEqualTo(name);
-            assertThat(expectedResult.description).isEqualTo(description);
-            assertThat(expectedResult.countryCode).isEqualTo(country);
-            assertThat(expectedResult.latitude).isEqualTo(lat);
-            assertThat(expectedResult.longitude).isEqualTo(lon);
+            assertThat(expectedResult.getName()).isEqualTo(name);
+            assertThat(expectedResult.getDescription()).isEqualTo(description);
+            assertThat(expectedResult.getCountryCode()).isEqualTo(country);
+            assertThat(expectedResult.getLatitude()).isEqualTo(lat);
+            assertThat(expectedResult.getLongitude()).isEqualTo(lon);
         }
         
         @Test

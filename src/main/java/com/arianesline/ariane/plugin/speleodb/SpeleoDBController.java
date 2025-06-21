@@ -1,15 +1,10 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-
-import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -17,25 +12,19 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.*;
-
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
 
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
@@ -51,7 +40,6 @@ import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.layout.Region;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
@@ -71,6 +59,7 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -147,7 +136,6 @@ public class SpeleoDBController implements Initializable {
     private JsonObject currentProject = null;
     
     // Sorting state
-    public enum SortMode { BY_NAME, BY_DATE }
     private SortMode currentSortMode = SortMode.BY_NAME; // Default to sort by name
     
     // Store the original project data for sorting without API calls
@@ -1626,12 +1614,12 @@ public class SpeleoDBController implements Initializable {
         String permissionString = project.getString("permission", "READ_ONLY");
         
         // Convert string permission to enum
-        SpeleoDBAccessLevel permission;
+        AccessLevel permission;
         try {
-            permission = SpeleoDBAccessLevel.valueOf(permissionString);
+            permission = AccessLevel.valueOf(permissionString);
         } catch (IllegalArgumentException ex) {
             // Default to READ_ONLY if permission string is invalid
-            permission = READ_ONLY;
+            permission = AccessLevel.READ_ONLY;
             logMessage("Invalid permission '" + permissionString + "' for project " + projectName + ", defaulting to READ-only");
         }
         
@@ -1672,17 +1660,17 @@ public class SpeleoDBController implements Initializable {
      * Gets the access level for a project from its permission field.
      * 
      * @param project the project JSON object
-     * @return the SpeleoDBAccessLevel enum value
+     * @return the AccessLevel enum value
      */
-    private SpeleoDBAccessLevel getProjectAccessLevel(JsonObject project) {
+    private AccessLevel getProjectAccessLevel(JsonObject project) {
         String permissionString = project.getString("permission", "READ_ONLY");
         try {
-            return SpeleoDBAccessLevel.valueOf(permissionString);
+            return AccessLevel.valueOf(permissionString);
         } catch (IllegalArgumentException ex) {
             // Default to READ_ONLY if permission string is invalid
             logMessage("Invalid permission '" + permissionString + "' for project " + 
                       project.getString("name") + ", defaulting to read-only");
-            return READ_ONLY;
+            return AccessLevel.READ_ONLY;
         }
     }
     
@@ -1692,8 +1680,8 @@ public class SpeleoDBController implements Initializable {
      * @param accessLevel the access level to check
      * @return true if the access level allows locking, false otherwise
      */
-    private boolean canAcquireLock(SpeleoDBAccessLevel accessLevel) {
-        return (accessLevel == ADMIN) || (accessLevel == READ_AND_WRITE);
+    private boolean canAcquireLock(AccessLevel accessLevel) {
+        return (accessLevel == AccessLevel.ADMIN) || (accessLevel == AccessLevel.READ_AND_WRITE);
     }
     
     /**
@@ -2433,7 +2421,7 @@ public class SpeleoDBController implements Initializable {
         try {
             // Check if project allows editing
             String permission = project.getString("permission", "");
-            if (READ_ONLY.name().equals(permission)) {
+            if (AccessLevel.READ_ONLY.name().equals(permission)) {
                 String message = "Project '" + projectName + "' is read-only - no lock needed";
                 logMessage("🔒 " + message);
                 return LockResult.failure(project, message);

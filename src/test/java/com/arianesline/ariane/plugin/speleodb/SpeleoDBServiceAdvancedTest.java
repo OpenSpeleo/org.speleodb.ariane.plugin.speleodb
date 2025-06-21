@@ -1,12 +1,19 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import static org.assertj.core.api.Assertions.*;
-import org.junit.jupiter.api.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 
 /**
  * Advanced tests for SpeleoDBService to improve test coverage.
@@ -40,7 +47,7 @@ class SpeleoDBServiceAdvancedTest {
         @DisplayName("Should generate correct file paths")
         void shouldGenerateCorrectFilePaths() {
             String projectId = "test-123";
-            Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + ".tml");
+            Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
             
             // This tests the internal path generation logic
             assertThat(expectedPath.toString()).endsWith(".ariane" + java.io.File.separator + "test-123.tml");

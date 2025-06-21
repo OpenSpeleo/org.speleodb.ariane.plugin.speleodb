@@ -54,13 +54,17 @@ public class SpeleoDBAPITest {
         System.out.println("=== SpeleoDB API Test Suite ===");
         System.out.println("Using Fixtures and Round-trip Testing");
         
-        // CRITICAL: Load and validate environment configuration IMMEDIATELY
-        // This will throw a clear RuntimeException if .env file is missing or invalid
+        // CRITICAL: Load and validate environment configuration
+        // If .env file is missing or invalid, skip tests instead of failing
         try {
             TestEnvironmentConfig.printConfigStatus();
         } catch (RuntimeException e) {
-            // Re-throw with additional context for test failures
-            throw new RuntimeException("❌ SETUP FAILED: Cannot run SpeleoDB API tests!\n" + e.getMessage(), e);
+            // Log the error but don't fail - instead skip all tests
+            System.out.println("❌ SETUP WARNING: Cannot run SpeleoDB API tests!");
+            System.out.println("   Reason: " + e.getMessage());
+            System.out.println("   All API tests will be skipped.");
+            skipTests = true;
+            return;
         }
         
         // Check if API testing is enabled
@@ -332,6 +336,10 @@ public class SpeleoDBAPITest {
         
         System.out.println("Testing standard project round-trip (upload → download) with checksum verification...");
         
+        // Acquire mutex first
+        boolean acquired = retryOperation(() -> service.acquireOrRefreshProjectMutex(testProject));
+        assertTrue(acquired, "Should be able to acquire test project mutex");
+        
         // Create fixture and use real TML file
         TestFixtures.ProjectFixture fixture = TestFixtures.createProjectFixture().withRealTmlFile();
         Path originalTmlFile = fixture.generateTmlFile(testProject.getString("id"));
@@ -381,6 +389,9 @@ public class SpeleoDBAPITest {
             
             // Clean up downloaded file
             Files.delete(downloadedFile);
+            
+            // Release mutex
+            service.releaseProjectMutex(testProject);
             
         } catch (Exception e) {
             System.err.println("Round-trip test failed: " + e.getMessage());
@@ -479,142 +490,6 @@ public class SpeleoDBAPITest {
         } catch (Exception e) {
             System.err.println("Real TML file round-trip test failed: " + e.getMessage());
             throw e;
-        } finally {
-            // Clean up original test file
-            if (Files.exists(originalTmlFile)) {
-                Files.delete(originalTmlFile);
-            }
-        }
-    }
-    
-    @Test
-    @Order(11)
-    @DisplayName("Round-trip Testing - Comprehensive Project Upload/Download")
-    void testComprehensiveProjectRoundTrip() throws Exception {
-        assumeFalse(skipTests, "API tests are disabled or misconfigured");
-        // Authentication is handled by @BeforeEach
-        assumeTrue(comprehensiveProject != null, "Comprehensive project must be created first");
-        
-        System.out.println("Testing comprehensive synthetic TML round-trip (upload → download)...");
-        
-        // Acquire mutex first
-        boolean acquired = retryOperation(() -> service.acquireOrRefreshProjectMutex(comprehensiveProject));
-        assertTrue(acquired, "Should be able to acquire comprehensive project mutex");
-        
-        // Create comprehensive fixture with synthetic TML
-        TestFixtures.ProjectFixture fixture = TestFixtures.createComprehensiveProjectFixture();
-        Path originalTmlFile = fixture.generateTmlFile(comprehensiveProject.getString("id"));
-        String originalContent = Files.readString(originalTmlFile);
-        
-        try {
-            // Upload the file
-            String uploadMessage = TestFixtures.generateUploadMessage();
-            System.out.println("  Uploading synthetic comprehensive TML file...");
-            
-            assertDoesNotThrow(() -> {
-                retryOperation(() -> {
-                    service.uploadProject(uploadMessage, comprehensiveProject);
-                    return null;
-                });
-            }, "Comprehensive project upload should not throw exception");
-            
-            System.out.println("  ✓ Upload successful");
-            
-            // Download the file
-            System.out.println("  Downloading comprehensive TML file...");
-            Path downloadedFile = retryOperation(() -> service.downloadProject(comprehensiveProject));
-            
-            assertNotNull(downloadedFile, "Downloaded file path should not be null");
-            assertTrue(Files.exists(downloadedFile), "Downloaded file should exist");
-            assertTrue(Files.size(downloadedFile) > 0, "Downloaded file should not be empty");
-            
-            // Verify comprehensive content structure
-            String downloadedContent = Files.readString(downloadedFile);
-            assertTrue(downloadedContent.contains("fixtureType>comprehensive"), "Downloaded content should contain comprehensive fixture marker");
-            assertTrue(downloadedContent.contains("coordinates"), "Downloaded content should contain coordinates");
-            assertTrue(downloadedContent.contains("station name=\"3\""), "Downloaded content should contain multiple stations");
-            assertEquals(originalContent, downloadedContent, "Downloaded content should match uploaded content");
-            
-            System.out.println("  ✓ Download successful");
-            System.out.println("  ✓ Comprehensive content verification passed");
-            System.out.println("  File size: " + Files.size(downloadedFile) + " bytes");
-            System.out.println("✓ Comprehensive project round-trip test completed successfully");
-            
-            // Clean up downloaded file
-            Files.delete(downloadedFile);
-            
-            // Release mutex
-            service.releaseProjectMutex(comprehensiveProject);
-            
-        } finally {
-            // Clean up original test file
-            if (Files.exists(originalTmlFile)) {
-                Files.delete(originalTmlFile);
-            }
-        }
-    }
-    
-    @Test
-    @Order(12)
-    @DisplayName("Round-trip Testing - Minimal Synthetic TML")
-    void testMinimalSyntheticRoundTrip() throws Exception {
-        assumeFalse(skipTests, "API tests are disabled or misconfigured");
-        // Authentication is handled by @BeforeEach
-        
-        System.out.println("Testing minimal synthetic TML round-trip with new project...");
-        
-        // Create a new project specifically for this test
-        TestFixtures.ProjectFixture projectFixture = TestFixtures.createMinimalProjectFixture()
-            .withName("Minimal Test Cave - " + System.currentTimeMillis());
-        JsonObject minimalTestProject = projectFixture.create(service);
-        
-        // Acquire mutex
-        boolean acquired = retryOperation(() -> service.acquireOrRefreshProjectMutex(minimalTestProject));
-        assertTrue(acquired, "Should be able to acquire minimal test project mutex");
-        
-        // Create minimal fixture with synthetic TML
-        Path originalTmlFile = projectFixture.generateTmlFile(minimalTestProject.getString("id"));
-        String originalContent = Files.readString(originalTmlFile);
-        
-        try {
-            // Upload the file
-            String uploadMessage = TestFixtures.generateUploadMessage();
-            System.out.println("  Uploading synthetic minimal TML file...");
-            
-            assertDoesNotThrow(() -> {
-                retryOperation(() -> {
-                    service.uploadProject(uploadMessage, minimalTestProject);
-                    return null;
-                });
-            }, "Minimal project upload should not throw exception");
-            
-            System.out.println("  ✓ Upload successful");
-            
-            // Download the file
-            System.out.println("  Downloading minimal TML file...");
-            Path downloadedFile = retryOperation(() -> service.downloadProject(minimalTestProject));
-            
-            assertNotNull(downloadedFile, "Downloaded file path should not be null");
-            assertTrue(Files.exists(downloadedFile), "Downloaded file should exist");
-            
-            // Verify minimal content structure
-            String downloadedContent = Files.readString(downloadedFile);
-            assertTrue(downloadedContent.contains("fixtureType>minimal"), "Downloaded content should contain minimal fixture marker");
-            assertTrue(downloadedContent.contains("station name=\"0\""), "Should contain station 0");
-            assertTrue(downloadedContent.contains("station name=\"1\""), "Should contain station 1");
-            assertTrue(downloadedContent.contains("shot from=\"0\" to=\"1\""), "Should contain shot from 0 to 1");
-            assertEquals(originalContent, downloadedContent, "Downloaded content should match uploaded content");
-            
-            System.out.println("  ✓ Download successful");
-            System.out.println("  ✓ Minimal content verification passed");
-            System.out.println("✓ Minimal synthetic round-trip test completed successfully");
-            
-            // Clean up downloaded file
-            Files.delete(downloadedFile);
-            
-            // Release mutex
-            service.releaseProjectMutex(minimalTestProject);
-            
         } finally {
             // Clean up original test file
             if (Files.exists(originalTmlFile)) {

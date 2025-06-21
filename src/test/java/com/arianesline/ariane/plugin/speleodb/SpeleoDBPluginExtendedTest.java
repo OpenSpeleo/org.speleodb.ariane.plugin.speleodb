@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.arianesline.ariane.plugin.api.DataServerCommands;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 
 /**
  * Extended unit tests for SpeleoDBPlugin covering missing behaviors and edge cases.
@@ -218,7 +219,7 @@ class SpeleoDBPluginExtendedTest {
         @DisplayName("Should handle various file types")
         void shouldHandleVariousFileTypes() throws IOException {
             // Test with different file extensions
-            String[] extensions = {".tml", ".txt", ".dat", ".json", ".xml"};
+            String[] extensions = {PATHS.TML_FILE_EXTENSION, ".txt", ".dat", ".json", ".xml"};
             
             for (String ext : extensions) {
                 File testFile = tempDir.resolve("test" + ext).toFile();

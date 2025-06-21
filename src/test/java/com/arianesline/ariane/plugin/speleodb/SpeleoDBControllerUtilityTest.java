@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
+
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 
@@ -275,8 +277,8 @@ class SpeleoDBControllerUtilityTest {
                 .add("permission", "ADMIN")
                 .build();
             
-            SpeleoDBAccessLevel accessLevel = controller.getProjectAccessLevel(project);
-            assertThat(accessLevel).isEqualTo(SpeleoDBAccessLevel.ADMIN);
+            AccessLevel accessLevel = controller.getProjectAccessLevel(project);
+            assertThat(accessLevel).isEqualTo(AccessLevel.ADMIN);
             assertThat(controller.canAcquireLock(accessLevel)).isTrue();
         }
         
@@ -289,8 +291,8 @@ class SpeleoDBControllerUtilityTest {
                 .add("permission", "READ_AND_WRITE")
                 .build();
             
-            SpeleoDBAccessLevel accessLevel = controller.getProjectAccessLevel(project);
-            assertThat(accessLevel).isEqualTo(SpeleoDBAccessLevel.READ_AND_WRITE);
+            AccessLevel accessLevel = controller.getProjectAccessLevel(project);
+            assertThat(accessLevel).isEqualTo(AccessLevel.READ_AND_WRITE);
             assertThat(controller.canAcquireLock(accessLevel)).isTrue();
         }
         
@@ -303,8 +305,8 @@ class SpeleoDBControllerUtilityTest {
                 .add("permission", "READ_ONLY")
                 .build();
             
-            SpeleoDBAccessLevel accessLevel = controller.getProjectAccessLevel(project);
-            assertThat(accessLevel).isEqualTo(SpeleoDBAccessLevel.READ_ONLY);
+            AccessLevel accessLevel = controller.getProjectAccessLevel(project);
+            assertThat(accessLevel).isEqualTo(AccessLevel.READ_ONLY);
             assertThat(controller.canAcquireLock(accessLevel)).isFalse();
         }
         
@@ -317,8 +319,8 @@ class SpeleoDBControllerUtilityTest {
                 .add("permission", "INVALID_PERMISSION")
                 .build();
             
-            SpeleoDBAccessLevel accessLevel = controller.getProjectAccessLevel(project);
-            assertThat(accessLevel).isEqualTo(SpeleoDBAccessLevel.READ_ONLY);
+            AccessLevel accessLevel = controller.getProjectAccessLevel(project);
+            assertThat(accessLevel).isEqualTo(AccessLevel.READ_ONLY);
             assertThat(controller.canAcquireLock(accessLevel)).isFalse();
         }
         
@@ -330,8 +332,8 @@ class SpeleoDBControllerUtilityTest {
                 .add("name", "Test Project")
                 .build();
             
-            SpeleoDBAccessLevel accessLevel = controller.getProjectAccessLevel(project);
-            assertThat(accessLevel).isEqualTo(SpeleoDBAccessLevel.READ_ONLY);
+            AccessLevel accessLevel = controller.getProjectAccessLevel(project);
+            assertThat(accessLevel).isEqualTo(AccessLevel.READ_ONLY);
             assertThat(controller.canAcquireLock(accessLevel)).isFalse();
         }
     }
@@ -558,21 +560,21 @@ class SpeleoDBControllerUtilityTest {
         public String getDefaultInstanceConstant() { return "www.speleoDB.org"; }
         
         // Simulate access level methods
-        public SpeleoDBAccessLevel getProjectAccessLevel(JsonObject project) {
+        public AccessLevel getProjectAccessLevel(JsonObject project) {
             if (project.containsKey("permission")) {
                 String permission = project.getString("permission");
                 try {
-                    return SpeleoDBAccessLevel.valueOf(permission);
+                    return AccessLevel.valueOf(permission);
                 } catch (IllegalArgumentException e) {
-                    return SpeleoDBAccessLevel.READ_ONLY;
+                    return AccessLevel.READ_ONLY;
                 }
             }
-            return SpeleoDBAccessLevel.READ_ONLY;
+            return AccessLevel.READ_ONLY;
         }
         
-        public boolean canAcquireLock(SpeleoDBAccessLevel accessLevel) {
-            return accessLevel == SpeleoDBAccessLevel.ADMIN || 
-                   accessLevel == SpeleoDBAccessLevel.READ_AND_WRITE;
+        public boolean canAcquireLock(AccessLevel accessLevel) {
+            return accessLevel == AccessLevel.ADMIN || 
+                   accessLevel == AccessLevel.READ_AND_WRITE;
         }
         
         // Simulate popup message generation
@@ -620,7 +622,7 @@ class SpeleoDBControllerUtilityTest {
         }
         
         public String simulateProjectOpeningWorkflow(JsonObject project) {
-            SpeleoDBAccessLevel accessLevel = getProjectAccessLevel(project);
+            AccessLevel accessLevel = getProjectAccessLevel(project);
             StringBuilder workflow = new StringBuilder();
             
             workflow.append("access_level=").append(accessLevel.name()).append(";");

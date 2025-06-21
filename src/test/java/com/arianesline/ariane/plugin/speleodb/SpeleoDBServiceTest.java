@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Pattern;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
+
 /**
  * Unit tests for SpeleoDBService class.
  * Tests URL handling, authentication state, and utility methods.
@@ -121,12 +123,12 @@ public class SpeleoDBServiceTest {
         
         // Test project file path generation
         String projectId = "test-project-123";
-        Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + ".tml");
-        Path actualPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + ".tml");
+        Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+        Path actualPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
         assert expectedPath.equals(actualPath) : "Generated path should match expected path";
         
         // Create a test file
-        Path testFile = Paths.get(TEST_ARIANE_DIR + File.separator + projectId + ".tml");
+        Path testFile = Paths.get(TEST_ARIANE_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
         Files.write(testFile, "test content".getBytes());
         assert Files.exists(testFile);
         
@@ -231,7 +233,7 @@ public class SpeleoDBServiceTest {
             // Verify file was created
             assert Files.exists(createdFile) : "TML file should be created";
             assert Files.size(createdFile) > 0 : "TML file should not be empty";
-            assert createdFile.getFileName().toString().equals(testProjectId + ".tml") : "File should have correct name";
+            assert createdFile.getFileName().toString().equals(testProjectId + PATHS.TML_FILE_EXTENSION) : "File should have correct name";
             
             // Verify it's in the correct directory
             String expectedDir = SpeleoDBService.ARIANE_ROOT_DIR;

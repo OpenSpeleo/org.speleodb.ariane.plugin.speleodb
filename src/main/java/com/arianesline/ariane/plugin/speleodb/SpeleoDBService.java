@@ -40,7 +40,7 @@ public class SpeleoDBService {
     private final SpeleoDBController controller;
     private String authToken = MISC.EMPTY_STRING;
     private String SDB_instance = MISC.EMPTY_STRING;
-    private final HttpClient client = createHttpClient();
+    private HttpClient http_client = null;
 
     public SpeleoDBService(SpeleoDBController controller) {
         this.controller = controller;
@@ -94,7 +94,7 @@ public class SpeleoDBService {
                 .connectTimeout(Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))  // Generous timeout for reliability
                 .followRedirects(HttpClient.Redirect.NORMAL);  // Handle redirects automatically
         
-        if (SDB_instance.startsWith("http://")) {
+        if (SDB_instance.startsWith(NETWORK.HTTP_PROTOCOL)) {
             builder = builder.version(HttpClient.Version.HTTP_1_1);
         } else {
             builder = builder.version(HttpClient.Version.HTTP_2);
@@ -125,7 +125,8 @@ public class SpeleoDBService {
      * @throws Exception if authentication fails.
      */
     public void authenticate(String email, String password, String oAuthToken, String instanceUrl) throws Exception {
-        setSDBInstance(instanceUrl);  // First to ensure proper selection of http or https
+        setSDBInstance(instanceUrl);
+        http_client = createHttpClient(); // Create the HTTP client after setting the instance URL
 
         URI uri = new URI(SDB_instance + API.AUTH_TOKEN_ENDPOINT);
         HttpRequest request;
@@ -153,7 +154,7 @@ public class SpeleoDBService {
                     .build();
         }
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.OK) {
             authToken = parseAuthToken(response.body());
@@ -169,6 +170,7 @@ public class SpeleoDBService {
     public void logout() {
         authToken = MISC.EMPTY_STRING;
         SDB_instance = MISC.EMPTY_STRING;
+        http_client = null;  // Clear cached HTTP client on logout
     }
 
     /**
@@ -226,7 +228,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.CREATED) {
             // Successfully created, parse and return the project data
@@ -272,7 +274,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception(MESSAGES.PROJECT_LIST_FAILED_STATUS + response.statusCode());
@@ -305,30 +307,30 @@ public class SpeleoDBService {
         String SDB_projectId = project.getString(JSON_FIELDS.ID);
 
         URI uri = new URI(
-                SDB_instance + API.PROJECTS_ENDPOINT +
-                        SDB_projectId + API.UPLOAD_ARIANE_TML_PATH
+            SDB_instance + API.PROJECTS_ENDPOINT +
+            SDB_projectId + API.UPLOAD_ARIANE_TML_PATH
         );
 
         Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
 
         HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
                 .addPart(JSON_FIELDS.MESSAGE, message)
-                .addPart("artifact", tmp_filepath.toFile(), null, SDB_projectId + PATHS.TML_FILE_EXTENSION)
+                .addPart(JSON_FIELDS.FILE_KEY, tmp_filepath.toFile(), null, SDB_projectId + PATHS.TML_FILE_EXTENSION)
                 .build();
 
         HttpRequest request = HttpRequest.newBuilder(uri)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(multipartBody.getBody()))
                 .setHeader(HEADERS.CONTENT_TYPE, multipartBody.getContentType())
                 .setHeader(HEADERS.AUTHORIZATION, HEADERS.TOKEN_PREFIX + authToken)
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
-            // TODO: Improve error management
-            throw new Exception("Upload failed with status code: " + response.statusCode());
+            throw new Exception(MESSAGES.PROJECT_UPLOAD_FAILED_STATUS + response.statusCode());
         }
+        // TODO: Improve error management
     }
 
     // -------------------------- Project Download ------------------------- //
@@ -351,17 +353,17 @@ public class SpeleoDBService {
 
         URI uri = new URI(
                 SDB_instance + API.PROJECTS_ENDPOINT +
-                        SDB_projectId + API.DOWNLOAD_ARIANE_TML_PATH
+                SDB_projectId + API.DOWNLOAD_ARIANE_TML_PATH
         );
 
         var request = HttpRequest.newBuilder(uri)
                 .GET()
-                .setHeader("Content-type", HEADERS.APPLICATION_JSON)
-                .setHeader(HEADERS.AUTHORIZATION, "token " + authToken)
+                .setHeader(HEADERS.CONTENT_TYPE, HEADERS.APPLICATION_JSON)
+                .setHeader(HEADERS.AUTHORIZATION, HEADERS.TOKEN_PREFIX + authToken)
                 .timeout(Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))  // Longer timeout for downloads
                 .build();
 
-        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
         Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
 
@@ -382,7 +384,7 @@ public class SpeleoDBService {
 
                 controller.logMessageFromPlugin(errorMessage);
 
-                throw new RuntimeException("Download failed with unexpected status code: " + response.statusCode() +
+                throw new RuntimeException(MESSAGES.PROJECT_DOWNLOAD_FAILED_STATUS + response.statusCode() +
                         MESSAGES.PROJECT_DOWNLOAD_UNEXPECTED_STATUS);
             }
         }
@@ -401,9 +403,9 @@ public class SpeleoDBService {
         Path tmlFilePath = Paths.get(ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
 
         // Copy template from resources to target location
-        try (var templateStream = getClass().getResourceAsStream("/tml/empty_project.tml")) {
+        try (var templateStream = getClass().getResourceAsStream(PATHS.EMPTY_TML)) {
             if (templateStream == null) {
-                throw new IOException("Template file /tml/empty_project.tml not found in resources");
+                throw new IOException("Template file `" + PATHS.EMPTY_TML + "` not found in resources");
             }
 
             // Create parent directories if they don't exist
@@ -433,12 +435,12 @@ public class SpeleoDBService {
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(MISC.EMPTY_STRING))
-                .setHeader("Content-type", HEADERS.APPLICATION_JSON)
+                .setHeader(HEADERS.CONTENT_TYPE, HEADERS.APPLICATION_JSON)
                 .setHeader(HEADERS.AUTHORIZATION, HEADERS.TOKEN_PREFIX + authToken)
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
         
         // TODO: Add error management
         return (response.statusCode() == HTTP_STATUS.OK);
@@ -458,12 +460,12 @@ public class SpeleoDBService {
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(MISC.EMPTY_STRING))
-                .setHeader("Content-type", HEADERS.APPLICATION_JSON)
+                .setHeader(HEADERS.CONTENT_TYPE, HEADERS.APPLICATION_JSON)
                 .setHeader(HEADERS.AUTHORIZATION, HEADERS.TOKEN_PREFIX + authToken)
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
 
         // TODO: Add error management
         return (response.statusCode() == HTTP_STATUS.OK);

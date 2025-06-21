@@ -13,6 +13,24 @@ public final class SpeleoDBConstants {
         throw new AssertionError("Constants class should not be instantiated");
     }
     
+    // ==================== ENUMS ====================
+    /**
+     * Sorting modes for project lists
+     */
+    public static enum SortMode { 
+        BY_NAME, 
+        BY_DATE 
+    }
+    
+    /**
+     * Access levels for SpeleoDB projects
+     */
+    public static enum AccessLevel {
+        ADMIN, 
+        READ_AND_WRITE, 
+        READ_ONLY
+    }
+    
     // ==================== API ENDPOINTS ====================
     public static final class API {
         public static final String BASE_PATH = "/api/v1";
@@ -90,6 +108,7 @@ public final class SpeleoDBConstants {
         public static final String TML_FILE_EXTENSION = ".tml";
         public static final String SPELEODB_FXML = "/fxml/SpeleoDB.fxml";
         public static final String LOGO_IMAGE = "/images/logo.png";
+        public static final String EMPTY_TML = "/tml/empty_project.tml";
     }
     
     // ==================== VALIDATION PATTERNS ====================
@@ -152,6 +171,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_CREATE_FAILED_STATUS = "Failed to create project with status code: ";
         public static final String PROJECT_LIST_FAILED_STATUS = "Failed to list projects with status code: ";
         public static final String PROJECT_DOWNLOAD_FAILED_STATUS = "Failed to download project with status code: ";
+        public static final String PROJECT_UPLOAD_FAILED_STATUS = "Failed to upload project with status code: ";
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "HTTP 422: Project exists but is empty - create empty TML file.";
         public static final String FILE_NOT_FOUND = "Downloaded file not found: ";
@@ -309,6 +329,7 @@ public final class SpeleoDBConstants {
         public static final String LATITUDE = "latitude";
         public static final String LONGITUDE = "longitude";
         public static final String MESSAGE = "message";
+        public static final String FILE_KEY = "artifact";
         public static final String DATA = "data";
         public static final String ERROR = "error";
         public static final String ID = "id";

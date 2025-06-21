@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
+
 import jakarta.json.JsonObject;
 
 /**
@@ -142,7 +144,7 @@ public class TestFixtures {
             Files.createDirectories(arianeDir);
         }
         
-        Path targetTml = arianeDir.resolve(projectId + ".tml");
+        Path targetTml = arianeDir.resolve(projectId + PATHS.TML_FILE_EXTENSION);
         Files.copy(sourceTml, targetTml, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         
         return targetTml;
@@ -351,7 +353,7 @@ public class TestFixtures {
                 Files.createDirectories(arianeDir);
             }
             
-            Path tmlFile = arianeDir.resolve(projectId + ".tml");
+            Path tmlFile = arianeDir.resolve(projectId + PATHS.TML_FILE_EXTENSION);
             
             // Create TML content based on fixture type
             String tmlContent = generateTmlContent();
@@ -362,102 +364,20 @@ public class TestFixtures {
         
         /**
          * Generate TML content based on fixture configuration
+         * Now reads from the empty_project.tml template instead of generating synthetic content
          */
         private String generateTmlContent() {
-            String caveName = generateCaveName();
-            String surveyorName = "API Test Surveyor " + random.nextInt(1000);
-            String surveyDate = Instant.now().toString();
-            
-            if (isMinimal) {
-                return String.format("""
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <tml version="1.0">
-                        <project name="%s">
-                            <metadata>
-                                <created>%s</created>
-                                <description>%s</description>
-                                <testRunId>%s</testRunId>
-                                <fixtureType>minimal</fixtureType>
-                            </metadata>
-                            <data>
-                                <cave name="%s">
-                                    <survey>
-                                        <station name="0" x="0" y="0" z="0"/>
-                                        <station name="1" x="10" y="0" z="0"/>
-                                        <shot from="0" to="1" distance="10.0" bearing="90.0" inclination="0.0"/>
-                                    </survey>
-                                </cave>
-                            </data>
-                        </project>
-                    </tml>
-                    """, 
-                    caveName, surveyDate, description, testRunId, caveName);
-            } else if (isComprehensive) {
-                return String.format("""
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <tml version="1.0">
-                        <project name="%s">
-                            <metadata>
-                                <created>%s</created>
-                                <description>%s</description>
-                                <surveyor>%s</surveyor>
-                                <testRunId>%s</testRunId>
-                                <fixtureType>comprehensive</fixtureType>
-                                <country>%s</country>
-                                <coordinates lat="%.6f" lon="%.6f"/>
-                            </metadata>
-                            <data>
-                                <cave name="%s">
-                                    <survey>
-                                        <station name="0" x="0" y="0" z="0"/>
-                                        <station name="1" x="%.2f" y="%.2f" z="%.2f"/>
-                                        <station name="2" x="%.2f" y="%.2f" z="%.2f"/>
-                                        <station name="3" x="%.2f" y="%.2f" z="%.2f"/>
-                                        <shot from="0" to="1" distance="%.2f" bearing="%.1f" inclination="%.1f"/>
-                                        <shot from="1" to="2" distance="%.2f" bearing="%.1f" inclination="%.1f"/>
-                                        <shot from="2" to="3" distance="%.2f" bearing="%.1f" inclination="%.1f"/>
-                                    </survey>
-                                </cave>
-                            </data>
-                        </project>
-                    </tml>
-                    """, 
-                    caveName, surveyDate, description, surveyorName, testRunId, countryCode,
-                    latitude != null ? latitude : 0.0, longitude != null ? longitude : 0.0, caveName,
-                    random.nextDouble() * 100, random.nextDouble() * 100, random.nextDouble() * 20,
-                    random.nextDouble() * 100, random.nextDouble() * 100, random.nextDouble() * 20,
-                    random.nextDouble() * 100, random.nextDouble() * 100, random.nextDouble() * 20,
-                    random.nextDouble() * 50 + 10, random.nextDouble() * 360, (random.nextDouble() * 60) - 30,
-                    random.nextDouble() * 50 + 10, random.nextDouble() * 360, (random.nextDouble() * 60) - 30,
-                    random.nextDouble() * 50 + 10, random.nextDouble() * 360, (random.nextDouble() * 60) - 30);
-            } else {
-                // Standard fixture
-                return String.format("""
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <tml version="1.0">
-                        <project name="%s">
-                            <metadata>
-                                <created>%s</created>
-                                <description>%s</description>
-                                <surveyor>%s</surveyor>
-                                <testRunId>%s</testRunId>
-                                <fixtureType>standard</fixtureType>
-                            </metadata>
-                            <data>
-                                <cave name="%s">
-                                    <survey>
-                                        <station name="0" x="0" y="0" z="0"/>
-                                        <station name="1" x="%.2f" y="%.2f" z="%.2f"/>
-                                        <shot from="0" to="1" distance="%.2f" bearing="%.1f" inclination="%.1f"/>
-                                    </survey>
-                                </cave>
-                            </data>
-                        </project>
-                    </tml>
-                    """, 
-                    caveName, surveyDate, description, surveyorName, testRunId, caveName,
-                    random.nextDouble() * 100, random.nextDouble() * 100, random.nextDouble() * 20,
-                    random.nextDouble() * 50 + 10, random.nextDouble() * 360, (random.nextDouble() * 60) - 30);
+            // Read the template file that the actual application uses
+            try (var templateStream = TestFixtures.class.getResourceAsStream(PATHS.EMPTY_TML)) {
+                if (templateStream == null) {
+                    throw new RuntimeException("Template file `" + PATHS.EMPTY_TML + "` not found in resources");
+                }
+                
+                // Read the template content
+                return new String(templateStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to read `" + PATHS.EMPTY_TML + "` template: " + e.getMessage(), e);
             }
         }
     }

@@ -323,49 +323,6 @@ class SpeleoDBControllerDialogTest {
     class ModalPerformanceOptimizationTests {
         
         @Test
-        @DisplayName("Should have pre-warmed save modal components")
-        void shouldHavePreWarmedSaveModalComponents() {
-            // Test that save modal optimization fields exist
-            try {
-                var saveModalField = SpeleoDBController.class.getDeclaredField("preWarmedSaveModal");
-                var saveMessageField = SpeleoDBController.class.getDeclaredField("preWarmedSaveMessageField");
-                var fastSaveButton = SpeleoDBController.class.getDeclaredField("FAST_SAVE");
-                var fastCancelButton = SpeleoDBController.class.getDeclaredField("FAST_CANCEL");
-                
-                assertAll("Save modal optimization components should exist",
-                    () -> assertNotNull(saveModalField, "Pre-warmed save modal field should exist"),
-                    () -> assertNotNull(saveMessageField, "Pre-warmed save message field should exist"),
-                    () -> assertNotNull(fastSaveButton, "Fast save button type should exist"),
-                    () -> assertNotNull(fastCancelButton, "Fast cancel button type should exist")
-                );
-            } catch (NoSuchFieldException e) {
-                fail("Save modal optimization fields should exist: " + e.getMessage());
-            }
-        }
-        
-        @Test
-        @DisplayName("Should have save modal pre-warming method")
-        void shouldHaveSaveModalPreWarmingMethod() {
-            try {
-                var method = SpeleoDBController.class.getDeclaredMethod("preWarmSaveModalSystem");
-                assertNotNull(method, "Save modal pre-warming method should exist");
-            } catch (NoSuchMethodException e) {
-                fail("Save modal pre-warming method should exist: " + e.getMessage());
-            }
-        }
-        
-        @Test
-        @DisplayName("Should have optimized showSaveModal method")
-        void shouldHaveOptimizedShowSaveModalMethod() {
-            try {
-                var method = SpeleoDBController.class.getDeclaredMethod("showSaveModal");
-                assertNotNull(method, "Optimized showSaveModal method should exist");
-            } catch (NoSuchMethodException e) {
-                fail("Optimized showSaveModal method should exist: " + e.getMessage());
-            }
-        }
-        
-        @Test
         @DisplayName("Should have fallback save modal creation method")
         void shouldHaveFallbackSaveModalCreationMethod() {
             try {
@@ -395,35 +352,18 @@ class SpeleoDBControllerDialogTest {
         }
         
         @Test
-        @DisplayName("Should have cached countries data fields")
-        void shouldHaveCachedCountriesDataFields() {
+        @DisplayName("Should have cached countries data field")
+        void shouldHaveCachedCountriesDataField() {
             try {
                 var cachedCountriesField = NewProjectDialog.class.getDeclaredField("cachedCountries");
-                var loadAttemptedField = NewProjectDialog.class.getDeclaredField("countriesLoadAttempted");
                 
-                assertAll("Cached countries data fields should exist",
+                assertAll("Cached countries data field should exist",
                     () -> assertNotNull(cachedCountriesField, "Cached countries field should exist"),
-                    () -> assertNotNull(loadAttemptedField, "Load attempted flag should exist"),
                     () -> assertTrue(java.lang.reflect.Modifier.isStatic(cachedCountriesField.getModifiers()), 
-                              "Cached countries field should be static"),
-                    () -> assertTrue(java.lang.reflect.Modifier.isStatic(loadAttemptedField.getModifiers()), 
-                              "Load attempted field should be static")
+                              "Cached countries field should be static")
                 );
             } catch (NoSuchFieldException e) {
-                fail("Cached countries data fields should exist: " + e.getMessage());
-            }
-        }
-        
-        @Test
-        @DisplayName("Should have optimized countries loading method")
-        void shouldHaveOptimizedCountriesLoadingMethod() {
-            try {
-                var method = NewProjectDialog.class.getDeclaredMethod("loadCountriesFromResource");
-                assertNotNull(method, "Optimized countries loading method should exist");
-                assertTrue(java.lang.reflect.Modifier.isStatic(method.getModifiers()), 
-                          "Countries loading method should be static");
-            } catch (NoSuchMethodException e) {
-                fail("Optimized countries loading method should exist: " + e.getMessage());
+                fail("Cached countries data field should exist: " + e.getMessage());
             }
         }
     }
