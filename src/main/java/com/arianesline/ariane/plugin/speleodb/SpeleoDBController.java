@@ -998,6 +998,7 @@ public class SpeleoDBController implements Initializable {
         dialog.showAndWait().ifPresent(message -> {
             if (message == null || message.trim().isEmpty()) {
                 logMessage("Upload message cannot be empty.");
+                showErrorModal("Upload Message Required", "Upload message cannot be empty.");
                 showErrorAnimation();
                 return;
             }
@@ -1870,6 +1871,9 @@ public class SpeleoDBController implements Initializable {
         
         // Update UI based on write access
         Platform.runLater(() -> {
+            // Clear upload message when project is opened
+            uploadMessageTextField.clear();
+
             if (hasWriteAccess) {
                 // Show actions pane for writable projects
                 actionsTitlePane.setVisible(true);
@@ -1898,59 +1902,49 @@ public class SpeleoDBController implements Initializable {
                 if (Files.exists(tml_filepath)) {
                     // Load the project
                     String loadingMessage = hasWriteAccess ? "Loading project file..." : "Loading read-only project file...";
-                    Platform.runLater(() -> logMessage(loadingMessage));
+                    Platform.runLater(() ->logMessage(loadingMessage));
                     
-                    // Use daemon timer to prevent JVM shutdown hangs
-                    Timer timer = new Timer(true);
-                    timer.schedule(new TimerTask() {
-                        @Override
-                        public void run() {
-                            try {
-                                parentPlugin.loadSurvey(tml_filepath.toFile());
-                                Platform.runLater(() -> {
-                                    String successMessage = hasWriteAccess ? 
-                                        "Project loaded successfully: " + projectName :
-                                        "Read-only project loaded successfully: " + projectName;
-                                    logMessage(successMessage);
-                                    checkAndUpdateSpeleoDBId(project);
-                                    
-                                    // Clear spinner and refresh project listing
-                                    serverProgressIndicator.setVisible(false);
-                                    setUILoadingState(false);
-                                    
-                                    // Refresh project listing
-                                    listProjects();
-                                });
-                            } catch (Exception e) {
-                                Platform.runLater(() -> {
-                                    String errorMessage = hasWriteAccess ? 
-                                        "Failed to load project: " + getSafeErrorMessage(e) :
-                                        "Failed to load read-only project: " + getSafeErrorMessage(e);
-                                    logMessage(errorMessage);
-                                    showErrorAnimation(errorMessage);
-                                    serverProgressIndicator.setVisible(false);
-                                    setUILoadingState(false);
-                                });
-                            }
-                        }
-                    }, 100); // Small delay to ensure UI updates
+                    try {
+                        parentPlugin.loadSurvey(tml_filepath.toFile());
+                        Platform.runLater(() -> {
+                            String successMessage = hasWriteAccess ? 
+                                "Project loaded successfully: " + projectName :
+                                "Read-only project loaded successfully: " + projectName;
+                            logMessage(successMessage);
+                            checkAndUpdateSpeleoDBId(project);
+                            
+                            // Refresh project listing
+                            listProjects();
+                        });
+                    } catch (Exception e) {
+                        Platform.runLater(() -> {
+                            String errorMessage = hasWriteAccess ? 
+                                "Failed to load project: " + getSafeErrorMessage(e) :
+                                "Failed to load read-only project: " + getSafeErrorMessage(e);
+                            logMessage(errorMessage);
+
+                            showErrorAnimation(errorMessage);
+                        });
+                    }
                 } else {
                     Platform.runLater(() -> {
                         logMessage("Downloaded file not found: " + tml_filepath);
                         showErrorAnimation("Failed to download project file");
-                        serverProgressIndicator.setVisible(false);
-                        setUILoadingState(false);
                     });
                 }
-            } catch (Exception e) {
+            } catch (IOException | InterruptedException | URISyntaxException e) {
                 Platform.runLater(() -> {
                     String errorMessage = "Failed to download project: " + getSafeErrorMessage(e);
                     logMessage(errorMessage);
                     showErrorAnimation(errorMessage);
-                    serverProgressIndicator.setVisible(false);
-                    setUILoadingState(false);
                 });
             }
+
+            Platform.runLater(() -> {
+                // Once everything is done, hide the progress indicator and set the UI to not loading
+                serverProgressIndicator.setVisible(false);
+                setUILoadingState(false);
+            });
         });
     }
 
@@ -2190,6 +2184,7 @@ public class SpeleoDBController implements Initializable {
         String message = uploadMessageTextField.getText();
         if (message.isEmpty()) {
             logMessage("Upload message cannot be empty.");
+            showErrorModal("Upload Message Required", "Upload message cannot be empty.");
             return;
         }
         
