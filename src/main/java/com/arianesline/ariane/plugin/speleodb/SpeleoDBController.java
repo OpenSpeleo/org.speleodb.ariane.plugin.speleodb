@@ -26,7 +26,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
-import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.READ_ONLY;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.*;
 
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
@@ -42,6 +42,7 @@ import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.layout.Region;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
@@ -1690,93 +1691,266 @@ public class SpeleoDBController implements Initializable {
 
     private void clickSpeleoDBProject(ActionEvent e) throws URISyntaxException, IOException, InterruptedException {
         var project = (JsonObject) ((Button) e.getSource()).getUserData();
-
-        // Step 1: Try to acquire lock first
-        logMessage("Attempting to acquire lock for project: " + project.getString("name"));
+        String projectName = project.getString("name");
+        String permissionString = project.getString("permission", "READ_ONLY");
         
+        // Convert string permission to enum
+        SpeleoDBAccessLevel permission;
+        try {
+            permission = SpeleoDBAccessLevel.valueOf(permissionString);
+        } catch (IllegalArgumentException ex) {
+            // Default to READ_ONLY if permission string is invalid
+            permission = READ_ONLY;
+            logMessage("Invalid permission '" + permissionString + "' for project " + projectName + ", defaulting to READ-only");
+        }
+        
+        logMessage("Opening project: " + projectName + " (Permission: " + permission + ")");
+        
+        // Check if this is a project that can be locked (ADMIN or READ_AND_WRITE)
+        if (canAcquireLock(permission)) {
+            // Attempt to acquire lock first for writable projects
+            logMessage("Attempting to acquire lock for project: " + projectName);
+            
+            Platform.runLater(() -> {
+                acquireProjectLockWithUI(project, "project opening",
+                    () -> {
+                        // Success callback: Lock acquired, download and load with write access
+                        logMessage("Lock acquired successfully. Opening with write access.");
+                        downloadAndLoadProject(project, true);
+                    },
+                    () -> {
+                        // Failure callback: Lock acquisition failed, show red tooltip and open read-only
+                        logMessage("Failed to acquire lock for project - opening as read-only");
+                        showErrorAnimation("Lock not available - opening read-only");
+                        showLockFailurePopup(project);
+                        downloadAndLoadProject(project, false);
+                    },
+                    true // Show modal dialogs for project opening
+                );
+            });
+        } else {
+            // READ_ONLY permission - skip lock acquisition and proceed directly
+            logMessage("Opening read-only project: " + projectName);
+            showSuccessAnimation("Opening (read-only)");
+            showReadOnlyPermissionPopup(project);
+            downloadAndLoadProject(project, false);
+        }
+    }
+    
+    /**
+     * Gets the access level for a project from its permission field.
+     * 
+     * @param project the project JSON object
+     * @return the SpeleoDBAccessLevel enum value
+     */
+    private SpeleoDBAccessLevel getProjectAccessLevel(JsonObject project) {
+        String permissionString = project.getString("permission", "READ_ONLY");
+        try {
+            return SpeleoDBAccessLevel.valueOf(permissionString);
+        } catch (IllegalArgumentException ex) {
+            // Default to READ_ONLY if permission string is invalid
+            logMessage("Invalid permission '" + permissionString + "' for project " + 
+                      project.getString("name") + ", defaulting to read-only");
+            return READ_ONLY;
+        }
+    }
+    
+    /**
+     * Checks if a project access level allows locking (ADMIN or READ_AND_WRITE).
+     * 
+     * @param accessLevel the access level to check
+     * @return true if the access level allows locking, false otherwise
+     */
+    private boolean canAcquireLock(SpeleoDBAccessLevel accessLevel) {
+        return (accessLevel == ADMIN) || (accessLevel == READ_AND_WRITE);
+    }
+    
+    /**
+     * Shows a popup informing the user that the project was opened in read-only mode
+     * due to insufficient permissions, and how to get write access.
+     * 
+     * @param project the project that was opened in read-only mode
+     */
+    private void showReadOnlyPermissionPopup(JsonObject project) {
         Platform.runLater(() -> {
-            acquireProjectLockWithUI(project, "project opening",
-                () -> {
-                    // Success callback: Lock acquired, now download and load project
-                    logMessage("Lock acquired successfully. Starting download...");
-                    parentPlugin.executorService.execute(() -> {
-                        try {
-                            // Step 2: Download project
-                            logMessage("Downloading project: " + project.getString("name"));
-                            Path tml_filepath = speleoDBService.downloadProject(project);
+            String projectName = project.getString("name");
+            String title = "Read-Only Access";
+            String message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                           "You do not have permission to modify this project.\n\n" +
+                           "To get write access, please contact the project administrator.";
+            
+            showInfoModal(title, message);
+        });
+    }
+    
+    /**
+     * Shows a popup informing the user that the project was opened in read-only mode
+     * because the lock is owned by someone else, and how to get write access.
+     * 
+     * @param project the project that was opened in read-only mode
+     */
+    private void showLockFailurePopup(JsonObject project) {
+        Platform.runLater(() -> {
+            String projectName = project.getString("name");
+            String title = "Read-Only Access";
+            String message;
+            
+            // Check if the project has lock information
+            JsonValue mutex = project.get("active_mutex");
+            
+            if (mutex != null && mutex.getValueType() != JsonValue.ValueType.NULL) {
+                JsonObject mutexObj = mutex.asJsonObject();
+                String lockOwner = mutexObj.getString("user", "unknown user");
+                String lockDate = mutexObj.getString("creation_date", "unknown time");
+                
+                message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                         "The project is currently locked by: " + lockOwner + "\n" +
+                         "Lock acquired: " + formatLockDate(lockDate) + "\n\n" +
+                         "To modify this project, please contact `" + lockOwner + "` to release the lock.";
+            } else {
+                // Generic lock failure message
+                message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                         "Unable to acquire project lock at this time.\n\n" +
+                         "Please try again later or contact the project administrator.";
+            }
+            
+            showInfoModal(title, message);
+        });
+    }
+    
+    /**
+     * Formats a lock date string for display in user messages.
+     * 
+     * @param lockDate the raw lock date string from the server
+     * @return a formatted date string for display
+     */
+    private String formatLockDate(String lockDate) {
+        try {
+            // Parse and format the lock date for better readability
+            String dateStr = lockDate.substring(0, lockDate.lastIndexOf('.'));
+            LocalDateTime lockDateTime = LocalDateTime.parse(dateStr);
+            return lockDateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM));
+        } catch (Exception e) {
+            // Return original string if parsing fails
+            return lockDate;
+        }
+    }
+    
+    /**
+     * Shows an informational modal dialog with the specified title and message.
+     * 
+     * @param title the dialog title
+     * @param message the dialog message
+     */
+    private void showInfoModal(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        
+        // Make the dialog resizable and scale to content
+        alert.setResizable(true);
+        alert.getDialogPane().setPrefWidth(450);
+        
+        // Allow the dialog to size itself vertically based on content
+        alert.getDialogPane().setMinHeight(Region.USE_PREF_SIZE);
+        alert.getDialogPane().setPrefHeight(Region.USE_COMPUTED_SIZE);
+        
+        alert.showAndWait();
+    }
+    
+    /**
+     * Downloads and loads a project with unified logic for both read-only and writable projects.
+     * 
+     * @param project the project to download and load
+     * @param hasWriteAccess whether the user has write access (lock acquired) or read-only access
+     */
+    private void downloadAndLoadProject(JsonObject project, boolean hasWriteAccess) {
+        String projectName = project.getString("name");
+        
+        // Update UI based on write access
+        Platform.runLater(() -> {
+            if (hasWriteAccess) {
+                // Show actions pane for writable projects
+                actionsTitlePane.setVisible(true);
+                actionsTitlePane.setExpanded(true);
+                actionsTitlePane.setText("Actions on `" + projectName + "`.");
+                uploadButton.setDisable(false);
+                unlockButton.setDisable(false);
+                currentProject = project;
+            } else {
+                // Hide actions pane for read-only projects
+                actionsTitlePane.setVisible(false);
+                actionsTitlePane.setExpanded(false);
+                uploadButton.setDisable(true);
+                unlockButton.setDisable(true);
+                currentProject = null; // Don't set current project for read-only
+            }
+        });
+        
+        // Download and load project (same logic for both read-only and writable)
+        parentPlugin.executorService.execute(() -> {
+            try {
+                // Download project
+                logMessage("Downloading project: " + projectName);
+                Path tml_filepath = speleoDBService.downloadProject(project);
 
-                            if (Files.exists(tml_filepath)) {
-                                // Step 3: Load the project
-                                Platform.runLater(() -> logMessage("Loading project file..."));
-                                
-                                // Schedule loadSurvey to run after UI has updated
-                                // Use daemon timer to prevent JVM shutdown hangs
-                                Timer timer = new Timer(true); // true = daemon thread
-                                timer.schedule(new TimerTask() {
-                                    @Override
-                                    public void run() {
-                                        try {
-                                            parentPlugin.loadSurvey(tml_filepath.toFile());
-                                            Platform.runLater(() -> {
-                                                logMessage("Project loaded successfully: " + project.getString("name"));
-                                                checkAndUpdateSpeleoDBId(project);
-                                                
-                                                // Step 4: Clear spinner and refresh project listing (everything complete)
-                                                serverProgressIndicator.setVisible(false);
-                                                setUILoadingState(false);
-                                                
-                                                // Refresh project listing to show locked status
-                                                parentPlugin.executorService.execute(() -> {
-                                                    try {
-                                                        logMessage("Refreshing project listing...");
-                                                        JsonArray projectList = speleoDBService.listProjects();
-                                                        handleProjectListResponse(projectList);
-                                                    } catch (Exception refreshEx) {
-                                                        logMessage("Error refreshing project listing: " + getSafeErrorMessage(refreshEx));
-                                                    }
-                                                });
-                                            });
-                                        } catch (Exception loadEx) {
-                                            Platform.runLater(() -> {
-                                                logMessage("Error loading project: " + getSafeErrorMessage(loadEx));
-                                                serverProgressIndicator.setVisible(false);
-                                                setUILoadingState(false);
-                                                showErrorAnimation("Failed to load project");
-                                            });
-                                        } finally {
-                                            // Always cancel the timer to prevent resource leaks
-                                            timer.cancel();
-                                        }
-                                    }
-                                }, 100); // 100ms delay to let UI update
-                            } else {
+                if (Files.exists(tml_filepath)) {
+                    // Load the project
+                    String loadingMessage = hasWriteAccess ? "Loading project file..." : "Loading read-only project file...";
+                    Platform.runLater(() -> logMessage(loadingMessage));
+                    
+                    // Use daemon timer to prevent JVM shutdown hangs
+                    Timer timer = new Timer(true);
+                    timer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            try {
+                                parentPlugin.loadSurvey(tml_filepath.toFile());
                                 Platform.runLater(() -> {
-                                    logMessage("Download failed");
+                                    String successMessage = hasWriteAccess ? 
+                                        "Project loaded successfully: " + projectName :
+                                        "Read-only project loaded successfully: " + projectName;
+                                    logMessage(successMessage);
+                                    checkAndUpdateSpeleoDBId(project);
+                                    
+                                    // Clear spinner and refresh project listing
                                     serverProgressIndicator.setVisible(false);
                                     setUILoadingState(false);
-                                    showErrorAnimation("Download Failed");
+                                    
+                                    // Refresh project listing
+                                    listProjects();
+                                });
+                            } catch (Exception e) {
+                                Platform.runLater(() -> {
+                                    String errorMessage = hasWriteAccess ? 
+                                        "Failed to load project: " + getSafeErrorMessage(e) :
+                                        "Failed to load read-only project: " + getSafeErrorMessage(e);
+                                    logMessage(errorMessage);
+                                    showErrorAnimation(errorMessage);
+                                    serverProgressIndicator.setVisible(false);
+                                    setUILoadingState(false);
                                 });
                             }
-                        } catch (Exception downloadEx) {
-                            Platform.runLater(() -> {
-                                logMessage("Error downloading project: " + getSafeErrorMessage(downloadEx));
-                                serverProgressIndicator.setVisible(false);
-                                setUILoadingState(false);
-                                showErrorAnimation("Download Failed");
-                            });
                         }
-                    });
-                },
-                () -> {
-                    // Failure callback: Lock acquisition failed
-                    logMessage("Failed to acquire lock for project");
+                    }, 100); // Small delay to ensure UI updates
+                } else {
                     Platform.runLater(() -> {
+                        logMessage("Downloaded file not found: " + tml_filepath);
+                        showErrorAnimation("Failed to download project file");
                         serverProgressIndicator.setVisible(false);
                         setUILoadingState(false);
                     });
-                },
-                true // Show modal dialogs for project opening
-            );
+                }
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    String errorMessage = "Failed to download project: " + getSafeErrorMessage(e);
+                    logMessage(errorMessage);
+                    showErrorAnimation(errorMessage);
+                    serverProgressIndicator.setVisible(false);
+                    setUILoadingState(false);
+                });
+            }
         });
     }
 
