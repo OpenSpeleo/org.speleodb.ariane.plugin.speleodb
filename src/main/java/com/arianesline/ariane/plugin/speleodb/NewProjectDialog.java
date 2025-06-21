@@ -5,12 +5,24 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DEBUG;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
@@ -24,281 +36,280 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 
 /**
- * Dialog for creating a new SpeleoDB project.
- * Provides a form with project name, description, country, latitude, and longitude fields.
- * OPTIMIZED: Pre-loads countries data and caches UI components for faster display.
+ * Dialog for creating new projects with country selection and optional coordinates.
+ * Features async country loading and caching for better performance.
  */
 public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
-    
-    // Static cache for countries data - loaded once and reused
-    private static Map<String, String> cachedCountries = null;
-    private static boolean countriesLoadAttempted = false;
-    
+
+    // Cache for country data to avoid repeated file loading
+    private static volatile Map<String, String> cachedCountries = null;
+    private static final Object countryLoadLock = new Object();
+
+    // UI Components
     private TextField nameField;
     private TextArea descriptionField;
-    private ComboBox<CountryItem> countryComboBox;
+    private ComboBox<String> countryComboBox;
     private TextField latitudeField;
     private TextField longitudeField;
-    
+
+    // Async loading executor
+    private static final ExecutorService countryLoader = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, DEBUG.COUNTRIES_LOADER_THREAD_NAME);
+        t.setDaemon(true); // Don't prevent JVM shutdown
+        return t;
+    });
+
+    // Pre-load countries asynchronously when class is first loaded
+    static {
+        countryLoader.submit(() -> {
+            try {
+                loadCountriesFromJson();
+            } catch (Exception e) {
+                System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
+            }
+        });
+    }
+
     /**
-     * Pre-loads countries data in a background thread to optimize dialog creation.
-     * This method can be called during application startup to warm the cache.
+     * Public method to pre-load countries data for optimization.
+     * Called from the controller during initialization.
      */
     public static void preLoadCountriesData() {
-        if (!countriesLoadAttempted) {
-            countriesLoadAttempted = true;
-            
-            // Load in background to avoid blocking UI
-            Thread countriesThread = new Thread(() -> {
-                try {
-                    loadCountriesFromResource();
-                } catch (Exception e) {
-                    System.err.println("Error pre-loading countries data: " + e.getMessage());
-                }
-            }, "CountriesLoader");
-            countriesThread.setDaemon(true); // Mark as daemon to allow JVM shutdown
-            countriesThread.start();
-        }
-    }
-    
-    /**
-     * Loads countries data from JSON resource file.
-     * Results are cached in static field for reuse across dialog instances.
-     */
-    private static synchronized void loadCountriesFromResource() {
-        if (cachedCountries != null) {
-            return; // Already loaded
-        }
-        
-        try {
-            // Load countries.json from resources
-            InputStream inputStream = NewProjectDialog.class.getResourceAsStream("countries.json");
-            if (inputStream == null) {
-                throw new RuntimeException("countries.json not found in resources at: " + 
-                    NewProjectDialog.class.getPackage().getName().replace('.', '/') + "/countries.json");
+        // Countries are already loaded in static block, but this ensures it's triggered
+        countryLoader.submit(() -> {
+            try {
+                loadCountriesFromJson(); // Will return immediately if already loaded
+            } catch (Exception e) {
+                System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
             }
-            
+        });
+    }
+
+    /**
+     * Loads country data from JSON file into cache
+     */
+    private static void loadCountriesFromJson() throws IOException {
+        if (cachedCountries != null) return; // Already loaded
+
+        synchronized (countryLoadLock) {
+            if (cachedCountries != null) return; // Double-check
+
+            // Load countries from JSON file in resources
+            InputStream inputStream = NewProjectDialog.class.getResourceAsStream(PATHS.COUNTRIES_RESOURCE);
+            if (inputStream == null) {
+                throw new RuntimeException(MESSAGES.COUNTRIES_NOT_FOUND +
+                        NewProjectDialog.class.getPackage().getName().replace('.', '/') + "/" + PATHS.COUNTRIES_RESOURCE);
+            }
+
             // Read and parse JSON
             String jsonContent = new String(inputStream.readAllBytes());
             JsonObject countriesObj;
             try (JsonReader jsonReader = Json.createReader(new StringReader(jsonContent))) {
                 countriesObj = jsonReader.readObject();
             }
-            
-            // Convert to sorted map for alphabetical ordering
-            cachedCountries = new TreeMap<>();
+
+            // Convert to display format: "Country Name (CODE)" -> "CODE"
+            Map<String, String> countryMap = new TreeMap<>();
             for (Map.Entry<String, jakarta.json.JsonValue> entry : countriesObj.entrySet()) {
-                cachedCountries.put(entry.getValue().toString().replace("\"", ""), entry.getKey());
+                String countryCode = entry.getKey();
+                String countryName = entry.getValue().toString().replace("\"", MISC.EMPTY_STRING);
+                String displayName = countryName + " (" + countryCode + ")";
+                countryMap.put(displayName, countryCode);
             }
-            
-            System.out.println("Successfully cached " + cachedCountries.size() + " countries from JSON");
-            
-        } catch (IOException | RuntimeException e) {
-            System.err.println("Error loading countries: " + e.getMessage());
-            e.printStackTrace();
-            // Create empty map as fallback
-            cachedCountries = new TreeMap<>();
+
+            cachedCountries = countryMap;
+            System.out.println(String.format(MESSAGES.COUNTRIES_CACHED_SUCCESS, cachedCountries.size()));
         }
     }
-    
+
     @SuppressWarnings("this-escape")
     public NewProjectDialog() {
-        // Ensure countries are loaded (will use cache if already loaded)
-        if (cachedCountries == null && !countriesLoadAttempted) {
-            loadCountriesFromResource();
-        }
-        
-        // Create the form content
-        VBox content = createFormContent();
-        
-        // Add buttons
-        ButtonType saveButtonType = new ButtonType("Save Changes", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancelButtonType = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        setupDialog();
+        createDialogContent();
+        setupResultConverter();
+    }
+
+    private void setupDialog() {
+        setTitle(DIALOGS.TITLE_CREATE_NEW_PROJECT);
+        setHeaderText(DIALOGS.HEADER_ENTER_PROJECT_DETAILS);
+        setResizable(true);
+
+        // Set button types
+        ButtonType saveButtonType = new ButtonType(DIALOGS.BUTTON_SAVE_CHANGES, ButtonBar.ButtonData.OK_DONE);
+        ButtonType cancelButtonType = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonBar.ButtonData.CANCEL_CLOSE);
         getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
         
-        // Enable/disable save button based on validation
-        Button saveButton = (Button) getDialogPane().lookupButton(saveButtonType);
-        saveButton.setDisable(true);
+        // Apply CSS stylesheet to the dialog
+        getDialogPane().getStylesheets().add(getClass().getResource("/css/fxmlmain.css").toExternalForm());
+    }
+
+    private void createDialogContent() {
+        // Create main container
+        VBox content = new VBox(DIMENSIONS.DIALOG_CONTENT_SPACING);
+        content.setPadding(new Insets(DIMENSIONS.DIALOG_PADDING));
+        content.setPrefWidth(DIMENSIONS.NEW_PROJECT_DIALOG_PREF_WIDTH);
+
+        // Add form sections
+        content.getChildren().addAll(
+                createNameSection(),
+                createDescriptionSection(),
+                createCountrySection(),
+                createCoordinatesSection()
+        );
+
+        getDialogPane().setContent(content);
+    }
+
+    private VBox createNameSection() {
+        VBox section = new VBox(DIMENSIONS.SECTION_SPACING);
+
+        // Create label with required indicator in HBox
+        Label nameLabel = new Label(DIALOGS.LABEL_PROJECT_NAME);
+        Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
+        asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE); // Red color for required asterisk
         
-        // Add validation listeners
-        setupValidation(saveButton);
+        HBox labelBox = new HBox(nameLabel, asterisk);
+        nameLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
         
-        // Convert result when save is clicked
+        nameField = new TextField();
+        nameField.setPromptText(DIALOGS.PROMPT_PROJECT_NAME);
+        nameField.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+
+        section.getChildren().addAll(labelBox, nameField);
+        return section;
+    }
+
+    private VBox createDescriptionSection() {
+        VBox section = new VBox(DIMENSIONS.SECTION_SPACING);
+
+        // Create label with required indicator in HBox
+        Label descLabel = new Label(DIALOGS.LABEL_DESCRIPTION);
+        Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
+        asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE);
+        
+        HBox labelBox = new HBox(descLabel, asterisk);
+        descLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
+        
+        descriptionField = new TextArea();
+        descriptionField.setPromptText(DIALOGS.PROMPT_DESCRIPTION);
+        descriptionField.setPrefRowCount(DIMENSIONS.DESCRIPTION_FIELD_ROWS);
+        descriptionField.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+
+        section.getChildren().addAll(labelBox, descriptionField);
+        return section;
+    }
+
+    private VBox createCountrySection() {
+        VBox section = new VBox(DIMENSIONS.SECTION_SPACING);
+
+        // Create label with required indicator in HBox
+        Label countryLabel = new Label(DIALOGS.LABEL_COUNTRY);
+        Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
+        asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE);
+        
+        HBox labelBox = new HBox(countryLabel, asterisk);
+        countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
+        
+        countryComboBox = new ComboBox<>();
+        countryComboBox.setPromptText(DIALOGS.PROMPT_COUNTRY);
+        countryComboBox.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+
+        // Load countries asynchronously
+        loadCountriesIntoComboBox();
+
+        section.getChildren().addAll(labelBox, countryComboBox);
+        return section;
+    }
+
+    private VBox createCoordinatesSection() {
+        VBox section = new VBox(DIMENSIONS.COORDINATES_SECTION_SPACING);
+
+        // Latitude field
+        VBox latSection = new VBox(DIMENSIONS.SECTION_SPACING);
+        Label latLabel = new Label(DIALOGS.LABEL_LATITUDE);
+        latLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
+        latitudeField = new TextField();
+        latitudeField.setPromptText(DIALOGS.PROMPT_LATITUDE);
+        latitudeField.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+        latSection.getChildren().addAll(latLabel, latitudeField);
+
+        // Longitude field
+        VBox lonSection = new VBox(DIMENSIONS.SECTION_SPACING);
+        Label lonLabel = new Label(DIALOGS.LABEL_LONGITUDE);
+        lonLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
+        longitudeField = new TextField();
+        longitudeField.setPromptText(DIALOGS.PROMPT_LONGITUDE);
+        longitudeField.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+        lonSection.getChildren().addAll(lonLabel, longitudeField);
+
+        section.getChildren().addAll(latSection, lonSection);
+        return section;
+    }
+
+    private void loadCountriesIntoComboBox() {
+        if (cachedCountries != null) {
+            // Countries already loaded, populate immediately
+            Platform.runLater(() -> populateCountryComboBox(cachedCountries));
+        } else {
+            // Load countries asynchronously
+            countryLoader.submit(() -> {
+                try {
+                    loadCountriesFromJson();
+                    Platform.runLater(() -> populateCountryComboBox(cachedCountries));
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        System.err.println(MESSAGES.ERROR_LOADING_COUNTRIES + e.getMessage());
+                        // Could show error to user here if needed
+                    });
+                }
+            });
+        }
+    }
+
+    private void populateCountryComboBox(Map<String, String> countries) {
+        if (countries == null) return;
+
+        ObservableList<String> countryNames = FXCollections.observableArrayList(countries.keySet());
+        countryNames.sort(String::compareTo);
+        countryComboBox.setItems(countryNames);
+
+        System.out.println("Loaded " + countries.size() + " countries into combo box" +
+                (cachedCountries != null ? " (from cache)" : " (direct load)"));
+    }
+
+    private void setupResultConverter() {
         setResultConverter(dialogButton -> {
-            if (dialogButton == saveButtonType) {
+            if (dialogButton.getButtonData() == ButtonBar.ButtonData.OK_DONE) {
                 return new ProjectData(
-                    nameField.getText().trim(),
-                    descriptionField.getText().trim(),
-                    countryComboBox.getValue() != null ? countryComboBox.getValue().code : null,
-                    latitudeField.getText().trim().isEmpty() ? null : latitudeField.getText().trim(),
-                    longitudeField.getText().trim().isEmpty() ? null : longitudeField.getText().trim()
+                        nameField.getText(),
+                        descriptionField.getText(),
+                        getSelectedCountryCode(),
+                        latitudeField.getText(),
+                        longitudeField.getText()
                 );
             }
             return null;
         });
-        
-        // Set dialog properties
-        setTitle("Create New Project");
-        setHeaderText("Enter project details");
-        getDialogPane().setContent(content);
-        
-        // Focus on name field when dialog opens
-        setOnShown(e -> nameField.requestFocus());
     }
-    
-    private VBox createFormContent() {
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.setPrefWidth(400);
-        
-        // Project Name section
-        content.getChildren().add(createProjectNameSection());
-        
-        // Description section
-        content.getChildren().add(createDescriptionSection());
-        
-        // Country section
-        content.getChildren().add(createCountrySection());
-        
-        // Coordinates section
-        content.getChildren().add(createCoordinatesSection());
-        
-        return content;
-    }
-    
-    private VBox createProjectNameSection() {
-        VBox section = new VBox(5);
-        
-        Label nameLabel = new Label("Project Name:");
-        Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;"); // Red color for required asterisk
-        
-        HBox labelBox = new HBox(nameLabel, asterisk);
-        nameLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
-        
-        nameField = new TextField();
-        nameField.setPromptText("Enter project name");
-        nameField.setPrefWidth(350);
-        
-        section.getChildren().addAll(labelBox, nameField);
-        return section;
-    }
-    
-    private VBox createDescriptionSection() {
-        VBox section = new VBox(5);
-        
-        Label descLabel = new Label("Description:");
-        Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;");
-        
-        HBox labelBox = new HBox(descLabel, asterisk);
-        descLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
-        
-        descriptionField = new TextArea();
-        descriptionField.setPromptText("Enter project description");
-        descriptionField.setPrefRowCount(4);
-        descriptionField.setPrefWidth(350);
-        descriptionField.setWrapText(true);
-        
-        section.getChildren().addAll(labelBox, descriptionField);
-        return section;
-    }
-    
-    private VBox createCountrySection() {
-        VBox section = new VBox(5);
-        
-        Label countryLabel = new Label("Country:");
-        Label asterisk = new Label(" *");
-        asterisk.setStyle("-fx-text-fill: #dc2626;");
-        
-        HBox labelBox = new HBox(countryLabel, asterisk);
-        countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
-        
-        countryComboBox = new ComboBox<>();
-        countryComboBox.setPromptText("Select a country ...");
-        countryComboBox.setPrefWidth(350);
-        
-        // Load countries from JSON file
-        loadCountries();
-        
-        section.getChildren().addAll(labelBox, countryComboBox);
-        return section;
-    }
-    
-    private VBox createCoordinatesSection() {
-        VBox section = new VBox(10);
-        
-        // Latitude
-        VBox latSection = new VBox(5);
-        Label latLabel = new Label("Latitude:");
-        latLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
-        
-        latitudeField = new TextField();
-        latitudeField.setPromptText("[Optional]");
-        latitudeField.setPrefWidth(350);
-        
-        latSection.getChildren().addAll(latLabel, latitudeField);
-        
-        // Longitude
-        VBox lonSection = new VBox(5);
-        Label lonLabel = new Label("Longitude:");
-        lonLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, 12));
-        
-        longitudeField = new TextField();
-        longitudeField.setPromptText("[Optional]");
-        longitudeField.setPrefWidth(350);
-        
-        lonSection.getChildren().addAll(lonLabel, longitudeField);
-        
-        section.getChildren().addAll(latSection, lonSection);
-        return section;
-    }
-    
-    private void loadCountries() {
-        // Use cached countries data if available, otherwise load synchronously
-        Map<String, String> countries = cachedCountries;
-        
-        if (countries == null) {
-            // Fallback: load synchronously if cache is not available
-            loadCountriesFromResource();
-            countries = cachedCountries != null ? cachedCountries : new TreeMap<>();
+
+    private String getSelectedCountryCode() {
+        String selected = countryComboBox.getSelectionModel().getSelectedItem();
+        if (selected != null && cachedCountries != null) {
+            return cachedCountries.get(selected);
         }
-        
-        // Add countries to combo box from cache
-        for (Map.Entry<String, String> entry : countries.entrySet()) {
-            countryComboBox.getItems().add(new CountryItem(entry.getValue(), entry.getKey()));
-        }
-        
-        System.out.println("Loaded " + countries.size() + " countries into combo box" + 
-                          (cachedCountries != null ? " (from cache)" : " (direct load)"));
+        return null;
     }
-    
-    private void setupValidation(Button saveButton) {
-        // Create a validation function
-        Runnable validateForm = () -> {
-            boolean nameValid = !nameField.getText().trim().isEmpty();
-            boolean descValid = !descriptionField.getText().trim().isEmpty();
-            boolean countryValid = countryComboBox.getValue() != null;
-            
-            saveButton.setDisable(!(nameValid && descValid && countryValid));
-        };
-        
-        // Add listeners to required fields
-        nameField.textProperty().addListener((obs, oldVal, newVal) -> validateForm.run());
-        descriptionField.textProperty().addListener((obs, oldVal, newVal) -> validateForm.run());
-        countryComboBox.valueProperty().addListener((obs, oldVal, newVal) -> validateForm.run());
-    }
-    
+
     /**
-     * Data class to hold the form results
+     * Data class for holding project creation data
      */
     public static class ProjectData {
-        public final String name;
-        public final String description;
-        public final String countryCode;
-        public final String latitude;
-        public final String longitude;
-        
+        private final String name;
+        private final String description;
+        private final String countryCode;
+        private final String latitude;
+        private final String longitude;
+
         public ProjectData(String name, String description, String countryCode, String latitude, String longitude) {
             this.name = name;
             this.description = description;
@@ -306,34 +317,17 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             this.latitude = latitude;
             this.longitude = longitude;
         }
-        
+
+        // Getters
+        public String getName() { return name; }
+        public String getDescription() { return description; }
+        public String getCountryCode() { return countryCode; }
+        public String getLatitude() { return latitude; }
+        public String getLongitude() { return longitude; }
+
         @Override
         public String toString() {
-            return "ProjectData{" +
-                   "name='" + name + '\'' +
-                   ", description='" + description + '\'' +
-                   ", countryCode='" + countryCode + '\'' +
-                   ", latitude='" + latitude + '\'' +
-                   ", longitude='" + longitude + '\'' +
-                   '}';
-        }
-    }
-    
-    /**
-     * Helper class for country combo box items
-     */
-    private static class CountryItem {
-        public final String code;
-        public final String name;
-        
-        public CountryItem(String code, String name) {
-            this.code = code;
-            this.name = name;
-        }
-        
-        @Override
-        public String toString() {
-            return name;
+            return String.format(MISC.PROJECT_DATA_FORMAT, name, description, countryCode, latitude, longitude);
         }
     }
 } 

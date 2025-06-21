@@ -14,6 +14,8 @@
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
@@ -62,14 +64,14 @@
 											</rowConstraints>
 											<children>
 												<!-- SpeleoDB Title at Row 0 -->
-												<Label text="SpeleoDB" textFill="WHITE" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.valignment="CENTER">
+												<ImageView fitHeight="80.0" fitWidth="250.0" pickOnBounds="true" preserveRatio="true" smooth="true" cache="true" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" GridPane.valignment="CENTER">
 													<GridPane.margin>
 														<Insets bottom="5.0" top="5.0" />
 													</GridPane.margin>
-													<styleClass>
-														<String fx:value="bold" />
-													</styleClass>
-												</Label>
+													<image>
+														<Image url="@../images/logo_wide.png" smooth="true" />
+													</image>
+												</ImageView>
 												<!-- Description Text at Row 1 -->
 												<Label text="SpeleoDB, developed by the Underwater Speleological and Archaeological Heritage Institute (USAH Institute), a 501(c)(3) nonprofit, supports the cave survey and exploration community. It prioritizes privacy, data ownership, and proper credit, encouraging open collaboration while ensuring individuals keep control of their work. Guided by a steering committee, SpeleoDB promotes a more connected and cooperative future for cave exploration." textAlignment="JUSTIFY" textFill="WHITE" wrapText="true" GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER">
 													<font>
@@ -80,10 +82,9 @@
 													</GridPane.margin>
 												</Label>
 												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER">
-													<Label alignment="CENTER" text="Instance">
+													<Label alignment="CENTER" text="Instance" textFill="WHITE">
 														<styleClass>
-															<String fx:value="small" />
-															<String fx:value="textheader" />
+															<String fx:value="bold" />
 														</styleClass>
 													</Label>
 													<TextField fx:id="instanceTextField" maxWidth="Infinity" prefHeight="25.0" />
@@ -95,10 +96,9 @@
 													</styleClass>
 												</Label>
 												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="5" GridPane.valignment="CENTER">
-													<Label alignment="CENTER" text="Email">
+													<Label alignment="CENTER" text="Email"  textFill="WHITE">
 														<styleClass>
-															<String fx:value="small" />
-															<String fx:value="textheader" />
+															<String fx:value="bold" />
 														</styleClass>
 													</Label>
 													<TextField fx:id="emailTextField" maxWidth="Infinity" prefHeight="25.0" />
@@ -107,10 +107,9 @@
 													</GridPane.margin>
 												</VBox>
 												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="6" GridPane.valignment="CENTER">
-													<Label alignment="CENTER" text="Password">
+													<Label alignment="CENTER" text="Password"  textFill="WHITE">
 														<styleClass>
-															<String fx:value="small" />
-															<String fx:value="textheader" />
+															<String fx:value="bold" />
 														</styleClass>
 													</Label>
 													<PasswordField fx:id="passwordPasswordField" maxWidth="Infinity" />
@@ -120,10 +119,9 @@
 												</VBox>
 												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="7" GridPane.valignment="CENTER" />
 												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="8" GridPane.valignment="CENTER">
-													<Label alignment="CENTER" text="OAuth Token">
+													<Label alignment="CENTER" text="OAuth Token"  textFill="WHITE">
 														<styleClass>
-															<String fx:value="small" />
-															<String fx:value="textheader" />
+															<String fx:value="bold" />
 														</styleClass>
 													</Label>
 													<PasswordField fx:id="oauthtokenPasswordField" maxWidth="Infinity" />
@@ -132,10 +130,9 @@
 													</GridPane.margin>
 												</VBox>
 												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="9" GridPane.valignment="CENTER" />
-												<CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false" text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="10" GridPane.valignment="CENTER">
+												<CheckBox fx:id="rememberCredentialsCheckBox" mnemonicParsing="false" text="Remember Me" GridPane.halignment="CENTER" GridPane.rowIndex="10" GridPane.valignment="CENTER" textFill="WHITE">
 													<styleClass>
-														<String fx:value="small" />
-														<String fx:value="textheader" />
+															<String fx:value="bold" />
 													</styleClass>
 													<GridPane.margin>
 														<Insets left="12.0" right="12.0" top="4.0" />
@@ -252,11 +249,10 @@
 										<RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
 									</rowConstraints>
 									<children>
-										<Label text="Enter a description of your changes" GridPane.columnSpan="3" GridPane.halignment="CENTER">
+										<Label text="Enter a description of your changes" GridPane.columnSpan="3" GridPane.halignment="CENTER"  textFill="WHITE">
 											<styleClass>
-												<String fx:value="small" />
-												<String fx:value="textheader" />
-											</styleClass>
+												<String fx:value="bold" />
+											</styleClass>z
 										</Label>
 										<TextField fx:id="uploadMessageTextField" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.rowIndex="1" />
 										<Button fx:id="unlockButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUnlockSpeleoDB" styleClass="bold" text="Unlock Project" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />

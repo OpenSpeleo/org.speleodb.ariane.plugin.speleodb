@@ -14,6 +14,9 @@ import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.ariane.plugin.api.DataServerPlugin;
 import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DEBUG;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.SHUTDOWN;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
 import javafx.application.Platform;
@@ -32,16 +35,16 @@ import javafx.stage.StageStyle;
 
 public class SpeleoDBPlugin implements DataServerPlugin {
 
-    public static final int TIMEOUT = 10000;
+    public static final int TIMEOUT = NETWORK.DEFAULT_TIMEOUT_MILLIS;
     private final StringProperty commandProperty = new SimpleStringProperty();
     private CaveSurveyInterface survey;
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
-    // Executor service for managing background tasks.
-    final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+    /* Executor Service for Background Tasks */
+    public final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
         t.setDaemon(true); // Mark as daemon thread to allow JVM shutdown
-        t.setName("SpeleoDB-Worker");
+        t.setName(DEBUG.SPELEODB_WORKER_THREAD_NAME);
         return t;
     });
     
@@ -49,12 +52,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private SpeleoDBController activeController = null;
     private Stage pluginStage = null;
     
-    // Pre-created button types for shutdown dialog performance optimization
-    private static final ButtonType FAST_RELEASE_LOCK = new ButtonType("Yes, Release Lock");
-    private static final ButtonType FAST_KEEP_LOCK = new ButtonType("No, Keep Lock");
-    
-    // Pre-warmed shutdown dialog for instant display
+    /* Pre-warmed UI Component */
     private Alert preWarmedShutdownModal = null;
+    
+    // Fast button types to avoid repeated instantiation
+    private static final ButtonType FAST_RELEASE_LOCK = new ButtonType(SHUTDOWN.BUTTON_YES_RELEASE_LOCK);
+    private static final ButtonType FAST_KEEP_LOCK = new ButtonType(SHUTDOWN.BUTTON_NO_KEEP_LOCK);
 
     @Override
     public synchronized File getSurveyFile() {
@@ -91,8 +94,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         Platform.runLater(() -> {
             if (preWarmedShutdownModal == null) {
                 preWarmedShutdownModal = new Alert(Alert.AlertType.CONFIRMATION);
-                preWarmedShutdownModal.setTitle("Application Shutdown");
-                preWarmedShutdownModal.setHeaderText("Project Lock Active");
+                preWarmedShutdownModal.setTitle(SHUTDOWN.DIALOG_TITLE);
+                preWarmedShutdownModal.setHeaderText(SHUTDOWN.DIALOG_HEADER);
                 preWarmedShutdownModal.setContentText("");
                 preWarmedShutdownModal.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
             }
@@ -112,18 +115,17 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         
         // Configure the modal (minimal operations for speed)
         if (alert != preWarmedShutdownModal) {
-            alert.setTitle("Application Shutdown");
-            alert.setHeaderText("Project Lock Active");
+            alert.setTitle(SHUTDOWN.DIALOG_TITLE);
+            alert.setHeaderText(SHUTDOWN.DIALOG_HEADER);
             alert.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
         }
         
         // Build message efficiently using StringBuilder with pre-allocated capacity
         StringBuilder message = new StringBuilder(200);
-        message.append("You have an active lock on project \"")
+        message.append(SHUTDOWN.MESSAGE_PREFIX)
                .append(projectName)
-               .append("\".\n\nDo you want to release the lock before closing the application?\n\n")
-               .append("• Yes: Release lock (other users can edit)\n")
-               .append("• No: Keep lock (will be released when connection times out)");
+               .append(SHUTDOWN.MESSAGE_SUFFIX)
+               .append(SHUTDOWN.MESSAGE_OPTIONS);
         
         alert.setContentText(message.toString());
         
@@ -245,6 +247,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         commandProperty.set(DataServerCommands.LOAD.name());
         var start = LocalDateTime.now();
         while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < TIMEOUT) {
+            try {
+                Thread.sleep(10); // Yield CPU to prevent 100% CPU usage
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         lock.set(false);
         commandProperty.set(DataServerCommands.DONE.name());

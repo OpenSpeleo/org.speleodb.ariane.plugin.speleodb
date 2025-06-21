@@ -28,6 +28,15 @@ import java.util.prefs.Preferences;
 
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBAccessLevel.*;
 
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
@@ -130,13 +139,7 @@ public class SpeleoDBController implements Initializable {
     // SpeleoDBService instance for handling server communication.
     private SpeleoDBService speleoDBService;
 
-    // Constants for Preferences keys and default values.
-    private static final String PREF_EMAIL = "SDB_EMAIL";
-    private static final String PREF_PASSWORD = "SDB_PASSWORD";
-    private static final String PREF_OAUTH_TOKEN = "SDB_OAUTH_TOKEN";
-    private static final String PREF_INSTANCE = "SDB_INSTANCE";
-    private static final String PREF_SAVE_CREDS = "SDB_SAVECREDS";
-    private static final String DEFAULT_INSTANCE = "www.speleoDB.org";
+    // Note: Constants moved to SpeleoDBConstants class
 
 
 
@@ -153,17 +156,9 @@ public class SpeleoDBController implements Initializable {
     // Pre-warmed modal for instant display (initialized once)
     private Alert preWarmedModal = null;
     
-    // Modal performance optimization - pre-created button types
-    private static final ButtonType FAST_YES = new ButtonType("Yes");
-    private static final ButtonType FAST_NO = new ButtonType("No");
-    
     // Pre-warmed save modal for instant display (initialized once)
     private Dialog<String> preWarmedSaveModal = null;
     private TextField preWarmedSaveMessageField = null;
-    
-    // Save modal performance optimization - pre-created button types
-    private static final ButtonType FAST_SAVE = new ButtonType("Save Project", ButtonType.OK.getButtonData());
-    private static final ButtonType FAST_CANCEL = new ButtonType("Cancel", ButtonType.CANCEL.getButtonData());
     
     // Track running animations to stop them during cleanup
     private final List<Timeline> runningAnimations = new ArrayList<>();
@@ -196,7 +191,7 @@ public class SpeleoDBController implements Initializable {
                 preWarmedModal.setTitle("");
                 preWarmedModal.setHeaderText(null);
                 preWarmedModal.setContentText("");
-                preWarmedModal.getButtonTypes().setAll(FAST_YES, FAST_NO);
+                preWarmedModal.getButtonTypes().setAll(BUTTON_TYPES.FAST_YES, BUTTON_TYPES.FAST_NO);
                 
                 // Initialize owner to speed up future displays
                 try {
@@ -222,7 +217,7 @@ public class SpeleoDBController implements Initializable {
             // Create the dialog once
             preWarmedSaveModal = new Dialog<>();
             preWarmedSaveModal.setTitle("Save Project on SpeleoDB");
-            preWarmedSaveModal.getDialogPane().getButtonTypes().addAll(FAST_SAVE, FAST_CANCEL);
+                            preWarmedSaveModal.getDialogPane().getButtonTypes().addAll(BUTTON_TYPES.FAST_SAVE, BUTTON_TYPES.FAST_CANCEL);
             
             // Create the content layout once
             GridPane grid = new GridPane();
@@ -251,9 +246,12 @@ public class SpeleoDBController implements Initializable {
             preWarmedSaveModal.getDialogPane().setMinWidth(500);
             preWarmedSaveModal.getDialogPane().setPrefWidth(500);
             
+            // Apply CSS stylesheet to the dialog
+            preWarmedSaveModal.getDialogPane().getStylesheets().add(getClass().getResource("/css/fxmlmain.css").toExternalForm());
+            
             // Set result converter once
             preWarmedSaveModal.setResultConverter(dialogButton -> {
-                if (dialogButton == FAST_SAVE) {
+                if (dialogButton == BUTTON_TYPES.FAST_SAVE) {
                     return preWarmedSaveMessageField.getText();
                 }
                 return null;
@@ -281,24 +279,31 @@ public class SpeleoDBController implements Initializable {
      * @return true if user clicked positive button, false otherwise
      */
     private boolean showConfirmationModal(String title, String message, String positiveText, String negativeText) {
-        // Use pre-warmed modal for maximum speed, fallback to new modal if needed
-        Alert alert = (preWarmedModal != null) ? preWarmedModal : new Alert(Alert.AlertType.CONFIRMATION);
+        // Check if we can use pre-warmed modal (only if using default button text)
+        boolean canUsePrewarmed = (preWarmedModal != null) && 
+                                 DIALOGS.BUTTON_YES.equals(positiveText) && 
+                                 DIALOGS.BUTTON_NO.equals(negativeText);
         
-        // Configure the modal (minimal operations for speed)
+        Alert alert = canUsePrewarmed ? preWarmedModal : new Alert(Alert.AlertType.CONFIRMATION);
+        
+        // Configure the modal
         alert.setTitle(title);
         alert.setContentText(message);
         
-        // Use pre-created buttons for maximum performance
-        if (alert == preWarmedModal) {
-            // Already has FAST_YES and FAST_NO buttons
+        // Create custom buttons with the provided text
+        ButtonType positiveButton = new ButtonType(positiveText, ButtonType.OK.getButtonData());
+        ButtonType negativeButton = new ButtonType(negativeText, ButtonType.CANCEL.getButtonData());
+        
+        if (canUsePrewarmed) {
+            // Use pre-warmed modal with default buttons (already configured)
         } else {
-            // Fallback for new modal
-            alert.getButtonTypes().setAll(FAST_YES, FAST_NO);
+            // Set custom buttons for new modal or when custom text is needed
+            alert.getButtonTypes().setAll(positiveButton, negativeButton);
         }
         
-        // Show and get result (optimized path)
+        // Show and get result
         return alert.showAndWait()
-                   .map(response -> response == FAST_YES)
+                   .map(response -> response == positiveButton || response == BUTTON_TYPES.FAST_YES)
                    .orElse(false);
     }
 
@@ -331,35 +336,31 @@ public class SpeleoDBController implements Initializable {
     private void showSuccessAnimation(String message) {
         Platform.runLater(() -> {
             // Use default message if none provided
-            String displayMessage = (message == null || message.trim().isEmpty()) ? "Success" : message;
+            String displayMessage = (message == null || message.trim().isEmpty()) ? MESSAGES.SUCCESS_DEFAULT : message;
             
             // Create temporary success indicator with auto-sizing
-            Label successLabel = new Label("✓ " + displayMessage);
-            successLabel.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; " +
-                                "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
-                                "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);");
+            Label successLabel = new Label(ICONS.SUCCESS_CHECKMARK + displayMessage);
+                    successLabel.setStyle(STYLES.SUCCESS_STYLE);
             
             // Allow text wrapping for longer messages
             successLabel.setWrapText(true);
             successLabel.setAlignment(javafx.geometry.Pos.CENTER);
             
             // Let the label size itself to content, but set reasonable constraints
-            successLabel.setMinWidth(150);  // Minimum width for short messages
-            successLabel.setMaxWidth(800);  // Increased maximum width for longer messages
+                    successLabel.setMinWidth(DIMENSIONS.SUCCESS_LABEL_MIN_WIDTH);  // Minimum width for short messages
+        successLabel.setMaxWidth(DIMENSIONS.SUCCESS_LABEL_MAX_WIDTH);  // Increased maximum width for longer messages
             successLabel.setPrefWidth(Label.USE_COMPUTED_SIZE);  // Use computed size based on content
             
             // Get the scene for positioning relative to the entire window
             if (speleoDBAnchorPane.getScene() != null) {
                 // Add to scene root instead of constrained pane
                 javafx.scene.Parent root = speleoDBAnchorPane.getScene().getRoot();
-                if (root instanceof javafx.scene.layout.Pane) {
-                    javafx.scene.layout.Pane rootPane = (javafx.scene.layout.Pane) root;
+                if (root instanceof javafx.scene.layout.Pane rootPane) {
                     
-                    // Position relative to scene dimensions
-                    successLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+                    // Position relative to scene dimensions (calculate once, no listeners)
+                    Platform.runLater(() -> {
                         double sceneWidth = speleoDBAnchorPane.getScene().getWidth();
-                        double labelWidth = newBounds.getWidth();
+                        double labelWidth = successLabel.getBoundsInLocal().getWidth();
                         double leftPosition = Math.max(10, (sceneWidth - labelWidth) / 2);
                         successLabel.setLayoutX(leftPosition);
                         successLabel.setLayoutY(20); // Top margin
@@ -391,11 +392,11 @@ public class SpeleoDBController implements Initializable {
                 }
             }
             
-            // Fallback: use original approach if scene root is not accessible
+            // Fallback: use original approach if scene root is not accessible (calculate once, no listeners)
             AnchorPane.setTopAnchor(successLabel, 20.0);
-            successLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
+            Platform.runLater(() -> {
                 double paneWidth = speleoDBAnchorPane.getWidth();
-                double labelWidth = newBounds.getWidth();
+                double labelWidth = successLabel.getBoundsInLocal().getWidth();
                 double leftPosition = Math.max(10, (paneWidth - labelWidth) / 2);
                 AnchorPane.setLeftAnchor(successLabel, leftPosition);
             });
@@ -427,7 +428,7 @@ public class SpeleoDBController implements Initializable {
      * Shows a success animation with the default "Success" message.
      */
     private void showSuccessAnimation() {
-        showSuccessAnimation("Success");
+        showSuccessAnimation(MESSAGES.SUCCESS_DEFAULT);
     }
 
     /**
@@ -439,124 +440,41 @@ public class SpeleoDBController implements Initializable {
     private void showErrorAnimation(String message) {
         Platform.runLater(() -> {
             // Use default message if none provided
-            String displayMessage = (message == null || message.trim().isEmpty()) ? "ERROR" : message;
+            String displayMessage = (message == null || message.trim().isEmpty()) ? MESSAGES.ERROR_DEFAULT : message;
             
             // Create temporary error indicator with enhanced styling and auto-sizing
-            Label errorLabel = new Label("❌ " + displayMessage);
-            errorLabel.setStyle("-fx-background-color: #DC143C; -fx-text-fill: white; " +
-                              "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
-                              "-fx-font-weight: bold; -fx-border-radius: 10; " +
-                              "-fx-border-color: #B22222; -fx-border-width: 2; " +
-                              "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3);");
+            Label errorLabel = new Label(ICONS.ERROR_X + displayMessage);
+            errorLabel.setStyle(STYLES.ERROR_STYLE);
             
             // Allow text wrapping for longer messages
             errorLabel.setWrapText(true);
             errorLabel.setAlignment(javafx.geometry.Pos.CENTER);
             
             // Let the label size itself to content, but set reasonable constraints
-            errorLabel.setMinWidth(200);  // Minimum width for short messages
-            errorLabel.setMaxWidth(900);  // Increased maximum width for longer error messages
+            errorLabel.setMinWidth(DIMENSIONS.ERROR_LABEL_MIN_WIDTH);  // Minimum width for short messages
+            errorLabel.setMaxWidth(DIMENSIONS.ERROR_LABEL_MAX_WIDTH);  // Increased maximum width for longer error messages
             errorLabel.setPrefWidth(Label.USE_COMPUTED_SIZE);  // Use computed size based on content
+            errorLabel.setOpacity(1.0);
             
             // Get the scene for positioning relative to the entire window
-            if (speleoDBAnchorPane.getScene() != null) {
-                // Add to scene root instead of constrained pane
-                javafx.scene.Parent root = speleoDBAnchorPane.getScene().getRoot();
-                if (root instanceof javafx.scene.layout.Pane) {
-                    javafx.scene.layout.Pane rootPane = (javafx.scene.layout.Pane) root;
-                    
-                    // Position relative to scene dimensions
-                    errorLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
-                        double sceneWidth = speleoDBAnchorPane.getScene().getWidth();
-                        double labelWidth = newBounds.getWidth();
-                        double leftPosition = Math.max(10, (sceneWidth - labelWidth) / 2);
-                        errorLabel.setLayoutX(leftPosition);
-                        errorLabel.setLayoutY(20); // Top margin
-                    });
-                    
-                    rootPane.getChildren().add(errorLabel);
-                    
-                    // Enhanced animation with shake effect
-                    errorLabel.setOpacity(0.0);
-                    
-                    // Fade in animation
-                    FadeTransition fadeIn = new FadeTransition(Duration.millis(300), errorLabel);
-                    fadeIn.setFromValue(0.0);
-                    fadeIn.setToValue(1.0);
-                    
-                    // Add subtle shake animation for error emphasis
-                    Timeline shakeTimeline = createTrackedTimeline(
-                        new KeyFrame(Duration.millis(0), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
-                        new KeyFrame(Duration.millis(50), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), -5)),
-                        new KeyFrame(Duration.millis(100), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 5)),
-                        new KeyFrame(Duration.millis(150), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), -3)),
-                        new KeyFrame(Duration.millis(200), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 3)),
-                        new KeyFrame(Duration.millis(250), 
-                            new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0))
-                    );
-                    
-                    // Play animations
-                    fadeIn.play();
-                    fadeIn.setOnFinished(e -> shakeTimeline.play());
-                    
-                    // Auto-hide after 5 seconds (longer for errors)
-                    Timeline hideTimeline = createTrackedTimeline(
-                        new KeyFrame(Duration.seconds(5), e -> {
-                            FadeTransition fadeOut = new FadeTransition(Duration.millis(500), errorLabel);
-                            fadeOut.setFromValue(1.0);
-                            fadeOut.setToValue(0.0);
-                            fadeOut.setOnFinished(event -> rootPane.getChildren().remove(errorLabel));
-                            fadeOut.play();
-                        })
-                    );
-                    hideTimeline.play();
-                    return;
-                }
+            if (speleoDBAnchorPane.getScene() != null) {              
+                double sceneWidth = speleoDBAnchorPane.getScene().getWidth();
+                double labelWidth = errorLabel.getBoundsInLocal().getWidth();
+                double leftPosition = Math.max(10, (sceneWidth - labelWidth) / 2);
+                errorLabel.setLayoutX(leftPosition);
+                errorLabel.setLayoutY(20); // Top margin
+            } else {
+                AnchorPane.setTopAnchor(errorLabel, 20.0);
+                Platform.runLater(() -> {
+                    double paneWidth = speleoDBAnchorPane.getWidth();
+                    double labelWidth = errorLabel.getBoundsInLocal().getWidth();
+                    double leftPosition = Math.max(10, (paneWidth - labelWidth) / 2);
+                    AnchorPane.setLeftAnchor(errorLabel, leftPosition);
+                });
+            
             }
-            
-            // Fallback: use original approach if scene root is not accessible
-            AnchorPane.setTopAnchor(errorLabel, 20.0);
-            errorLabel.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> {
-                double paneWidth = speleoDBAnchorPane.getWidth();
-                double labelWidth = newBounds.getWidth();
-                double leftPosition = Math.max(10, (paneWidth - labelWidth) / 2);
-                AnchorPane.setLeftAnchor(errorLabel, leftPosition);
-            });
-            
+
             speleoDBAnchorPane.getChildren().add(errorLabel);
-            
-            // Enhanced animation with shake effect
-            errorLabel.setOpacity(0.0);
-            
-            // Fade in animation
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(300), errorLabel);
-            fadeIn.setFromValue(0.0);
-            fadeIn.setToValue(1.0);
-            
-            // Add subtle shake animation for error emphasis
-            Timeline shakeTimeline = createTrackedTimeline(
-                new KeyFrame(Duration.millis(0), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
-                new KeyFrame(Duration.millis(50), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), -5)),
-                new KeyFrame(Duration.millis(100), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 5)),
-                new KeyFrame(Duration.millis(150), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), -3)),
-                new KeyFrame(Duration.millis(200), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 3)),
-                new KeyFrame(Duration.millis(250), 
-                    new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0))
-            );
-            
-            // Play animations
-            fadeIn.play();
-            fadeIn.setOnFinished(e -> shakeTimeline.play());
             
             // Auto-hide after 5 seconds (longer for errors)
             Timeline hideTimeline = createTrackedTimeline(
@@ -576,7 +494,7 @@ public class SpeleoDBController implements Initializable {
      * Shows an error animation with the default "ERROR" message.
      */
     private void showErrorAnimation() {
-        showErrorAnimation("ERROR");
+        showErrorAnimation(MESSAGES.ERROR_DEFAULT);
     }
 
     /**
@@ -704,17 +622,19 @@ public class SpeleoDBController implements Initializable {
      */
     private String getNetworkErrorMessage(Exception exception, String operation) {
         if (isServerOfflineError(exception)) {
-            return "Can't reach server - Please check:\n" +
-                   "• Server is online and accessible\n" +
-                   "• Network connection is working\n" +
-                   "• Server URL is correct\n" +
-                   "• Firewall isn't blocking the connection";
+            return """
+                   Can't reach server - Please check:
+                   \u2022 Server is online and accessible
+                   \u2022 Network connection is working
+                   \u2022 Server URL is correct
+                   \u2022 Firewall isn't blocking the connection""";
         } else if (isTimeoutError(exception)) {
-            return "Request timed out - Server may be:\n" +
-                   "• Overloaded or slow to respond\n" +
-                   "• Experiencing network issues\n" +
-                   "• Temporarily unavailable\n" +
-                   "Try again in a few moments";
+            return """
+                   Request timed out - Server may be:
+                   \u2022 Overloaded or slow to respond
+                   \u2022 Experiencing network issues
+                   \u2022 Temporarily unavailable
+                   Try again in a few moments""";
         } else {
             // Generic network error
             return operation + " failed: " + exception.getMessage();
@@ -743,9 +663,7 @@ public class SpeleoDBController implements Initializable {
         
         boolean isValid = cleanToken.matches(oauthPattern);
         
-        if (isValid) {
-            logMessage("OAuth token format validation: PASSED");
-        } else {
+        if (!isValid) {
             logMessage("OAuth token format validation: FAILED - Expected 40 hex characters, got: " + 
                       cleanToken.length() + " characters");
         }
@@ -783,15 +701,15 @@ public class SpeleoDBController implements Initializable {
     private void loadPreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
 
-        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREF_SAVE_CREDS, false));
-        emailTextField.setText(prefs.get(PREF_EMAIL, ""));
+        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREFERENCES.PREF_SAVE_CREDS, false));
 
         if (rememberCredentialsCheckBox.isSelected()) {
-            passwordPasswordField.setText(prefs.get(PREF_PASSWORD, ""));
-            oauthtokenPasswordField.setText(prefs.get(PREF_OAUTH_TOKEN, ""));
+            emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
+            passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, MISC.EMPTY_STRING));
+            oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, MISC.EMPTY_STRING));
         }
 
-        instanceTextField.setText(prefs.get(PREF_INSTANCE, DEFAULT_INSTANCE));
+        instanceTextField.setText(prefs.get(PREFERENCES.PREF_INSTANCE, PREFERENCES.DEFAULT_INSTANCE));
     }
 
     /**
@@ -800,32 +718,34 @@ public class SpeleoDBController implements Initializable {
      */
     private void savePreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-        prefs.put(PREF_EMAIL, emailTextField.getText());
-        prefs.put(PREF_INSTANCE, instanceTextField.getText());
-
-        if (rememberCredentialsCheckBox.isSelected()) {
-            prefs.put(PREF_PASSWORD, passwordPasswordField.getText());
-            
-            // Validate OAuth token before saving
-            String oauthToken = oauthtokenPasswordField.getText();
-            if (oauthToken != null && !oauthToken.trim().isEmpty()) {
-                if (validateOAuthToken(oauthToken)) {
-                    prefs.put(PREF_OAUTH_TOKEN, oauthToken);
-                    logMessage("OAuth token saved to preferences (format validated)");
-                } else {
-                    // Don't save invalid token, but log the issue
-                    prefs.remove(PREF_OAUTH_TOKEN);
-                    logMessage("Warning: Invalid OAuth token format not saved to preferences");
-                }
-            } else {
-                prefs.put(PREF_OAUTH_TOKEN, oauthToken); // Save empty token
-            }
-        } else {
-            prefs.remove(PREF_PASSWORD);
-            prefs.remove(PREF_OAUTH_TOKEN);
+        if (!rememberCredentialsCheckBox.isSelected()) {
+            prefs.remove(PREFERENCES.PREF_INSTANCE);
+            prefs.remove(PREFERENCES.PREF_EMAIL);
+            prefs.remove(PREFERENCES.PREF_PASSWORD);
+            prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
+            prefs.remove(PREFERENCES.PREF_SAVE_CREDS);
+            return;
         }
 
-        prefs.putBoolean(PREF_SAVE_CREDS, rememberCredentialsCheckBox.isSelected());
+        prefs.put(PREFERENCES.PREF_EMAIL, emailTextField.getText());
+        prefs.put(PREFERENCES.PREF_INSTANCE, instanceTextField.getText());
+        prefs.put(PREFERENCES.PREF_PASSWORD, passwordPasswordField.getText());
+            
+        // Validate OAuth token before saving
+        String oauthToken = oauthtokenPasswordField.getText();
+
+        if (oauthToken != null && !oauthToken.trim().isEmpty()) {
+            if (validateOAuthToken(oauthToken)) {
+                prefs.put(PREFERENCES.PREF_OAUTH_TOKEN, oauthToken);
+                logMessage(MESSAGES.OAUTH_TOKEN_SAVED);
+            } else {
+                // Don't save invalid token, but log the issue
+                prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
+                logMessage(MESSAGES.OAUTH_TOKEN_INVALID_NOT_SAVED);
+            }
+        }
+
+        prefs.putBoolean(PREFERENCES.PREF_SAVE_CREDS, true);
     }
 
     // ==================== UI INITIALIZATION FUNCTIONS ==================== //
@@ -866,7 +786,10 @@ public class SpeleoDBController implements Initializable {
         createNewProjectButton.setDisable(true); // Disabled until authenticated
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
-        connectionButton.setText("CONNECT");
+        connectionButton.setText(DIALOGS.BUTTON_CONNECT);
+        
+        // Set prompt text for upload message field
+        uploadMessageTextField.setPromptText(DIALOGS.PROMPT_UPLOAD_MESSAGE);
         
         // Initial state: CONNECT and SIGNUP buttons visible 50/50
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
@@ -996,12 +919,12 @@ public class SpeleoDBController implements Initializable {
         
         // Show dialog and handle response
         dialog.showAndWait().ifPresent(message -> {
-            if (message == null || message.trim().isEmpty()) {
-                logMessage("Upload message cannot be empty.");
-                showErrorModal("Upload Message Required", "Upload message cannot be empty.");
-                showErrorAnimation();
-                return;
-            }
+                    if (message == null || message.trim().isEmpty()) {
+            logMessage(MESSAGES.UPLOAD_MESSAGE_EMPTY);
+            showErrorModal(DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, MESSAGES.UPLOAD_MESSAGE_EMPTY);
+            showErrorAnimation();
+            return;
+        }
             
             // Use the shared upload method
             uploadProjectWithMessage(message.trim());
@@ -1050,6 +973,9 @@ public class SpeleoDBController implements Initializable {
         dialog.getDialogPane().setMinWidth(500);
         dialog.getDialogPane().setPrefWidth(500);
         
+        // Apply CSS stylesheet to the dialog
+        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/css/fxmlmain.css").toExternalForm());
+        
         // Focus on the text field when dialog is shown
         dialog.setOnShown(e -> messageField.requestFocus());
         
@@ -1085,8 +1011,8 @@ public class SpeleoDBController implements Initializable {
         // Pre-warm modal system for instant display (eliminates first-time lag)
         preWarmModalSystem();
         
-        // Pre-load countries data for New Project dialog optimization
-        NewProjectDialog.preLoadCountriesData();
+        // // Pre-load countries data for New Project dialog optimization
+        // NewProjectDialog.preLoadCountriesData();
         
         // Setup early shutdown handling to prevent application freeze on close
         setupShutdownHook();
@@ -1139,7 +1065,7 @@ public class SpeleoDBController implements Initializable {
                     javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3); // Span all 3 columns (100%)
                     signupButton.setVisible(false);
                     
-                    actionsTitlePane.setVisible(true);
+                    // Actions pane will be shown only when a project is loaded (handled in downloadAndLoadProject)
                     
                     // Disable connection form fields while connected
                     setConnectionFormEnabled(false);
@@ -1286,7 +1212,7 @@ public class SpeleoDBController implements Initializable {
             emailTextField.setText("");
             passwordPasswordField.setText("");
             oauthtokenPasswordField.setText("");
-            instanceTextField.setText(DEFAULT_INSTANCE);
+            instanceTextField.setText(PREFERENCES.DEFAULT_INSTANCE);
             rememberCredentialsCheckBox.setSelected(true);
             
             // Clear saved preferences if remember me was unchecked
@@ -1414,6 +1340,10 @@ public class SpeleoDBController implements Initializable {
         }
         
         Platform.runLater(() -> {
+            // Clean up property bindings to prevent memory leaks
+            for (Button button : projectListView.getItems()) {
+                button.prefWidthProperty().unbind();
+            }
             projectListView.getItems().clear();
             
             // Convert JsonArray to List for sorting
@@ -1596,7 +1526,7 @@ public class SpeleoDBController implements Initializable {
         
         if (result.isPresent()) {
             NewProjectDialog.ProjectData projectData = result.get();
-            logMessage("Creating new project: " + projectData.name);
+            logMessage("Creating new project: " + projectData.getName());
             
             // Disable the button while creating project and show loading state
             createNewProjectButton.setDisable(true);
@@ -1608,14 +1538,14 @@ public class SpeleoDBController implements Initializable {
                 try {
                     // Create the project via API
                     JsonObject createdProject = speleoDBService.createProject(
-                        projectData.name,
-                        projectData.description, 
-                        projectData.countryCode,
-                        projectData.latitude,
-                        projectData.longitude
+                        projectData.getName(),
+                        projectData.getDescription(), 
+                        projectData.getCountryCode(),
+                        projectData.getLatitude(),
+                        projectData.getLongitude()
                     );
                     
-                    logMessage("Project '" + projectData.name + "' created successfully!");
+                    logMessage("Project '" + projectData.getName() + "' created successfully!");
                     logMessage("Project ID: " + createdProject.getString("id"));
                     
                     // Use centralized lock acquisition with UI integration
@@ -1628,7 +1558,7 @@ public class SpeleoDBController implements Initializable {
                                     
                                     // Create an empty TML file for the new project using shared service method
                                     String projectId = createdProject.getString("id");
-                                    Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.name);
+                                    Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.getName());
                                     
                                     // Load the survey file and update SpeleoDB ID through normal flow
                                     parentPlugin.loadSurvey(emptyTmlFile.toFile());
@@ -1639,7 +1569,7 @@ public class SpeleoDBController implements Initializable {
                                         listProjects();
                                     });
                                     
-                                } catch (Exception e) {
+                                } catch (IOException e) {
                                     logMessage("Error setting up new project: " + getSafeErrorMessage(e));
                                     Platform.runLater(() -> {
                                         showErrorAnimation("Project created but setup failed");
@@ -2183,8 +2113,8 @@ public class SpeleoDBController implements Initializable {
     public void onUploadSpeleoDB(ActionEvent actionEvent) throws IOException, URISyntaxException, InterruptedException {
         String message = uploadMessageTextField.getText();
         if (message.isEmpty()) {
-            logMessage("Upload message cannot be empty.");
-            showErrorModal("Upload Message Required", "Upload message cannot be empty.");
+            logMessage(MESSAGES.UPLOAD_MESSAGE_EMPTY);
+            showErrorModal(DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, MESSAGES.UPLOAD_MESSAGE_EMPTY);
             return;
         }
         
@@ -2195,7 +2125,7 @@ public class SpeleoDBController implements Initializable {
         try {
             String instance = instanceTextField.getText().trim();
             if (instance.isEmpty()) {
-                instance = DEFAULT_INSTANCE;
+                instance = PREFERENCES.DEFAULT_INSTANCE;
             }
             
             String protocol = isDebugMode() ? "http" : "https";

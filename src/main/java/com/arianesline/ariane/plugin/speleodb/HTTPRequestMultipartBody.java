@@ -1,177 +1,209 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.security.SecureRandom;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
+import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.*;
+
+/**
+ * Helper class for building HTTP multipart form data request bodies.
+ * Enables file uploads in HTTP requests while following standard multipart encoding.
+ * 
+ * Usage:
+ * HTTPRequestMultipartBody body = new HTTPRequestMultipartBody.Builder()
+ *     .addPart("message", "Upload message")
+ *     .addPart("file", file, "application/octet-stream", "filename.txt")
+ *     .build();
+ */
 public class HTTPRequestMultipartBody {
-
-    private final byte[] bytes;
-
-    public String getBoundary() {
-        return boundary;
-    }
-
-    public void setBoundary(String boundary) {
+    
+    private final String boundary;
+    private final byte[] body;
+    
+    private HTTPRequestMultipartBody(String boundary, byte[] body) {
         this.boundary = boundary;
+        this.body = body;
     }
-
-    private String boundary;
-    private HTTPRequestMultipartBody(byte[] bytes, String boundary) {
-        this.bytes = bytes;
-        this.boundary = boundary;
-    }
-
+    
     public String getContentType() {
-        return "multipart/form-data; boundary=" + this.getBoundary();
+        return MULTIPART.CONTENT_TYPE_PREFIX + this.getBoundary();
     }
-    public byte[] getBody() {
-        return this.bytes;
-    }
-
-    private static final byte[] CRLF = "\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] QUOTE_CRLF = "\"\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] CONTENT_TYPE_PREFIX = "Content-Type: ".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] DOUBLE_CRLF = "\r\n\r\n".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] OCTET_STREAM_HEADER = "Content-Type: application/octet-stream\r\n\r\n".getBytes(StandardCharsets.UTF_8);
-
+    
+    public String getBoundary() { return this.boundary; }
+    public byte[] getBody() { return this.body; }
+    
+    // Multipart constants for byte arrays
+    private static final byte[] CRLF = MULTIPART.CRLF.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] QUOTE_CRLF = MULTIPART.QUOTE_CRLF.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] CONTENT_TYPE_PREFIX = MULTIPART.CONTENT_TYPE_HEADER.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] DOUBLE_CRLF = MULTIPART.DOUBLE_CRLF.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] OCTET_STREAM_HEADER = MULTIPART.OCTET_STREAM_HEADER.getBytes(StandardCharsets.UTF_8);
+    
+    // Default MIME type for text fields
+    private final String DEFAULT_MIMETYPE = MULTIPART.DEFAULT_MIMETYPE;
+    
+    /**
+     * Builder class for constructing multipart request bodies
+     */
     public static class Builder {
-        private final String DEFAULT_MIMETYPE = "text/plain";
-
-        public static class MultiPartRecord {
-            private String fieldName;
-            private String filename;
-            private String contentType;
-            private Object content;
-
-            public String getFieldName() {
-                return fieldName;
-            }
-
-            public void setFieldName(String fieldName) {
-                this.fieldName = fieldName;
-            }
-
-            public String getFilename() {
-                return filename;
-            }
-
-            public void setFilename(String filename) {
-                this.filename = filename;
-            }
-
-            public String getContentType() {
-                return contentType;
-            }
-
-            public void setContentType(String contentType) {
-                this.contentType = contentType;
-            }
-
-            public Object getContent() {
-                return content;
-            }
-
-            public void setContent(Object content) {
-                this.content = content;
-            }
-        }
-
-        List<MultiPartRecord> parts;
-
+        private final String boundary;
+        private final List<PartRecord> parts;
+        
         public Builder() {
+            this.boundary = generateBoundary();
             this.parts = new ArrayList<>();
         }
-
-        public Builder addPart(String fieldName, String fieldValue) {
-            MultiPartRecord part = new MultiPartRecord();
-            part.setFieldName(fieldName);
-            part.setContent(fieldValue);
-            part.setContentType(DEFAULT_MIMETYPE);
-            this.parts.add(part);
+        
+        /**
+         * Adds a simple text field part to the multipart body
+         */
+        public Builder addPart(String fieldName, String value) {
+            parts.add(new PartRecord(fieldName, value, null, null, null));
             return this;
         }
-
-        public Builder addPart(String fieldName, String fieldValue, String contentType) {
-            MultiPartRecord part = new MultiPartRecord();
-            part.setFieldName(fieldName);
-            part.setContent(fieldValue);
-            part.setContentType(contentType);
-            this.parts.add(part);
+        
+        /**
+         * Adds a file part to the multipart body
+         */
+        public Builder addPart(String fieldName, File file, String contentType, String filename) {
+            parts.add(new PartRecord(fieldName, null, file, contentType, filename));
             return this;
         }
-
-        public Builder addPart(String fieldName, Object fieldValue, String contentType, String fileName) {
-            MultiPartRecord part = new MultiPartRecord();
-            part.setFieldName(fieldName);
-            part.setContent(fieldValue);
-            part.setContentType(contentType);
-            part.setFilename(fileName);
-            this.parts.add(part);
-            return this;
-        }
-
-        @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+        
+        /**
+         * Builds the final HTTPRequestMultipartBody instance
+         */
         public HTTPRequestMultipartBody build() throws IOException {
-            String boundary = generateBoundary();
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            try {
-                for (MultiPartRecord record : parts) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("--").append(boundary).append("\r\n")
-                      .append("Content-Disposition: form-data; name=\"").append(record.getFieldName());
-                    if (record.getFilename() != null) {
-                        sb.append("\"; filename=\"").append(record.getFilename());
-                    }
-                    out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
-                    out.write(QUOTE_CRLF);
-                    Object content = record.getContent();
-                    switch (content) {
-                        case String string -> {
-                            if (record.getContentType() != null) {
-                                out.write(CONTENT_TYPE_PREFIX);
-                                out.write(record.getContentType().getBytes(StandardCharsets.UTF_8));
-                                out.write(CRLF);
-                            }
-                            out.write(DOUBLE_CRLF);
-                            out.write(string.getBytes(StandardCharsets.UTF_8));
-                        }
-                        case byte[] bs -> {
-                            out.write(OCTET_STREAM_HEADER);
-                            out.write(bs);
-                        }
-                        case File file -> {
-                            out.write(OCTET_STREAM_HEADER);
-                            try {
-                                Files.copy(file.toPath(), out);
-                            } catch (IOException copyException) {
-                                throw new IOException("Error copying file content: " + file.getName(), copyException);
-                            }
-                        }
-                        default -> {
-                            out.write(OCTET_STREAM_HEADER);
-                            out.write(content.toString().getBytes(StandardCharsets.UTF_8));
-                        }
-                    }
-                    out.write(CRLF);
+            byte[] body = buildBody();
+            return new HTTPRequestMultipartBody(boundary, body);
+        }
+        
+        /**
+         * Generates a unique boundary string for this multipart request
+         */
+        private String generateBoundary() {
+            return MULTIPART.BOUNDARY_PREFIX + UUID.randomUUID().toString().replace(MULTIPART.DASH, MISC.EMPTY_STRING);
+        }
+        
+        /**
+         * Builds the complete multipart body as a byte array
+         */
+        private byte[] buildBody() throws IOException {
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                for (PartRecord part : parts) {
+                    writePart(out, part);
                 }
-                out.write(("--" + boundary + "--").getBytes(StandardCharsets.UTF_8));
-                out.write(CRLF);
+                writeClosingBoundary(out);
+                return out.toByteArray();
             } catch (IOException e) {
-                throw new IOException("Error building HTTP request multipart body", e);
+                throw new IOException(MESSAGES.ERROR_BUILDING_MULTIPART_BODY, e);
             }
-            return new HTTPRequestMultipartBody(out.toByteArray(), boundary);
         }
-
-        private static String generateBoundary() {
-            return new BigInteger(256, new SecureRandom()).toString(36); // Base-36 uses only alphanumeric
+        
+        /**
+         * Writes a single part to the output stream
+         */
+        @SuppressWarnings("StringConcatenationInsideStringBufferAppend")
+        private void writePart(ByteArrayOutputStream out, PartRecord record) throws IOException {
+            try {
+                // Write part header
+                StringBuilder sb = new StringBuilder();
+                sb.append(MULTIPART.BOUNDARY_START).append(boundary).append(MULTIPART.CRLF)
+                    .append(MULTIPART.CONTENT_DISPOSITION_FORM_DATA).append(record.getFieldName());
+                
+                if (record.getFilename() != null) {
+                    sb.append(MULTIPART.FILENAME_PARAM).append(record.getFilename());
+                }
+                sb.append(MULTIPART.QUOTE_CRLF);
+                
+                out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                
+                // Write content based on type
+                if (record.isFile()) {
+                    writeFileContent(out, record);
+                } else {
+                    writeTextContent(out, record);
+                }
+                
+                out.write(CRLF);
+            } catch (Exception e) {
+                throw new IOException(MESSAGES.ERROR_WRITING_MULTIPART_PART + record.getFieldName(), e);
+            }
         }
+        
+        /**
+         * Writes file content to the output stream
+         */
+        private void writeFileContent(ByteArrayOutputStream out, PartRecord record) throws IOException {
+            try {
+                // Write content type if specified
+                if (record.getContentType() != null) {
+                    out.write(CONTENT_TYPE_PREFIX);
+                    out.write(record.getContentType().getBytes(StandardCharsets.UTF_8));
+                    out.write(CRLF);
+                } else {
+                    out.write(OCTET_STREAM_HEADER);
+                }
+                
+                out.write(CRLF);
+                
+                // Write file content
+                Path filePath = record.getFile().toPath();
+                byte[] fileBytes = Files.readAllBytes(filePath);
+                out.write(fileBytes);
+            } catch (IOException copyException) {
+                throw new IOException(MESSAGES.ERROR_COPYING_FILE_CONTENT + record.getFile().getName(), copyException);
+            }
+        }
+        
+        /**
+         * Writes text content to the output stream
+         */
+        private void writeTextContent(ByteArrayOutputStream out, PartRecord record) throws IOException {
+            out.write(DOUBLE_CRLF);
+            out.write(record.getValue().getBytes(StandardCharsets.UTF_8));
+        }
+        
+        /**
+         * Writes the closing boundary to finish the multipart body
+         */
+        private void writeClosingBoundary(ByteArrayOutputStream out) throws IOException {
+            out.write((MULTIPART.BOUNDARY_START + boundary + MULTIPART.BOUNDARY_END).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+    
+    /**
+     * Internal record class for storing part information
+     */
+    private static class PartRecord {
+        private final String fieldName;
+        private final String value;
+        private final File file;
+        private final String contentType;
+        private final String filename;
+        
+        public PartRecord(String fieldName, String value, File file, String contentType, String filename) {
+            this.fieldName = fieldName;
+            this.value = value;
+            this.file = file;
+            this.contentType = contentType;
+            this.filename = filename;
+        }
+        
+        public String getFieldName() { return fieldName; }
+        public String getValue() { return value; }
+        public File getFile() { return file; }
+        public String getContentType() { return contentType; }
+        public String getFilename() { return filename; }
+        
+        public boolean isFile() { return file != null; }
     }
 }
