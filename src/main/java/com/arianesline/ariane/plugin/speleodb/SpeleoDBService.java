@@ -134,8 +134,10 @@ public class SpeleoDBService {
                     .build();
         }
 
-        HttpClient client = createHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try (HttpClient client = createHttpClient()) {
+            response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        }
 
         if (response.statusCode() == 200) {
             authToken = parseAuthToken(response.body());

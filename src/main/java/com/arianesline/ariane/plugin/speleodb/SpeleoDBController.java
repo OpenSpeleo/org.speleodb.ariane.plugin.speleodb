@@ -164,6 +164,25 @@ public class SpeleoDBController implements Initializable {
     private static final ButtonType FAST_SAVE = new ButtonType("Save Project", ButtonType.OK.getButtonData());
     private static final ButtonType FAST_CANCEL = new ButtonType("Cancel", ButtonType.CANCEL.getButtonData());
     
+    // Track running animations to stop them during cleanup
+    private final List<Timeline> runningAnimations = new ArrayList<>();
+    
+    /**
+     * Helper method to create and track Timeline animations for cleanup
+     */
+    private Timeline createTrackedTimeline(KeyFrame... keyFrames) {
+        Timeline timeline = new Timeline(keyFrames);
+        synchronized (runningAnimations) {
+            runningAnimations.add(timeline);
+        }
+        timeline.setOnFinished(e -> {
+            synchronized (runningAnimations) {
+                runningAnimations.remove(timeline);
+            }
+        });
+        return timeline;
+    }
+    
     /**
      * Pre-warms the modal system to eliminate first-time display lag.
      * Called during initialization to prepare JavaFX Alert system.
@@ -355,12 +374,14 @@ public class SpeleoDBController implements Initializable {
                     fadeIn.play();
                     
                     // Auto-hide after 4 seconds
-                    Timeline hideTimeline = new Timeline(
+                    Timeline hideTimeline = createTrackedTimeline(
                         new KeyFrame(Duration.seconds(4), e -> {
                             FadeTransition fadeOut = new FadeTransition(Duration.millis(400), successLabel);
                             fadeOut.setFromValue(1.0);
                             fadeOut.setToValue(0.0);
-                            fadeOut.setOnFinished(event -> rootPane.getChildren().remove(successLabel));
+                            fadeOut.setOnFinished(event -> {
+                                speleoDBAnchorPane.getChildren().remove(successLabel);
+                            });
                             fadeOut.play();
                         })
                     );
@@ -388,7 +409,7 @@ public class SpeleoDBController implements Initializable {
             fadeIn.play();
             
             // Auto-hide after 4 seconds
-            Timeline hideTimeline = new Timeline(
+            Timeline hideTimeline = createTrackedTimeline(
                 new KeyFrame(Duration.seconds(4), e -> {
                     FadeTransition fadeOut = new FadeTransition(Duration.millis(400), successLabel);
                     fadeOut.setFromValue(1.0);
@@ -463,7 +484,7 @@ public class SpeleoDBController implements Initializable {
                     fadeIn.setToValue(1.0);
                     
                     // Add subtle shake animation for error emphasis
-                    Timeline shakeTimeline = new Timeline(
+                    Timeline shakeTimeline = createTrackedTimeline(
                         new KeyFrame(Duration.millis(0), 
                             new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
                         new KeyFrame(Duration.millis(50), 
@@ -483,7 +504,7 @@ public class SpeleoDBController implements Initializable {
                     fadeIn.setOnFinished(e -> shakeTimeline.play());
                     
                     // Auto-hide after 5 seconds (longer for errors)
-                    Timeline hideTimeline = new Timeline(
+                    Timeline hideTimeline = createTrackedTimeline(
                         new KeyFrame(Duration.seconds(5), e -> {
                             FadeTransition fadeOut = new FadeTransition(Duration.millis(500), errorLabel);
                             fadeOut.setFromValue(1.0);
@@ -517,7 +538,7 @@ public class SpeleoDBController implements Initializable {
             fadeIn.setToValue(1.0);
             
             // Add subtle shake animation for error emphasis
-            Timeline shakeTimeline = new Timeline(
+            Timeline shakeTimeline = createTrackedTimeline(
                 new KeyFrame(Duration.millis(0), 
                     new javafx.animation.KeyValue(errorLabel.translateXProperty(), 0)),
                 new KeyFrame(Duration.millis(50), 
@@ -537,7 +558,7 @@ public class SpeleoDBController implements Initializable {
             fadeIn.setOnFinished(e -> shakeTimeline.play());
             
             // Auto-hide after 5 seconds (longer for errors)
-            Timeline hideTimeline = new Timeline(
+            Timeline hideTimeline = createTrackedTimeline(
                 new KeyFrame(Duration.seconds(5), e -> {
                     FadeTransition fadeOut = new FadeTransition(Duration.millis(500), errorLabel);
                     fadeOut.setFromValue(1.0);
@@ -895,6 +916,64 @@ public class SpeleoDBController implements Initializable {
             }
         });
     }
+
+    /**
+     * Sets up early window close handling to intercept shutdown before application shutdown begins.
+     * This ensures the confirmation dialog appears immediately when user clicks X, not during app shutdown.
+     */
+    private void setupShutdownHook() {
+        
+        // Wait for the scene to be available, then set up the window close handler
+        Platform.runLater(() -> {
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                javafx.stage.Stage stage = (javafx.stage.Stage) speleoDBAnchorPane.getScene().getWindow();
+                
+                // Early window close handler - intercept shutdown before JavaFX application shutdown
+                stage.setOnCloseRequest(event -> {
+                    // Check if we have an active project lock that needs confirmation
+                    if (hasActiveProjectLock()) {
+                        // Consume the event to prevent default close behavior
+                        event.consume();
+                        
+                        // Handle lock release confirmation immediately
+                        Platform.runLater(() -> {
+                            try {
+                                String projectName = getCurrentProjectName();
+                                boolean shouldReleaseLock = parentPlugin.showShutdownConfirmation(projectName);
+                                
+                                if (shouldReleaseLock) {
+                                    // User chose to release lock - do it now before shutdown
+                                    try {
+                                        releaseCurrentProjectLock();
+                                        logMessage("Project lock released before application shutdown.");
+                                    } catch (Exception e) {
+                                        logMessage("Error releasing project lock during shutdown: " + e.getMessage());
+                                        // Continue with shutdown even if lock release fails
+                                    }
+                                }
+                                
+                                // Close the window directly instead of calling Platform.exit()
+                                // This prevents deadlock during JavaFX shutdown
+                                stage.close();
+                                
+                            } catch (Exception e) {
+                                System.err.println("Error during shutdown confirmation: " + e.getMessage());
+                                // On error, proceed with shutdown to avoid hanging
+                                stage.close();
+                            }
+                        });
+                    } else {
+                        // No active lock - proceed with normal shutdown
+                        // Let the default close behavior happen
+                    }
+                });
+                
+            } else {
+                // Scene not ready yet, try again later
+                Platform.runLater(this::setupShutdownHook);
+            }
+        });
+    }
     
     /**
      * Shows a save modal dialog when Ctrl+S / Cmd+S is pressed.
@@ -1006,6 +1085,9 @@ public class SpeleoDBController implements Initializable {
         
         // Pre-load countries data for New Project dialog optimization
         NewProjectDialog.preLoadCountriesData();
+        
+        // Setup early shutdown handling to prevent application freeze on close
+        setupShutdownHook();
     }
 
 
@@ -1628,7 +1710,8 @@ public class SpeleoDBController implements Initializable {
                                 Platform.runLater(() -> logMessage("Loading project file..."));
                                 
                                 // Schedule loadSurvey to run after UI has updated
-                                Timer timer = new Timer();
+                                // Use daemon timer to prevent JVM shutdown hangs
+                                Timer timer = new Timer(true); // true = daemon thread
                                 timer.schedule(new TimerTask() {
                                     @Override
                                     public void run() {
@@ -1660,6 +1743,9 @@ public class SpeleoDBController implements Initializable {
                                                 setUILoadingState(false);
                                                 showErrorAnimation("Failed to load project");
                                             });
+                                        } finally {
+                                            // Always cancel the timer to prevent resource leaks
+                                            timer.cancel();
                                         }
                                     }
                                 }, 100); // 100ms delay to let UI update
@@ -2027,6 +2113,8 @@ public class SpeleoDBController implements Initializable {
     public void logMessageFromPlugin(String message) {
         logMessage(message);
     }
+    
+
 
     // ====================== CENTRALIZED LOCK MANAGEMENT ====================== //
     
@@ -2372,5 +2460,33 @@ public class SpeleoDBController implements Initializable {
      */
     private boolean tryAcquireProjectLock(JsonObject project, String context) {
         return acquireProjectLock(project, context).isAcquired();
+    }
+
+    /**
+     * Cleanup method to properly close resources and prevent shutdown hangs.
+     * Should be called before the controller is destroyed.
+     */
+    public void cleanup() {
+        try {
+            // Stop all running animations to prevent shutdown hangs
+            synchronized (runningAnimations) {
+                for (Timeline timeline : runningAnimations) {
+                    if (timeline != null) {
+                        timeline.stop();
+                    }
+                }
+                runningAnimations.clear();
+            }
+            
+            // Clear authentication to close any network connections
+            if (speleoDBService != null) {
+                speleoDBService.logout();
+            }
+            
+            // Log cleanup
+            logMessage("Controller cleanup completed");
+        } catch (Exception e) {
+            System.err.println("Error during controller cleanup: " + e.getMessage());
+        }
     }
 }

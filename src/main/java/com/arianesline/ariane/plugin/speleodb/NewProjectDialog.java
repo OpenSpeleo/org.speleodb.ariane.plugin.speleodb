@@ -49,13 +49,15 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             countriesLoadAttempted = true;
             
             // Load in background to avoid blocking UI
-            new Thread(() -> {
+            Thread countriesThread = new Thread(() -> {
                 try {
                     loadCountriesFromResource();
                 } catch (Exception e) {
                     System.err.println("Error pre-loading countries data: " + e.getMessage());
                 }
-            }, "CountriesLoader").start();
+            }, "CountriesLoader");
+            countriesThread.setDaemon(true); // Mark as daemon to allow JVM shutdown
+            countriesThread.start();
         }
     }
     

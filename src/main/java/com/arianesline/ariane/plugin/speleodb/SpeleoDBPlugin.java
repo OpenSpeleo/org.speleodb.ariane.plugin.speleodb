@@ -38,7 +38,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
     // Executor service for managing background tasks.
-    final ExecutorService executorService = Executors.newCachedThreadPool();
+    final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true); // Mark as daemon thread to allow JVM shutdown
+        t.setName("SpeleoDB-Worker");
+        return t;
+    });
     
     // Reference to the active controller for shutdown handling
     private SpeleoDBController activeController = null;
@@ -101,7 +106,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
      * @param projectName the name of the project that has an active lock
      * @return true if the user wants to release the lock, false otherwise
      */
-    private boolean showShutdownConfirmation(String projectName) {
+    public boolean showShutdownConfirmation(String projectName) {
         // Use pre-warmed modal for maximum speed, fallback to new modal if needed
         Alert alert = (preWarmedShutdownModal != null) ? preWarmedShutdownModal : new Alert(Alert.AlertType.CONFIRMATION);
         
@@ -128,52 +133,57 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                    .orElse(false);
     }
 
-    @Override
-    public void showUI() {
-        SpeleoDBController controller = new SpeleoDBController();
-        controller.parentPlugin = this;
-        this.activeController = controller; // Keep reference for shutdown handling
+    /**
+     * Gets or creates the single shared controller instance.
+     * Uses lazy initialization to ensure only one controller exists.
+     */
+    private SpeleoDBController getOrCreateController() {
+        if (activeController == null) {
+            activeController = new SpeleoDBController();
+            activeController.parentPlugin = this;
+        }
+        return activeController;
+    }
+    
+    /**
+     * Loads the FXML UI using the shared controller instance.
+     * This ensures the same controller is used whether called from showUI() or getUINode().
+     */
+    private Parent loadUIWithSharedController() {
+        SpeleoDBController controller = getOrCreateController();
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
         fxmlLoader.setController(controller);
-        Parent root1 = null;
+        
         try {
-            root1 = fxmlLoader.load();
-
+            Parent root = fxmlLoader.load();
+            
+            // Pre-warm shutdown modal for instant display (only once)
+            preWarmShutdownModal();
+            
+            return root;
         } catch (IOException e) {
             System.err.println("Error loading FXML for SpeleoDB UI: " + e.getMessage());
             e.printStackTrace();
+            return null;
         }
-        Stage stage = new Stage();
-        stage.initStyle(StageStyle.DECORATED);
-        stage.setScene(new Scene(root1));
-        stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
-        stage.setTitle("SpeleoDB");
-        stage.show();
-        
-        // Pre-warm shutdown modal for instant display
-        preWarmShutdownModal();
+    }
+
+    @Override
+    public void showUI() {
+        Parent root = loadUIWithSharedController();
+        if (root != null) {
+            Stage stage = new Stage();
+            stage.initStyle(StageStyle.DECORATED);
+            stage.setScene(new Scene(root));
+            stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
+            stage.setTitle("SpeleoDB");
+            stage.show();
+        }
     }
 
     @Override
     public Node getUINode() {
-        SpeleoDBController controller = new SpeleoDBController();
-        controller.parentPlugin = this;
-        this.activeController = controller; // Keep reference for shutdown handling
-        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
-        fxmlLoader.setController(controller);
-        Parent root1 = null;
-        try {
-            root1 = fxmlLoader.load();
-
-        } catch (IOException e) {
-            System.err.println("Error loading FXML for SpeleoDB UI Node: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        // Pre-warm shutdown modal for instant display
-        preWarmShutdownModal();
-        
-        return root1;
+        return loadUIWithSharedController();
     }
 
     @Override
@@ -183,33 +193,43 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     @Override
     public void closeUI() {
-        // Check if there's an active project with a lock before shutting down
-        if (activeController != null && activeController.hasActiveProjectLock()) {
-            String projectName = activeController.getCurrentProjectName();
-            
-            // Show confirmation dialog
-            boolean shouldReleaseLock = showShutdownConfirmation(projectName);
-            
-            if (shouldReleaseLock) {
-                try {
-                    // Release the project lock before shutdown
-                    activeController.releaseCurrentProjectLock();
-                    activeController.logMessageFromPlugin("Project lock released during application shutdown.");
-                } catch (Exception e) {
-                    // Log error but continue with shutdown
-                    activeController.logMessageFromPlugin("Error releasing project lock during shutdown: " + e.getMessage());
-                }
-            } else {
-                activeController.logMessageFromPlugin("Application closing with active project lock. Lock will timeout automatically.");
+        // Plugin cleanup during application shutdown
+        // NOTE: No confirmation dialogs here - they're handled by the window close handler
+        // This prevents app crashes during the JavaFX shutdown sequence
+        
+        if (activeController != null) {
+            // Just log the current state, don't show any dialogs
+            if (activeController.hasActiveProjectLock()) {
+                String projectName = activeController.getCurrentProjectName();
+                activeController.logMessageFromPlugin("Application shutting down with active lock on: " + projectName);
+                activeController.logMessageFromPlugin("Lock will be released automatically when connection times out.");
             }
+            
+            // Cleanup resources to prevent shutdown hangs
+            activeController.cleanup();
         }
         
         // Clear references
         activeController = null;
         pluginStage = null;
         
-        // Shutdown the executor service
-        executorService.shutdownNow();
+        // Shutdown the executor service quickly during application shutdown
+        try {
+            executorService.shutdown(); // Disable new tasks from being submitted
+            if (!executorService.awaitTermination(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                // Cancel currently executing tasks
+                executorService.shutdownNow();
+                // Wait briefly for tasks to respond to being cancelled
+                if (!executorService.awaitTermination(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    System.err.println("SpeleoDB executor did not terminate cleanly");
+                }
+            }
+        } catch (InterruptedException ie) {
+            // (Re-)Cancel if current thread also interrupted
+            executorService.shutdownNow();
+            // Preserve interrupt status
+            Thread.currentThread().interrupt();
+        }
     }
 
 
