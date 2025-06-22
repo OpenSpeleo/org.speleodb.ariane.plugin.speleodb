@@ -34,6 +34,7 @@ import jakarta.json.JsonReader;
 
 /**
  * Service class for handling SpeleoDB server communication.
+ * Uses the centralized SpeleoDBLogger directly.
  */
 public class SpeleoDBService {
     public final static String ARIANE_ROOT_DIR = PATHS.ARIANE_ROOT_DIR;
@@ -41,6 +42,9 @@ public class SpeleoDBService {
     private String authToken = MISC.EMPTY_STRING;
     private String SDB_instance = MISC.EMPTY_STRING;
     private HttpClient http_client = null;
+    
+    // Centralized logger instance - used directly without wrapper methods
+    private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
 
     public SpeleoDBService(SpeleoDBController controller) {
         this.controller = controller;
@@ -375,14 +379,14 @@ public class SpeleoDBService {
             }
             case HTTP_STATUS.UNPROCESSABLE_ENTITY -> {
                 // HTTP 422: Project exists but is empty - create empty TML file.
-                controller.logMessageFromPlugin(MESSAGES.PROJECT_DOWNLOAD_404_EMPTY);
+                logger.info(MESSAGES.PROJECT_DOWNLOAD_404_EMPTY);
                 return createEmptyTmlFileFromTemplate(SDB_projectId, project.getString(JSON_FIELDS.NAME, "Unknown Project"));
             }
             default -> {
                 String errorMessage = "Unexpected HTTP status code during project download: " + response.statusCode() +
                         " for project: " + project.getString(JSON_FIELDS.NAME, "Unknown Project");
 
-                controller.logMessageFromPlugin(errorMessage);
+                logger.info(errorMessage);
 
                 throw new RuntimeException(MESSAGES.PROJECT_DOWNLOAD_FAILED_STATUS + response.statusCode() +
                         MESSAGES.PROJECT_DOWNLOAD_UNEXPECTED_STATUS);
@@ -415,7 +419,7 @@ public class SpeleoDBService {
             Files.copy(templateStream, tmlFilePath, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        controller.logMessageFromPlugin("Created TML file from template: " + tmlFilePath.getFileName());
+        logger.info("Created TML file from template: " + tmlFilePath.getFileName());
         return tmlFilePath;
     }
 

@@ -40,6 +40,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     private CaveSurveyInterface survey;
     private File surveyFile;
     private final AtomicBoolean lock = new AtomicBoolean(false);
+
     /* Executor Service for Background Tasks */
     public final ExecutorService executorService = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
@@ -50,7 +51,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     
     // Reference to the active controller for shutdown handling
     private SpeleoDBController activeController = null;
-    private Stage pluginStage = null;
     
     /* Pre-warmed UI Component */
     private Alert preWarmedShutdownModal = null;
@@ -58,6 +58,24 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     // Fast button types to avoid repeated instantiation
     private static final ButtonType FAST_RELEASE_LOCK = new ButtonType(SHUTDOWN.BUTTON_YES_RELEASE_LOCK);
     private static final ButtonType FAST_KEEP_LOCK = new ButtonType(SHUTDOWN.BUTTON_NO_KEEP_LOCK);
+
+    // ==================== CENTRALIZED LOGGING SYSTEM ====================
+    
+    /**
+     * Centralized logger instance - used directly without wrapper methods
+     */
+    private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
+
+    // ==================== PLUGIN IMPLEMENTATION ====================
+
+    /**
+     * Default constructor for SpeleoDBPlugin.
+     */
+    public SpeleoDBPlugin() {
+        // Initialize logging
+        logger.info("SpeleoDB Plugin initialized - Version: " + 
+                (SpeleoDBConstants.VERSION != null ? SpeleoDBConstants.VERSION_DISPLAY : "Development"));
+    }
 
     @Override
     public synchronized File getSurveyFile() {
@@ -203,8 +221,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             // Just log the current state, don't show any dialogs
             if (activeController.hasActiveProjectLock()) {
                 String projectName = activeController.getCurrentProjectName();
-                activeController.logMessageFromPlugin("Application shutting down with active lock on: " + projectName);
-                activeController.logMessageFromPlugin("Lock will be released automatically when connection times out.");
+                logger.info("Application shutting down with active lock on: " + projectName);
+                logger.info("Lock will be released automatically when connection times out.");
             }
             
             // Cleanup resources to prevent shutdown hangs
@@ -213,7 +231,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         
         // Clear references
         activeController = null;
-        pluginStage = null;
         
         // Shutdown the executor service quickly during application shutdown
         try {
@@ -232,6 +249,10 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             // Preserve interrupt status
             Thread.currentThread().interrupt();
         }
+        
+        // Shutdown centralized logging system last
+        logger.info("SpeleoDB Plugin shutting down");
+        logger.shutdown();
     }
 
 

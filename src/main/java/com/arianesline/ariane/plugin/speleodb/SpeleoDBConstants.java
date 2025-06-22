@@ -118,6 +118,29 @@ public final class SpeleoDBConstants {
         public static final String EMPTY_TML = "/tml/empty_project.tml";
     }
     
+    // ==================== LOGGING CONFIGURATION ====================
+    public static final class LOGGING {
+        public static final String LOG_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane" + System.getProperty("file.separator") + "logs";
+        public static final String LOG_FILE_NAME = "speleodb-plugin.log";
+        public static final String LOG_FILE_PATH = LOG_DIR + System.getProperty("file.separator") + LOG_FILE_NAME;
+        public static final String LOG_ARCHIVE_PATTERN = "speleodb-plugin-%d{yyyy-MM-dd}.log";
+        public static final String LOG_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+        public static final String LOG_LEVEL_DEBUG = "DEBUG";
+        public static final String LOG_LEVEL_INFO = "INFO";
+        public static final String LOG_LEVEL_WARN = "WARN";
+        public static final String LOG_LEVEL_ERROR = "ERROR";
+        public static final long LOG_FILE_MAX_SIZE_MB = 10;
+        public static final long LOG_FILE_MAX_SIZE_BYTES = LOG_FILE_MAX_SIZE_MB * 1024 * 1024;
+        public static final int LOG_FILE_MAX_BACKUP_COUNT = 5;
+        public static final String LOG_FORMAT = "[%s] %s - %s%n";
+        public static final String LOG_STARTUP_MESSAGE = "SpeleoDB Plugin logging initialized - Log file: ";
+        public static final String LOG_SHUTDOWN_MESSAGE = "SpeleoDB Plugin logging shutdown";
+        public static final String LOG_FILE_ROTATION_MESSAGE = "Log file rotated due to size limit";
+        public static final String LOG_ERROR_WRITING = "Error writing to log file: ";
+        public static final String LOG_ERROR_CREATING_DIR = "Error creating log directory: ";
+        public static final String LOG_ERROR_ROTATING = "Error rotating log file: ";
+    }
+    
     // ==================== VALIDATION PATTERNS ====================
     public static final class VALIDATION {
         public static final String OAUTH_TOKEN_PATTERN = "^[a-f0-9]{40}$";
@@ -245,14 +268,24 @@ public final class SpeleoDBConstants {
         public static final String SUCCESS_STYLE = "-fx-background-color: #4CAF50; -fx-text-fill: white; " +
                 "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
                 "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2);";
+                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2); " +
+                "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
         // Error Animation Style
         public static final String ERROR_STYLE = "-fx-background-color: #DC143C; -fx-text-fill: white; " +
                 "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
                 "-fx-font-weight: bold; -fx-border-radius: 10; " +
                 "-fx-border-color: #B22222; -fx-border-width: 2; " +
-                "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3);";
+                "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3); " +
+                "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
+        
+        // Debug Animation Style (highly visible for testing)
+        public static final String DEBUG_ANIMATION_STYLE = "-fx-background-color: #FF6600; -fx-text-fill: white; " +
+                "-fx-padding: 20 30; -fx-background-radius: 15; -fx-font-size: 20px; " +
+                "-fx-font-weight: bold; -fx-border-radius: 15; " +
+                "-fx-border-color: #FF4400; -fx-border-width: 3; " +
+                "-fx-effect: dropshadow(three-pass-box, rgba(255,102,0,0.8), 20, 0, 0, 5); " +
+                "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
         // Required Field Style
         public static final String REQUIRED_FIELD_STYLE = "-fx-text-fill: #dc2626;";
@@ -369,7 +402,7 @@ public final class SpeleoDBConstants {
     
     // ==================== UI ICONS & SYMBOLS ====================
     public static final class ICONS {
-        public static final String SUCCESS_CHECKMARK = "✓ ";
+        public static final String SUCCESS_CHECKMARK = "✅ ";
         public static final String ERROR_X = "❌ ";
     }
     

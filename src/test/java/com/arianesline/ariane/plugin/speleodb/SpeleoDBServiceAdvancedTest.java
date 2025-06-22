@@ -1,11 +1,12 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -123,11 +124,4 @@ class SpeleoDBServiceAdvancedTest {
         }
     }
     
-    // Helper class for testing
-    static class TestableSpeleoDBController extends SpeleoDBController {
-        @Override
-        public void logMessageFromPlugin(String message) {
-            // Mock implementation - do nothing
-        }
-    }
 } 
