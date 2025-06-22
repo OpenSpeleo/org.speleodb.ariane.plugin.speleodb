@@ -15,6 +15,7 @@ import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ANIMATIONS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
@@ -22,6 +23,7 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
@@ -44,6 +46,7 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.PasswordField;
@@ -2067,30 +2070,30 @@ public class SpeleoDBController implements Initializable {
                 speleoDBService.uploadProject(commitMessage, currentProject);
                 logger.info("Upload successful.");
                 
-                // Show success animation
-                showSuccessAnimation();
-                
                 // Clear the upload message text field after successful upload
                 Platform.runLater(() -> {
                     uploadMessageTextField.clear();
                 });
                 
-                // Show confirmation popup asking if user wants to release the write lock
+                // Show success celebration dialog with random GIF, then handle lock release
                 Platform.runLater(() -> {
-                    boolean shouldReleaseLock = showReleaseLockConfirmation();
-                    
-                    if (shouldReleaseLock) {
-                        logger.info("User chose to release the write lock.");
+                    showSuccessCelebrationDialog(() -> {
+                        // This callback is executed after the celebration dialog closes
+                        boolean shouldReleaseLock = showReleaseLockConfirmation();
                         
-                        // Use centralized lock release with UI integration
-                        releaseProjectLockWithUI(currentProject, "post-upload", 
-                            null, // No additional success callback needed
-                            null, // No additional failure callback needed
-                            true  // Show modal dialogs for post-upload release
-                        );
-                    } else {
-                        logger.info("User chose to keep the write lock.");
-                    }
+                        if (shouldReleaseLock) {
+                            logger.info("User chose to release the write lock.");
+                            
+                            // Use centralized lock release with UI integration
+                            releaseProjectLockWithUI(currentProject, "post-upload", 
+                                null, // No additional success callback needed
+                                null, // No additional failure callback needed
+                                true  // Show modal dialogs for post-upload release
+                            );
+                        } else {
+                            logger.info("User chose to keep the write lock.");
+                        }
+                    });
                 });
                 
             } catch (Exception e) {
@@ -2815,4 +2818,242 @@ public class SpeleoDBController implements Initializable {
             logger.error("Failed to show debug animation", e);
         }
     }
+
+    /**
+     * Shows a success celebration dialog with a random GIF animation.
+     * The dialog auto-closes after 5 seconds and includes a manual close button.
+     * 
+     * @param onCloseCallback callback to execute when the dialog closes (optional, can be null)
+     */
+    private void showSuccessCelebrationDialog(Runnable onCloseCallback) {
+        try {
+            String randomGifPath = getRandomSuccessGif();
+            if (randomGifPath == null) {
+                // Fallback to regular success animation if no GIFs available
+                showSuccessAnimation("Upload successful!");
+                return;
+            }
+            
+            // Create the dialog
+            Dialog<Void> celebrationDialog = new Dialog<>();
+            celebrationDialog.setTitle(DIALOGS.TITLE_SUCCESS_CELEBRATION);
+            celebrationDialog.setHeaderText(null);
+            
+            // Set dialog properties
+            celebrationDialog.setResizable(true);
+            DialogPane dialogPane = celebrationDialog.getDialogPane();
+            
+            // Set minimum and maximum sizes
+            dialogPane.setMinWidth(DIMENSIONS.SUCCESS_DIALOG_MIN_WIDTH);
+            dialogPane.setMinHeight(DIMENSIONS.SUCCESS_DIALOG_MIN_HEIGHT);
+            dialogPane.setMaxWidth(DIMENSIONS.SUCCESS_DIALOG_MAX_WIDTH);
+            dialogPane.setMaxHeight(DIMENSIONS.SUCCESS_DIALOG_MAX_HEIGHT);
+            
+            // Create the GIF ImageView
+            javafx.scene.image.ImageView gifImageView = new javafx.scene.image.ImageView();
+            try {
+                // Load the GIF from resources
+                java.io.InputStream gifStream = getClass().getResourceAsStream(randomGifPath);
+                if (gifStream != null) {
+                    javafx.scene.image.Image gifImage = new javafx.scene.image.Image(gifStream);
+                    gifImageView.setImage(gifImage);
+                    
+                    // Make the image view preserve ratio and fit within dialog bounds
+                    gifImageView.setPreserveRatio(true);
+                    gifImageView.setFitWidth(DIMENSIONS.SUCCESS_DIALOG_MAX_WIDTH - 50); // Leave some margin
+                    gifImageView.setFitHeight(DIMENSIONS.SUCCESS_DIALOG_MAX_HEIGHT - 100); // Leave room for button
+                    
+                    logger.debug("Loaded success GIF: " + randomGifPath);
+                } else {
+                    logger.warn("Could not load GIF from path: " + randomGifPath);
+                    // Fallback to text
+                    javafx.scene.control.Label fallbackLabel = new javafx.scene.control.Label("🎉 Upload Successful! 🎉");
+                    fallbackLabel.setStyle("-fx-font-size: 24px; -fx-text-fill: #4CAF50; -fx-font-weight: bold;");
+                    dialogPane.setContent(fallbackLabel);
+                    return;
+                }
+            } catch (Exception e) {
+                logger.error("Error loading success GIF", e);
+                // Fallback to regular success animation
+                showSuccessAnimation("Upload successful!");
+                return;
+            }
+            
+            // Create layout
+            javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10);
+            content.setAlignment(javafx.geometry.Pos.CENTER);
+            content.getChildren().add(gifImageView);
+            
+            // Set content
+            dialogPane.setContent(content);
+            
+            // Add close button
+            javafx.scene.control.ButtonType closeButtonType = new javafx.scene.control.ButtonType(
+                DIALOGS.BUTTON_CLOSE, javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+            celebrationDialog.getDialogPane().getButtonTypes().add(closeButtonType);
+            
+            // Set up auto-close timer
+            javafx.animation.Timeline autoCloseTimer = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(
+                    javafx.util.Duration.seconds(ANIMATIONS.SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS),
+                    e -> celebrationDialog.close()
+                )
+            );
+            autoCloseTimer.play();
+            
+            // Set owner for proper modal behavior
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                celebrationDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+            }
+            
+            // Set up callback when dialog closes (handles both button clicks and auto-close)
+            celebrationDialog.setOnHidden(e -> {
+                autoCloseTimer.stop(); // Stop timer if dialog was closed manually
+                if (onCloseCallback != null) {
+                    onCloseCallback.run();
+                }
+            });
+            
+            // Show the dialog (non-blocking)
+            celebrationDialog.show();
+            
+            logger.debug("Success celebration dialog shown with GIF: " + randomGifPath);
+            
+        } catch (Exception e) {
+            logger.error("Error showing success celebration dialog", e);
+            // Fallback to regular success animation
+            showSuccessAnimation("Upload successful!");
+        }
+    }
+    
+    /**
+     * Gets the next success GIF using a rotating index to ensure all GIFs are shown
+     * without repetition until all have been displayed.
+     * 
+     * @return a GIF resource path, or null if no GIFs are available
+     */
+    private String getRandomSuccessGif() {
+        try {
+            // Get list of available GIF files
+            java.util.List<String> availableGifs = getAvailableSuccessGifs();
+            
+            if (availableGifs.isEmpty()) {
+                logger.warn("No success GIFs found in directory: " + PATHS.SUCCESS_GIFS_DIR);
+                return null;
+            }
+            
+            // Get current index from preferences
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SpeleoDBController.class);
+            int currentIndex = prefs.getInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, -1);
+            
+            // If no index stored, select a random starting point
+            if (currentIndex == -1) {
+                java.util.Random random = new java.util.Random();
+                currentIndex = random.nextInt(availableGifs.size());
+                logger.debug("No GIF index found in preferences, starting at random index: " + currentIndex);
+            } else {
+                // Increment to next GIF in rotation
+                currentIndex = (currentIndex + 1) % availableGifs.size();
+                logger.debug("Rotating to next GIF index: " + currentIndex);
+            }
+            
+            // Save the updated index to preferences
+            prefs.putInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, currentIndex);
+            
+            String selectedGif = availableGifs.get(currentIndex);
+            logger.debug("Selected success GIF: " + selectedGif + " (index " + currentIndex + " of " + availableGifs.size() + " available)");
+            return selectedGif;
+            
+        } catch (Exception e) {
+            logger.error("Error selecting success GIF with rotation", e);
+            return null;
+        }
+    }
+    
+    /**
+     * Scans the success GIFs directory and returns a sorted list of available GIF file paths.
+     * 
+     * @return sorted list of GIF resource paths (ensures consistent ordering for rotation)
+     */
+    private java.util.List<String> getAvailableSuccessGifs() {
+        java.util.List<String> gifPaths = new java.util.ArrayList<>();
+        
+        try {
+            // Get the resource URL for the GIFs directory
+            java.net.URL resourceUrl = getClass().getResource(PATHS.SUCCESS_GIFS_DIR);
+            if (resourceUrl != null) {
+                // Handle different resource loading scenarios (JAR vs file system)
+                if (resourceUrl.getProtocol().equals("jar")) {
+                    // Running from JAR - scan JAR entries
+                    scanGifsFromJar(gifPaths);
+                } else {
+                    // Running from file system - scan directory
+                    scanGifsFromFileSystem(resourceUrl, gifPaths);
+                }
+            } else {
+                logger.warn("Success GIFs directory not found: " + PATHS.SUCCESS_GIFS_DIR);
+            }
+            
+            // Sort the paths to ensure consistent ordering for rotation
+            java.util.Collections.sort(gifPaths);
+            
+            logger.info("Found " + gifPaths.size() + " success GIFs in directory (sorted for consistent rotation)");
+            
+        } catch (Exception e) {
+            logger.error("Error scanning for success GIFs", e);
+        }
+        
+        return gifPaths;
+    }
+    
+    /**
+     * Scans for GIF files when running from a JAR file.
+     */
+    private void scanGifsFromJar(java.util.List<String> gifPaths) {
+        try {
+            // Get the JAR file containing this class
+            java.net.URL jarUrl = getClass().getProtectionDomain().getCodeSource().getLocation();
+            try (java.util.jar.JarFile jarFile = new java.util.jar.JarFile(new java.io.File(jarUrl.toURI()))) {
+                java.util.Enumeration<java.util.jar.JarEntry> entries = jarFile.entries();
+                
+                String dirPath = PATHS.SUCCESS_GIFS_DIR.substring(1); // Remove leading slash
+                
+                while (entries.hasMoreElements()) {
+                    java.util.jar.JarEntry entry = entries.nextElement();
+                    String entryName = entry.getName();
+                    
+                    // Check if entry is in our GIFs directory and is a .gif file
+                    if (entryName.startsWith(dirPath) && entryName.toLowerCase().endsWith(".gif") && !entry.isDirectory()) {
+                        String resourcePath = "/" + entryName;
+                        gifPaths.add(resourcePath);
+                        logger.debug("Found success GIF in JAR: " + resourcePath);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error scanning GIFs from JAR", e);
+        }
+    }
+    
+    /**
+     * Scans for GIF files when running from file system.
+     */
+    private void scanGifsFromFileSystem(java.net.URL resourceUrl, java.util.List<String> gifPaths) {
+        try {
+            java.io.File directory = new java.io.File(resourceUrl.toURI());
+            java.io.File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".gif"));
+            
+            if (files != null) {
+                for (java.io.File file : files) {
+                    String resourcePath = PATHS.SUCCESS_GIFS_DIR + file.getName();
+                    gifPaths.add(resourcePath);
+                    logger.debug("Found success GIF in filesystem: " + resourcePath);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error scanning GIFs from filesystem", e);
+        }
+    }
+
+
 }

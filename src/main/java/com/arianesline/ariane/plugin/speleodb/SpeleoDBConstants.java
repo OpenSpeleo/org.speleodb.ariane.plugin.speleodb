@@ -104,6 +104,7 @@ public final class SpeleoDBConstants {
         public static final String PREF_OAUTH_TOKEN = "SDB_OAUTH_TOKEN";
         public static final String PREF_INSTANCE = "SDB_INSTANCE";
         public static final String PREF_SAVE_CREDS = "SDB_SAVECREDS";
+        public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
     }
     
@@ -116,6 +117,8 @@ public final class SpeleoDBConstants {
         public static final String SPELEODB_FXML = "/fxml/SpeleoDB.fxml";
         public static final String LOGO_IMAGE = "/images/logo.png";
         public static final String EMPTY_TML = "/tml/empty_project.tml";
+        public static final String SUCCESS_GIFS_DIR = "/images/success_gifs/";
+        public static final String SUCCESS_GIFS_PATTERN = "*.gif";
     }
     
     // ==================== LOGGING CONFIGURATION ====================
@@ -229,11 +232,13 @@ public final class SpeleoDBConstants {
         public static final String BUTTON_SAVE_CHANGES = "Save Changes";
         public static final String BUTTON_CANCEL = "Cancel";
         public static final String BUTTON_CONNECT = "CONNECT";
+        public static final String BUTTON_CLOSE = "Close";
         
         // Dialog Titles
         public static final String TITLE_SAVE_PROJECT = "Save Project on SpeleoDB";
         public static final String TITLE_CREATE_NEW_PROJECT = "Create New Project";
         public static final String TITLE_UPLOAD_MESSAGE_REQUIRED = "Upload Message Required";
+        public static final String TITLE_SUCCESS_CELEBRATION = "Upload Successful!";
         
         // Dialog Headers
         public static final String HEADER_ENTER_PROJECT_DETAILS = "Enter project details";
@@ -297,6 +302,10 @@ public final class SpeleoDBConstants {
         public static final int DIALOG_MIN_WIDTH = 500;
         public static final int DIALOG_PREF_WIDTH = 500;
         public static final int NEW_PROJECT_DIALOG_PREF_WIDTH = 400;
+        public static final int SUCCESS_DIALOG_MIN_WIDTH = 400;
+        public static final int SUCCESS_DIALOG_MIN_HEIGHT = 300;
+        public static final int SUCCESS_DIALOG_MAX_WIDTH = 800;
+        public static final int SUCCESS_DIALOG_MAX_HEIGHT = 600;
         
         // Field Dimensions
         public static final int FIELD_PREF_WIDTH = 350;
@@ -338,6 +347,7 @@ public final class SpeleoDBConstants {
         public static final int ERROR_ANIMATION_FADE_IN_MILLIS = 300;
         public static final int SUCCESS_AUTO_HIDE_SECONDS = 4;
         public static final int ERROR_AUTO_HIDE_SECONDS = 5;
+        public static final int SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS = 5;
         public static final double FADE_FROM_VALUE = 0.0;
         public static final double FADE_TO_VALUE = 1.0;
     }

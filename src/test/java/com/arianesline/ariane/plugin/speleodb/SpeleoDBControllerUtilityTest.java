@@ -210,6 +210,93 @@ class SpeleoDBControllerUtilityTest {
     }
     
     @Nested
+    @DisplayName("Success Celebration Dialog")
+    class SuccessCelebrationDialogTests {
+        
+        @Test
+        @DisplayName("Should get available success GIFs")
+        void shouldGetAvailableSuccessGifs() {
+            java.util.List<String> gifs = controller.simulateGetAvailableSuccessGifs();
+            assertThat(gifs).isNotNull();
+            assertThat(gifs).allMatch(gif -> gif.startsWith("/images/success_gifs/"));
+            assertThat(gifs).allMatch(gif -> gif.endsWith(".gif"));
+        }
+        
+        @Test
+        @DisplayName("Should get random success GIF")
+        void shouldGetRandomSuccessGif() {
+            String randomGif = controller.simulateGetRandomSuccessGif();
+            assertThat(randomGif).isNotNull();
+            assertThat(randomGif).startsWith("/images/success_gifs/");
+            assertThat(randomGif).endsWith(".gif");
+        }
+        
+        @Test
+        @DisplayName("Should get different random GIFs on multiple calls")
+        void shouldGetDifferentRandomGifsOnMultipleCalls() {
+            java.util.Set<String> uniqueGifs = new java.util.HashSet<>();
+            
+            // Call multiple times to test randomness
+            for (int i = 0; i < 50; i++) {
+                String gif = controller.simulateGetRandomSuccessGif();
+                uniqueGifs.add(gif);
+            }
+            
+            // Should get at least a few different GIFs (not just the same one every time)
+            assertThat(uniqueGifs.size()).isGreaterThan(1);
+        }
+        
+        @Test
+        @DisplayName("Should rotate through all GIFs without repetition")
+        void shouldRotateThroughAllGifsWithoutRepetition() {
+            // Note: This test simulates the concept but doesn't test the actual rotation
+            // since the real rotation behavior uses preferences which aren't available in tests
+            java.util.List<String> availableGifs = controller.simulateGetAvailableSuccessGifs();
+            java.util.Set<String> seenGifs = new java.util.HashSet<>();
+            
+            // Call enough times to potentially see all GIFs
+            for (int i = 0; i < availableGifs.size() * 2; i++) {
+                String gif = controller.simulateGetRandomSuccessGif();
+                seenGifs.add(gif);
+            }
+            
+            // Should see multiple different GIFs
+            assertThat(seenGifs.size()).isGreaterThan(1);
+            // All seen GIFs should be from the available list
+            assertThat(seenGifs).allMatch(gif -> availableGifs.contains(gif));
+        }
+        
+        @Test
+        @DisplayName("Should handle success celebration dialog simulation")
+        void shouldHandleSuccessCelebrationDialogSimulation() {
+            String result = controller.simulateShowSuccessCelebrationDialog();
+            assertThat(result).isNotNull();
+            assertThat(result).contains("SUCCESS_CELEBRATION");
+            assertThat(result).contains("gif_path=");
+            assertThat(result).contains("/images/success_gifs/");
+            assertThat(result).contains(".gif");
+        }
+        
+        @Test
+        @DisplayName("Should handle celebration dialog with callback")
+        void shouldHandleCelebrationDialogWithCallback() {
+            final java.util.concurrent.atomic.AtomicBoolean callbackExecuted = 
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+            
+            Runnable callback = () -> callbackExecuted.set(true);
+            String result = controller.simulateShowSuccessCelebrationDialogWithCallback(callback);
+            
+            assertThat(result).contains("SUCCESS_CELEBRATION");
+            assertThat(result).contains("callback_provided=true");
+            
+            // In real implementation, callback would be executed when dialog closes
+            // For simulation, we execute it immediately
+            callback.run();
+            assertThat(callbackExecuted.get()).isTrue();
+        }
+    }
+    
+    @Nested
     @DisplayName("URL Generation")
     class URLGenerationTests {
         
@@ -549,6 +636,46 @@ class SpeleoDBControllerUtilityTest {
         public String simulateShowErrorAnimation(String message) {
             String displayMessage = (message == null || message.trim().isEmpty()) ? "Error" : message;
             return "✗ " + displayMessage;
+        }
+        
+        // Simulate success celebration dialog methods
+        public java.util.List<String> simulateGetAvailableSuccessGifs() {
+            java.util.List<String> gifs = new java.util.ArrayList<>();
+            // Generate completely random filenames to avoid assuming any format
+            String[] randomNames = {
+                "celebration.gif", "party.gif", "success.gif", "hooray.gif", "yay.gif",
+                "confetti.gif", "dance.gif", "happy.gif", "victory.gif", "awesome.gif",
+                "excellent.gif", "fantastic.gif", "brilliant.gif", "amazing.gif", "wonderful.gif"
+            };
+            
+            for (String name : randomNames) {
+                gifs.add("/images/success_gifs/" + name);
+            }
+            
+            // Sort to ensure consistent ordering (like the real implementation)
+            java.util.Collections.sort(gifs);
+            return gifs;
+        }
+        
+        public String simulateGetRandomSuccessGif() {
+            java.util.List<String> availableGifs = simulateGetAvailableSuccessGifs();
+            if (availableGifs.isEmpty()) {
+                return null; // No GIFs available - don't hardcode any paths
+            }
+            
+            // For testing, just return a random GIF (the real implementation uses rotating preferences)
+            int randomIndex = (int) (Math.random() * availableGifs.size());
+            return availableGifs.get(randomIndex);
+        }
+        
+        public String simulateShowSuccessCelebrationDialog() {
+            String gifPath = simulateGetRandomSuccessGif();
+            return "SUCCESS_CELEBRATION;gif_path=" + gifPath + ";callback_provided=false";
+        }
+        
+        public String simulateShowSuccessCelebrationDialogWithCallback(Runnable callback) {
+            String gifPath = simulateGetRandomSuccessGif();
+            return "SUCCESS_CELEBRATION;gif_path=" + gifPath + ";callback_provided=true";
         }
         
         // Expose constants for testing

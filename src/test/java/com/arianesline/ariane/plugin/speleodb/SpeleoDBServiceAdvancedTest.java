@@ -1,12 +1,11 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,6 +14,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
+
+import jakarta.json.JsonObject;
 
 /**
  * Advanced tests for SpeleoDBService to improve test coverage.
@@ -121,6 +122,25 @@ class SpeleoDBServiceAdvancedTest {
             }).doesNotThrowAnyException();
             
             assertThat(service.isAuthenticated()).isFalse();
+        }
+    }
+    
+    // Helper test class that exposes private methods for testing
+    static class TestableSpeleoDBController extends SpeleoDBController {
+        private JsonObject currentProject = null;
+        
+        public void setCurrentProject(JsonObject project) {
+            this.currentProject = project;
+        }
+        
+        @Override
+        public boolean hasActiveProjectLock() {
+            return currentProject != null;
+        }
+        
+        @Override
+        public String getCurrentProjectName() {
+            return currentProject != null ? currentProject.getString("name") : null;
         }
     }
     
