@@ -12,7 +12,7 @@ public final class SpeleoDBConstants {
     /**
      * SpeleoDB Plugin Version (CalVer format: YYYY.MM.DD)
      */
-    public static final String VERSION = "2025.06.21";
+    public static final String VERSION = null;
     public static final String VERSION_DISPLAY = "v" + VERSION;
     
     // ==================== PREVENT INSTANTIATION ====================

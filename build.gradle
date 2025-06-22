@@ -58,6 +58,8 @@ tasks.register('buildDebug') {
         println 'SpeleoDB plugin debug build completed with localhost URLs enabled'
         println 'Debug configuration file created at: src/main/resources/debug.properties'
     }
+    
+    finalizedBy restoreVersionPlaceholders
 }
 
 tasks.register('buildProduction') {
@@ -79,6 +81,8 @@ tasks.register('buildProduction') {
     doLast {
         println 'SpeleoDB plugin production build completed'
     }
+    
+    finalizedBy restoreVersionPlaceholders
 }
 
 test {
@@ -103,7 +107,7 @@ tasks.register('generateVersion') {
         
         // Replace the version constants
         content = content.replaceAll(
-            /public static final String VERSION = "[^"]*";/,
+            /public static final String VERSION = null;/,
             "public static final String VERSION = \"${versionString}\";"
         )
         
@@ -111,6 +115,31 @@ tasks.register('generateVersion') {
         constantsFile.text = content
         
         println "Updated SpeleoDBConstants.java with version: ${versionString}"
+    }
+}
+
+// Task to restore null values after build
+tasks.register('restoreVersionPlaceholders') {
+    group = 'build'
+    description = 'Restores null placeholders in version constants after build'
+    
+    doLast {
+        println "Restoring version placeholders to null..."
+        
+        // Read the constants file
+        def constantsFile = file('src/main/java/com/arianesline/ariane/plugin/speleodb/SpeleoDBConstants.java')
+        def content = constantsFile.text
+        
+        // Restore the version constants to null
+        content = content.replaceAll(
+            /public static final String VERSION = "[^"]*";/,
+            "public static final String VERSION = null;"
+        )
+        
+        // Write back to file
+        constantsFile.text = content
+        
+        println "Restored version constants to null placeholders"
     }
 }
 
@@ -126,6 +155,8 @@ build {
     doFirst {
         println 'Building without running tests. Use "./gradlew test" to run tests explicitly.'
     }
+    
+    finalizedBy restoreVersionPlaceholders
 }
 
 // Create a separate task for build with tests
@@ -133,6 +164,7 @@ tasks.register('buildWithTests') {
     group = 'build'
     description = 'Build and run tests'
     dependsOn assemble, check
+    finalizedBy restoreVersionPlaceholders
 }
 
 tasks.register('help-build') {
