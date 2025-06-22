@@ -124,6 +124,8 @@ public class SpeleoDBController implements Initializable {
     private WebView aboutWebView;
     @FXML
     private Button resetButton;
+    @FXML
+    private Label versionLabel;
 
     // SpeleoDBService instance for handling server communication.
     private SpeleoDBService speleoDBService;
@@ -830,6 +832,16 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
+     * Sets up the version display label.
+     * Initializes the version label with the current plugin version from constants.
+     */
+    private void setupVersionDisplay() {
+        if (versionLabel != null) {
+            versionLabel.setText(SpeleoDBConstants.VERSION_DISPLAY);
+        }
+    }
+
+    /**
      * Sets up early window close handling to intercept shutdown before application shutdown begins.
      * This ensures the confirmation dialog appears immediately when user clicks X, not during app shutdown.
      */
@@ -992,6 +1004,9 @@ public class SpeleoDBController implements Initializable {
         loadPreferences();
         setupUI();
         setupKeyboardShortcuts();
+        
+        // Initialize version display
+        setupVersionDisplay();
         
         // Initialize sorting button styles (default to sort by name)
         updateSortButtonStyles();

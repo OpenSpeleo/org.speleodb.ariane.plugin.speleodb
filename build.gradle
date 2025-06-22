@@ -85,6 +85,38 @@ test {
     useJUnitPlatform()
 }
 
+// Task to generate version based on build date
+tasks.register('generateVersion') {
+    group = 'build'
+    description = 'Generates version string based on current date in CalVer format (YYYY.MM.DD)'
+    
+    doLast {
+        def today = new Date()
+        def versionString = today.format('yyyy.MM.dd')
+        def versionDisplay = "v${versionString}"
+        
+        println "Generating version: ${versionString} (display: ${versionDisplay})"
+        
+        // Read the constants file
+        def constantsFile = file('src/main/java/com/arianesline/ariane/plugin/speleodb/SpeleoDBConstants.java')
+        def content = constantsFile.text
+        
+        // Replace the version constants
+        content = content.replaceAll(
+            /public static final String VERSION = "[^"]*";/,
+            "public static final String VERSION = \"${versionString}\";"
+        )
+        
+        // Write back to file
+        constantsFile.text = content
+        
+        println "Updated SpeleoDBConstants.java with version: ${versionString}"
+    }
+}
+
+// Make compileJava depend on generateVersion so version is always up to date
+compileJava.dependsOn generateVersion
+
 // Completely override the build task to exclude tests
 build {
     // Clear all dependencies and set only what we want

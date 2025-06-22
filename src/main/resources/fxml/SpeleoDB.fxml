@@ -33,7 +33,7 @@
 		<Insets bottom="8.0" left="8.0" right="8.0" top="8.0" />
 	</padding>
 	<children>
-		<Accordion layoutX="31.0" layoutY="273.0" AnchorPane.bottomAnchor="80.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
+		<Accordion layoutX="31.0" layoutY="273.0" AnchorPane.bottomAnchor="90.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" AnchorPane.topAnchor="8.0">
 			<panes>
 				<TitledPane fx:id="connectionTitlePane" animated="false" text="Connection">
 					<content>
@@ -270,7 +270,12 @@
 				</TitledPane>
 			</panes>
 		</Accordion>
-		<TextArea fx:id="serverLog" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="8.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
+		<TextArea fx:id="serverLog" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
+		<Label fx:id="versionLabel" text="" textFill="WHITE" AnchorPane.bottomAnchor="2.0" AnchorPane.rightAnchor="8.0">
+			<font>
+				<Font size="9.0" />
+			</font>
+		</Label>
 		<ProgressIndicator fx:id="serverProgressIndicator" visible="false" prefWidth="200.0" prefHeight="200.0" AnchorPane.leftAnchor="60.0" AnchorPane.rightAnchor="60.0" AnchorPane.topAnchor="250.0" />
 	</children>
 </AnchorPane>

@@ -8,6 +8,13 @@ import javafx.scene.control.ButtonType;
  */
 public final class SpeleoDBConstants {
     
+    // ==================== VERSION INFORMATION ====================
+    /**
+     * SpeleoDB Plugin Version (CalVer format: YYYY.MM.DD)
+     */
+    public static final String VERSION = "2025.06.21";
+    public static final String VERSION_DISPLAY = "v" + VERSION;
+    
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
         throw new AssertionError("Constants class should not be instantiated");
