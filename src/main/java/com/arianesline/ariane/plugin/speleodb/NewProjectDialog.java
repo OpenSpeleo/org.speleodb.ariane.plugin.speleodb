@@ -64,7 +64,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         countryLoader.submit(() -> {
             try {
                 loadCountriesFromJson();
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
             }
         });
@@ -79,7 +79,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         countryLoader.submit(() -> {
             try {
                 loadCountriesFromJson(); // Will return immediately if already loaded
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
             }
         });
@@ -256,7 +256,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
                 try {
                     loadCountriesFromJson();
                     Platform.runLater(() -> populateCountryComboBox(cachedCountries));
-                } catch (Exception e) {
+                } catch (IOException e) {
                     Platform.runLater(() -> {
                         System.err.println(MESSAGES.ERROR_LOADING_COUNTRIES + e.getMessage());
                         // Could show error to user here if needed

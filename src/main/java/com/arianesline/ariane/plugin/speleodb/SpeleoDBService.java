@@ -487,4 +487,90 @@ public class SpeleoDBService {
             // This is typically used to set metadata in the cave survey file
         }
     }
+
+    /* ========================= PUBLIC ANNOUNCEMENTS ======================== */
+
+    /**
+     * Fetches announcements from SpeleoDB for the ARIANE software.
+     * This endpoint does not require authentication.
+     *
+     * @param instanceUrl the SpeleoDB instance URL to fetch announcements from
+     * @return A JsonArray containing active announcement details for ARIANE
+     * @throws Exception if the request fails
+     */
+    public JsonArray fetchAnnouncements(String instanceUrl) throws Exception {
+        // Set up instance URL for this request (without requiring authentication)
+        String tempInstance;
+        String localPattern = NETWORK.LOCAL_PATTERN;
+
+        if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
+            // For local addresses and IPs, use http://
+            tempInstance = NETWORK.HTTP_PROTOCOL + instanceUrl;
+        } else {
+            // For non-local addresses, use https://
+            tempInstance = NETWORK.HTTPS_PROTOCOL + instanceUrl;
+        }
+
+        URI uri = new URI(tempInstance + API.ANNOUNCEMENTS_ENDPOINT);
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .GET()
+                .setHeader(HEADERS.CONTENT_TYPE, HEADERS.APPLICATION_JSON)
+                .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))
+                .build();
+
+        HttpResponse<String> response = createHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != HTTP_STATUS.OK) {
+            throw new Exception("Failed to fetch announcements with status code: " + response.statusCode());
+        }
+
+        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+            JsonObject responseObject = reader.readObject();
+            JsonArray announcements = responseObject.getJsonArray(JSON_FIELDS.DATA);
+            
+            // Note: We'll get current date inside the filter for date comparison
+            
+            // Filter for active ARIANE announcements with additional conditions
+            return announcements.stream()
+                    .filter(JsonObject.class::isInstance)
+                    .map(JsonObject.class::cast)
+                    .filter(announcement -> announcement.getBoolean(JSON_FIELDS.IS_ACTIVE, false))
+                    .filter(announcement -> "ARIANE".equals(announcement.getString(JSON_FIELDS.SOFTWARE, "")))
+                    .filter(announcement -> {
+                        // Check expiry date if present
+                        String expiresAt = announcement.getString(JSON_FIELDS.EXPIRES_AT, null);
+                        if (expiresAt != null && !expiresAt.isEmpty()) {
+                            try {
+                                // Parse as LocalDate (date-only format like "2025-06-23")
+                                java.time.LocalDate expiryDate = java.time.LocalDate.parse(expiresAt);
+                                java.time.LocalDate today = java.time.LocalDate.now();
+                                return (expiryDate.isAfter(today) || expiryDate.isEqual(today));
+                            } catch (java.time.format.DateTimeParseException e) {
+                                logger.warn("Failed to parse expires_at field: `" + expiresAt + "`.");
+                                return false;
+                            }
+                        }
+                        // If no expiry date, include the announcementz
+                        return true;
+                    })
+                    .filter(announcement -> {
+                        // Check version match if present
+                        String announcementVersion = announcement.getString(JSON_FIELDS.VERSION, null);
+                        if (announcementVersion != null && !announcementVersion.isEmpty()) {
+                            // Only show if version exactly matches the built version
+                            return announcementVersion.equals(SpeleoDBConstants.VERSION);
+                        }
+                        // If no version specified, include the announcement
+                        return true;
+                    })
+                    .collect(Json::createArrayBuilder, 
+                            (builder, announcement) -> builder.add(announcement),
+                            (builder1, builder2) -> {
+                                // This combiner is for parallel streams, but we're using sequential
+                                throw new UnsupportedOperationException("Parallel processing not supported");
+                            })
+                    .build();
+        }
+    }
 }

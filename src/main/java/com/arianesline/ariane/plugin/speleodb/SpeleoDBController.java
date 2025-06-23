@@ -3,8 +3,11 @@ package com.arianesline.ariane.plugin.speleodb;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -21,6 +24,7 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
@@ -872,7 +876,7 @@ public class SpeleoDBController implements Initializable {
                                     try {
                                         releaseCurrentProjectLock();
                                         logger.info("Project lock released before application shutdown.");
-                                    } catch (Exception e) {
+                                    } catch (IOException | InterruptedException | URISyntaxException e) {
                                         logger.info("Error releasing project lock during shutdown: " + e.getMessage());
                                         // Continue with shutdown even if lock release fails
                                     }
@@ -1028,6 +1032,9 @@ public class SpeleoDBController implements Initializable {
         
         // Setup early shutdown handling to prevent application freeze on close
         setupShutdownHook();
+        
+        // Schedule information popup
+        scheduleInformationPopup();
     }
 
 
@@ -1049,9 +1056,10 @@ public class SpeleoDBController implements Initializable {
         // Validate OAuth token format if provided
         if (oauthToken != null && !oauthToken.trim().isEmpty()) {
             if (!validateOAuthToken(oauthToken)) {
-                showErrorModal("Invalid OAuth Token", 
-                    "OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).\n\n" +
-                    "Please check your token format and try again.");
+                showErrorModal("Invalid OAuth Token", """
+                                                      OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).
+                                                      
+                                                      Please check your token format and try again.""");
                 return;
             }
         }
@@ -1788,8 +1796,7 @@ public class SpeleoDBController implements Initializable {
     private void showInfoModal(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
+        alert.setHeaderText(null); // No header for cleaner Material Design look
         
         // Make the dialog resizable and scale to content
         alert.setResizable(true);
@@ -2934,38 +2941,33 @@ public class SpeleoDBController implements Initializable {
      */
     private String getRandomSuccessGif() {
         try {
-            // Get list of available GIF files
             java.util.List<String> availableGifs = getAvailableSuccessGifs();
             
             if (availableGifs.isEmpty()) {
-                logger.warn("No success GIFs found in directory: " + PATHS.SUCCESS_GIFS_DIR);
+                logger.debug("No success GIFs found in resources");
                 return null;
             }
             
             // Get current index from preferences
-            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SpeleoDBController.class);
-            int currentIndex = prefs.getInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, -1);
+            Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+            int currentIndex = prefs.getInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, 0);
             
-            // If no index stored, select a random starting point
-            if (currentIndex == -1) {
-                java.util.Random random = new java.util.Random();
-                currentIndex = random.nextInt(availableGifs.size());
-                logger.debug("No GIF index found in preferences, starting at random index: " + currentIndex);
-            } else {
-                // Increment to next GIF in rotation
-                currentIndex = (currentIndex + 1) % availableGifs.size();
-                logger.debug("Rotating to next GIF index: " + currentIndex);
+            // Ensure index is within bounds
+            if (currentIndex >= availableGifs.size()) {
+                currentIndex = 0;
             }
             
-            // Save the updated index to preferences
-            prefs.putInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, currentIndex);
-            
             String selectedGif = availableGifs.get(currentIndex);
-            logger.debug("Selected success GIF: " + selectedGif + " (index " + currentIndex + " of " + availableGifs.size() + " available)");
+            
+            // Update index for next time (rotate through all GIFs)
+            int nextIndex = (currentIndex + 1) % availableGifs.size();
+            prefs.putInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, nextIndex);
+            
+            logger.debug("Selected success GIF: " + selectedGif + " (index " + currentIndex + " of " + availableGifs.size() + ")");
             return selectedGif;
             
         } catch (Exception e) {
-            logger.error("Error selecting success GIF with rotation", e);
+            logger.error("Error selecting random success GIF", e);
             return null;
         }
     }
@@ -3055,5 +3057,440 @@ public class SpeleoDBController implements Initializable {
         }
     }
 
+    /**
+     * Shows a Material Design style information popup with welcome message.
+     * This popup appears 3 seconds after the application starts to provide
+     * helpful information to new users without being intrusive.
+     * Fetches the latest announcement from the SpeleoDB API and shows all unshown announcements.
+     */
+    private void showInformationPopup() {
+        // Fetch announcement data asynchronously to avoid blocking UI
+        parentPlugin.executorService.execute(() -> {
+            try {
+                // Try to fetch announcement from API
+                String instanceUrl = instanceTextField.getText();
+                if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
+                    instanceUrl = PREFERENCES.DEFAULT_INSTANCE;
+                }
+                
+                SpeleoDBService tempService = new SpeleoDBService(this);
+                JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
+                
+                // Collect all unshown announcements
+                List<JsonObject> unshownAnnouncements = new ArrayList<>();
+                for (int i = 0; i < announcements.size(); i++) {
+                    JsonObject announcement = announcements.getJsonObject(i);
+                    if (!hasAnnouncementBeenDisplayed(announcement, instanceUrl)) {
+                        unshownAnnouncements.add(announcement);
+                    }
+                }
+                
+                if (!unshownAnnouncements.isEmpty()) {
+                    // Create final variable for lambda expression
+                    final String finalInstanceUrl = instanceUrl;
+                    // Show announcements sequentially
+                    Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0, finalInstanceUrl));
+                } else {
+                    // No new announcements to show
+                    logger.debug("No new announcements to display");
+                }
+                
+            } catch (Exception e) {
+                logger.warn("Failed to fetch announcements, error: " + e.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * Shows the information dialog with the provided title, header, and message.
+     * Handles content as plain text, converting HTML tags to readable text.
+     * 
+     * @param title the dialog title
+     * @param header the header text to display in bold
+     * @param message the message content (HTML will be converted to plain text)
+     */
+    private void showInformationDialog(String title, String header, String message) {
+        try {
+            // Create the dialog with Material Design styling
+            Dialog<Void> infoDialog = new Dialog<>();
+            infoDialog.setTitle(title);
+            infoDialog.setHeaderText(null); // No header for cleaner Material Design look
+            
+            // Set dialog properties to ensure all content is visible
+            DialogPane dialogPane = infoDialog.getDialogPane();
+            dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
+            dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
+            dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
+            dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            dialogPane.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH + 100); // Allow some expansion
+            
+            // Apply Material Design dialog styling
+            dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
+            
+            // Create content layout with Material Design principles
+            VBox content = new VBox();
+            content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
+            content.setMinHeight(Region.USE_PREF_SIZE);
+            content.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            
+            // Create title label with header from API
+            Label titleLabel = new Label(header);
+            titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
+            
+            // Create message label for plain text content
+            Label messageLabel = new Label();
+            messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+            messageLabel.setWrapText(true);
+            messageLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
+            messageLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            messageLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            messageLabel.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            messageLabel.setMinHeight(Region.USE_PREF_SIZE);
+            
+            // Process the message to convert markdown-style formatting to JavaFX
+            String processedMessage = processMarkdownForJavaFX(message);
+            messageLabel.setText(processedMessage);
+            
+            // Add components to content
+            content.getChildren().addAll(titleLabel, messageLabel);
+            
+            // Set content
+            dialogPane.setContent(content);
+            
+            // Add Material Design button
+            ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
+            dialogPane.getButtonTypes().add(gotItButton);
+            
+            // Style the button with Material Design - delay to ensure button exists
+            Platform.runLater(() -> {
+                javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
+                if (button != null) {
+                    // Set initial style
+                    button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
+                    
+                    // Add hover effects that maintain consistent size and text
+                    button.setOnMouseEntered(e -> {
+                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_HOVER_STYLE)) {
+                            button.setStyle(STYLES.MATERIAL_BUTTON_HOVER_STYLE);
+                        }
+                    });
+                    
+                    button.setOnMouseExited(e -> {
+                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_STYLE)) {
+                            button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
+                        }
+                    });
+                    
+                    // Ensure button text never changes
+                    button.setText(DIALOGS.BUTTON_GOT_IT);
+                }
+            });
+            
+            // Set owner for proper modal behavior
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                infoDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+            }
+            
+            // Add fade-in animation for smooth appearance
+            dialogPane.setOpacity(0.0);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(ANIMATIONS.FADE_IN_DURATION_MILLIS), dialogPane);
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            
+            // Show the dialog (non-blocking) and let it size itself
+            infoDialog.show();
+            
+            // After showing, ensure proper sizing
+            Platform.runLater(() -> {
+                dialogPane.autosize();
+            });
+            
+            fadeIn.play();
+            
+            logger.debug("Information popup displayed with Material Design styling and content-based sizing");
+            
+        } catch (Exception e) {
+            logger.error("Error showing information popup", e);
+        }
+    }
+    
+    /**
+     * Processes markdown-style formatting in text for JavaFX display.
+     * Converts **bold** text to remove the asterisks (JavaFX doesn't support markdown natively).
+     * This is a simple processor for basic formatting.
+     * 
+     * @param text the text with markdown-style formatting
+     * @return processed text suitable for JavaFX Label
+     */
+    private String processMarkdownForJavaFX(String text) {
+        if (text == null) return "";
+        
+        // Remove markdown bold markers (**text** -> text)
+        // Note: JavaFX Label doesn't support rich text, so we just remove the markers
+        String processed = text.replaceAll("\\*\\*(.*?)\\*\\*", "$1");
+        
+        return processed;
+    }
+
+    /**
+     * Generates SHA-256 hash of the announcement JSON data combined with the endpoint URL.
+     * This ensures that the same announcement from different endpoints is treated as separate.
+     * 
+     * @param announcementJson the JsonObject containing the announcement data
+     * @param endpointUrl the URL of the endpoint where the announcement was fetched from
+     * @return SHA-256 hash as hexadecimal string
+     */
+    private String generateAnnouncementHash(JsonObject announcementJson, String endpointUrl) {
+        // Normalize endpoint URL for consistent hashing
+        String normalizedEndpoint = endpointUrl.toLowerCase()
+            .replaceFirst("^https?://", "")  // Remove http:// or https://
+            .replaceAll("/$", "");           // Remove trailing slash
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            
+            // Combine endpoint URL with JSON data for unique hash per endpoint
+            String combinedData = normalizedEndpoint + "|" + announcementJson.toString();
+            byte[] hashBytes = digest.digest(combinedData.getBytes(StandardCharsets.UTF_8));
+            
+            // Convert to hexadecimal string
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            logger.error("SHA-256 algorithm not available", e);
+            // Fallback to simple hash if SHA-256 is not available
+            return String.valueOf((normalizedEndpoint + "|" + announcementJson.toString()).hashCode());
+        }
+    }
+
+    /**
+     * Checks if an announcement has already been displayed.
+     * 
+     * @param announcementJson the JsonObject containing the announcement data
+     * @return true if the announcement has been displayed before, false otherwise
+     */
+    private boolean hasAnnouncementBeenDisplayed(JsonObject announcementJson, String endpointUrl) {
+        String hash = generateAnnouncementHash(announcementJson, endpointUrl);
+        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        String displayedHashes = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+        
+        boolean wasDisplayed = displayedHashes.contains(hash);
+        if (wasDisplayed) {
+            logger.debug("Announcement already displayed (hash: " + hash.substring(0, 8) + "...)");
+        }
+        return wasDisplayed;
+    }
+
+    /**
+     * Marks an announcement as displayed by storing its hash in preferences.
+     * In debug mode, does not store the hash to allow repeated displays.
+     * 
+     * @param announcementJson the JsonObject containing the announcement data
+     */
+    private void markAnnouncementAsDisplayed(JsonObject announcementJson, String endpointUrl) {
+        String hash = generateAnnouncementHash(announcementJson, endpointUrl);
+        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        String displayedHashes = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+        
+        if (!displayedHashes.contains(hash)) {
+            String updatedHashes = displayedHashes.isEmpty() ? hash : displayedHashes + "," + hash;
+            prefs.put(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, updatedHashes);
+            logger.debug("Marked announcement as displayed (hash: " + hash.substring(0, 8) + "...)");
+        }
+    }
+
+    /**
+     * Schedules the information popup to appear after a delay.
+     * Called during initialization to show helpful information to users.
+     */
+    private void scheduleInformationPopup() {
+        // Create timeline to show popup after delay
+        Timeline delayTimeline = createTrackedTimeline(
+            new KeyFrame(Duration.seconds(ANIMATIONS.INFO_POPUP_DELAY_SECONDS), 
+                        e -> showInformationPopup())
+        );
+        delayTimeline.play();
+        
+        logger.debug("Information popup scheduled to appear in " + ANIMATIONS.INFO_POPUP_DELAY_SECONDS + " seconds");
+    }
+
+    /**
+     * Shows announcements sequentially, one after another.
+     * Each dialog waits for the previous one to be closed before showing the next.
+     * 
+     * @param announcements list of announcements to show
+     * @param currentIndex index of the current announcement to show
+     */
+    private void showAnnouncementsSequentially(List<JsonObject> announcements, int currentIndex, String endpointUrl) {
+        if (currentIndex >= announcements.size()) {
+            // All announcements have been shown
+            logger.debug("Finished showing " + announcements.size() + " announcements");
+            return;
+        }
+        
+        JsonObject announcement = announcements.get(currentIndex);
+
+        String title = announcement.getString(JSON_FIELDS.TITLE, DIALOGS.DEFAULT_ANNOUNCEMENT_TITLE);
+        String header = announcement.getString(JSON_FIELDS.HEADER, DIALOGS.DEFAULT_ANNOUNCEMENT_HEADER);
+
+        String message = announcement.getString(JSON_FIELDS.MESSAGE, "");
+
+        if (message.isEmpty()) {
+            logger.debug(
+                "Skipping announcement " + (currentIndex + 1) + " of " + 
+                announcements.size() + ": " + title + " because it has no message"
+            );
+            return;
+        }
+        
+        logger.debug("Showing announcement " + (currentIndex + 1) + " of " + announcements.size() + ": " + title);
+        
+        // Create the dialog
+        Dialog<Void> infoDialog = createInformationDialog(title, header, message);
+        
+        // Mark this announcement as displayed
+        markAnnouncementAsDisplayed(announcement, endpointUrl);
+        
+        // Create final variables for lambda expression
+        final String finalEndpointUrl = endpointUrl;
+        
+        // Set up callback to show next announcement when this one is closed
+        infoDialog.setOnHidden(e -> {
+            // Show next announcement after a brief delay
+            Timeline nextAnnouncementDelay = createTrackedTimeline(
+                new KeyFrame(Duration.millis(500), event -> 
+                    showAnnouncementsSequentially(announcements, currentIndex + 1, finalEndpointUrl))
+            );
+            nextAnnouncementDelay.play();
+        });
+        
+        // Show the dialog
+        infoDialog.show();
+    }
+
+    /**
+     * Creates an information dialog with the provided title, header, and message.
+     * This is extracted from showInformationDialog to allow reuse.
+     * 
+     * @param title the dialog title
+     * @param header the header text to display in bold
+     * @param message the message content
+     * @return the created dialog
+     */
+    private Dialog<Void> createInformationDialog(String title, String header, String message) {
+        try {
+            // Create the dialog with Material Design styling
+            Dialog<Void> infoDialog = new Dialog<>();
+            infoDialog.setTitle(title);
+            infoDialog.setHeaderText(null); // No header for cleaner Material Design look
+            
+            // Set dialog properties to ensure all content is visible
+            DialogPane dialogPane = infoDialog.getDialogPane();
+            dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
+            dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
+            dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
+            dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            dialogPane.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH + 100); // Allow some expansion
+            
+            // Apply Material Design dialog styling
+            dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
+            
+            // Create content layout with Material Design principles
+            VBox content = new VBox();
+            content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
+            content.setMinHeight(Region.USE_PREF_SIZE);
+            content.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            
+            // Create title label with header from API
+            Label titleLabel = new Label(header);
+            titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
+            
+            // Create message label for plain text content
+            Label messageLabel = new Label();
+            messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+            messageLabel.setWrapText(true);
+            messageLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
+            messageLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            messageLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            messageLabel.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            messageLabel.setMinHeight(Region.USE_PREF_SIZE);
+            
+            // Process the message to convert markdown-style formatting to JavaFX
+            String processedMessage = processMarkdownForJavaFX(message);
+            messageLabel.setText(processedMessage);
+            
+            // Add components to content
+            content.getChildren().addAll(titleLabel, messageLabel);
+            
+            // Set content
+            dialogPane.setContent(content);
+            
+            // Add Material Design button
+            ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
+            dialogPane.getButtonTypes().add(gotItButton);
+            
+            // Style the button with Material Design - delay to ensure button exists
+            Platform.runLater(() -> {
+                javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
+                if (button != null) {
+                    // Set initial style
+                    button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
+                    
+                    // Add hover effects that maintain consistent size and text
+                    button.setOnMouseEntered(e -> {
+                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_HOVER_STYLE)) {
+                            button.setStyle(STYLES.MATERIAL_BUTTON_HOVER_STYLE);
+                        }
+                    });
+                    
+                    button.setOnMouseExited(e -> {
+                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_STYLE)) {
+                            button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
+                        }
+                    });
+                    
+                    // Ensure button text never changes
+                    button.setText(DIALOGS.BUTTON_GOT_IT);
+                }
+            });
+            
+            // Set owner for proper modal behavior
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                infoDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+            }
+            
+            // Add fade-in animation for smooth appearance
+            dialogPane.setOpacity(0.0);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(ANIMATIONS.FADE_IN_DURATION_MILLIS), dialogPane);
+            fadeIn.setFromValue(0.0);
+            fadeIn.setToValue(1.0);
+            
+            // After showing, ensure proper sizing
+            Platform.runLater(() -> {
+                dialogPane.autosize();
+            });
+            
+            fadeIn.play();
+            
+            logger.debug("Information popup displayed with Material Design styling and content-based sizing");
+            
+            return infoDialog;
+            
+        } catch (Exception e) {
+            logger.error("Error creating information popup", e);
+            // Return a simple fallback dialog
+            Dialog<Void> fallbackDialog = new Dialog<>();
+            fallbackDialog.setTitle(title);
+            fallbackDialog.setContentText(message);
+            fallbackDialog.getDialogPane().getButtonTypes().add(BUTTON_TYPES.FAST_GOT_IT);
+            return fallbackDialog;
+        }
+    }
 
 }

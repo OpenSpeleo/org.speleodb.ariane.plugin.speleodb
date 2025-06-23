@@ -1,18 +1,5 @@
 package com.arianesline.ariane.plugin.speleodb;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_DATE_FORMAT;
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_DIR;
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_ERROR_CREATING_DIR;
@@ -30,6 +17,19 @@ import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.L
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_LEVEL_WARN;
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_SHUTDOWN_MESSAGE;
 import static com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_STARTUP_MESSAGE;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javafx.application.Platform;
 
@@ -75,11 +75,9 @@ public final class SpeleoDBLogger {
      * Gets the singleton logger instance
      */
     public static SpeleoDBLogger getInstance() {
-        if (instance == null) {
-            synchronized (instanceLock) {
-                if (instance == null) {
-                    instance = new SpeleoDBLogger();
-                }
+        synchronized (instanceLock) {
+            if (instance == null) {
+                instance = new SpeleoDBLogger();
             }
         }
         return instance;

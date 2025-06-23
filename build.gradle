@@ -106,7 +106,7 @@ tasks.register('generateReleaseVersion') {
         def content = constantsFile.text
         
         // Replace the version constants
-        content = content.replaceAll(
+        content = content.replaceFirst(
             /public static final String VERSION = null;/,
             "public static final String VERSION = \"${versionString}\";"
         )
@@ -131,7 +131,7 @@ tasks.register('resetReleaseVersion') {
         def content = constantsFile.text
         
         // Restore the version constants to null
-        content = content.replaceAll(
+        content = content.replaceFirst(
             /public static final String VERSION = "[^"]*";/,
             "public static final String VERSION = null;"
         )

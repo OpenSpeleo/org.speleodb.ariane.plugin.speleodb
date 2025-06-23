@@ -43,6 +43,7 @@ public final class SpeleoDBConstants {
         public static final String BASE_PATH = "/api/v1";
         public static final String AUTH_TOKEN_ENDPOINT = BASE_PATH + "/user/auth-token/";
         public static final String PROJECTS_ENDPOINT = BASE_PATH + "/projects/";
+        public static final String ANNOUNCEMENTS_ENDPOINT = BASE_PATH + "/announcements/";
         public static final String UPLOAD_ARIANE_TML_PATH = "/upload/ariane_tml/";
         public static final String ACQUIRE_LOCK_PATH = "/acquire/";
         public static final String RELEASE_LOCK_PATH = "/release/";
@@ -105,6 +106,7 @@ public final class SpeleoDBConstants {
         public static final String PREF_INSTANCE = "SDB_INSTANCE";
         public static final String PREF_SAVE_CREDS = "SDB_SAVECREDS";
         public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
+        public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
     }
     
@@ -233,12 +235,17 @@ public final class SpeleoDBConstants {
         public static final String BUTTON_CANCEL = "Cancel";
         public static final String BUTTON_CONNECT = "CONNECT";
         public static final String BUTTON_CLOSE = "Close";
+        public static final String BUTTON_GOT_IT = "Got it!";
         
         // Dialog Titles
         public static final String TITLE_SAVE_PROJECT = "Save Project on SpeleoDB";
         public static final String TITLE_CREATE_NEW_PROJECT = "Create New Project";
         public static final String TITLE_UPLOAD_MESSAGE_REQUIRED = "Upload Message Required";
         public static final String TITLE_SUCCESS_CELEBRATION = "Upload Successful!";
+
+        // Announcement DefaultValues
+        public static final String DEFAULT_ANNOUNCEMENT_TITLE = "SpeleoDB";
+        public static final String DEFAULT_ANNOUNCEMENT_HEADER = "";
         
         // Dialog Headers
         public static final String HEADER_ENTER_PROJECT_DETAILS = "Enter project details";
@@ -268,6 +275,10 @@ public final class SpeleoDBConstants {
         public static final String COLOR_SUCCESS_BG = "#4CAF50";
         public static final String COLOR_ERROR_BG = "#DC143C";
         public static final String COLOR_ERROR_BORDER = "#B22222";
+        public static final String COLOR_MATERIAL_PRIMARY = "#1976D2";
+        public static final String COLOR_MATERIAL_SURFACE = "#FFFFFF";
+        public static final String COLOR_MATERIAL_ON_SURFACE = "#212121";
+        public static final String COLOR_MATERIAL_SHADOW = "rgba(0,0,0,0.2)";
         
         // Success Animation Style
         public static final String SUCCESS_STYLE = "-fx-background-color: #4CAF50; -fx-text-fill: white; " +
@@ -292,6 +303,58 @@ public final class SpeleoDBConstants {
                 "-fx-effect: dropshadow(three-pass-box, rgba(255,102,0,0.8), 20, 0, 0, 5); " +
                 "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
+        // Material Design Information Dialog Style
+        public static final String MATERIAL_INFO_DIALOG_STYLE = 
+                "-fx-background-color: " + COLOR_MATERIAL_SURFACE + "; " +
+                "-fx-background-radius: 8; " +
+                "-fx-effect: dropshadow(three-pass-box, " + COLOR_MATERIAL_SHADOW + ", 16, 0, 0, 8); " +
+                "-fx-padding: 0;";
+        
+        public static final String MATERIAL_INFO_CONTENT_STYLE = 
+                "-fx-background-color: " + COLOR_MATERIAL_SURFACE + "; " +
+                "-fx-background-radius: 8; " +
+                "-fx-padding: 24; " +
+                "-fx-spacing: 16; " +
+                "-fx-pref-width: -1; " +
+                "-fx-pref-height: -1;";
+        
+        public static final String MATERIAL_INFO_TITLE_STYLE = 
+                "-fx-font-size: 20px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-text-fill: " + COLOR_MATERIAL_ON_SURFACE + "; " +
+                "-fx-padding: 0 0 8 0;";
+        
+        public static final String MATERIAL_INFO_TEXT_STYLE = 
+                "-fx-font-size: 14px; " +
+                "-fx-text-fill: " + COLOR_MATERIAL_ON_SURFACE + "; " +
+                "-fx-line-spacing: 6; " +
+                "-fx-wrap-text: true; " +
+                "-fx-padding: 8 0 8 0;";
+        
+        public static final String MATERIAL_BUTTON_STYLE = 
+                "-fx-background-color: " + COLOR_MATERIAL_PRIMARY + "; " +
+                "-fx-text-fill: white; " +
+                "-fx-font-size: 14px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-padding: 12 24; " +
+                "-fx-background-radius: 4; " +
+                "-fx-cursor: hand; " +
+                "-fx-min-width: 100px; " +
+                "-fx-pref-width: 100px; " +
+                "-fx-effect: dropshadow(three-pass-box, rgba(25,118,210,0.3), 4, 0, 0, 2);";
+        
+        public static final String MATERIAL_BUTTON_HOVER_STYLE = 
+                "-fx-background-color: #1565C0; " +
+                "-fx-text-fill: white; " +
+                "-fx-font-size: 14px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-padding: 12 24; " +
+                "-fx-background-radius: 4; " +
+                "-fx-cursor: hand; " +
+                "-fx-min-width: 100px; " +
+                "-fx-pref-width: 100px; " +
+                "-fx-effect: dropshadow(three-pass-box, rgba(25,118,210,0.4), 6, 0, 0, 3);";
+        
         // Required Field Style
         public static final String REQUIRED_FIELD_STYLE = "-fx-text-fill: #dc2626;";
     }
@@ -306,6 +369,9 @@ public final class SpeleoDBConstants {
         public static final int SUCCESS_DIALOG_MIN_HEIGHT = 300;
         public static final int SUCCESS_DIALOG_MAX_WIDTH = 800;
         public static final int SUCCESS_DIALOG_MAX_HEIGHT = 600;
+        public static final int INFO_DIALOG_MIN_WIDTH = 520;
+        public static final int INFO_DIALOG_PREF_WIDTH = 520;
+        public static final int INFO_DIALOG_MIN_HEIGHT = 380;
         
         // Field Dimensions
         public static final int FIELD_PREF_WIDTH = 350;
@@ -348,6 +414,7 @@ public final class SpeleoDBConstants {
         public static final int SUCCESS_AUTO_HIDE_SECONDS = 4;
         public static final int ERROR_AUTO_HIDE_SECONDS = 5;
         public static final int SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS = 5;
+        public static final int INFO_POPUP_DELAY_SECONDS = 3;
         public static final double FADE_FROM_VALUE = 0.0;
         public static final double FADE_TO_VALUE = 1.0;
     }
@@ -383,6 +450,12 @@ public final class SpeleoDBConstants {
         public static final String DATA = "data";
         public static final String ERROR = "error";
         public static final String ID = "id";
+        public static final String TITLE = "title";
+        public static final String HEADER = "header";
+        public static final String IS_ACTIVE = "is_active";
+        public static final String SOFTWARE = "software";
+        public static final String EXPIRES_AT = "expiracy_date";
+        public static final String VERSION = "version";
     }
     
     // ==================== NETWORK ERROR PATTERNS ====================
@@ -422,6 +495,7 @@ public final class SpeleoDBConstants {
         public static final ButtonType FAST_NO = new ButtonType(DIALOGS.BUTTON_NO);
         public static final ButtonType FAST_SAVE = new ButtonType(DIALOGS.BUTTON_SAVE_PROJECT, ButtonType.OK.getButtonData());
         public static final ButtonType FAST_CANCEL = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonType.CANCEL.getButtonData());
+        public static final ButtonType FAST_GOT_IT = new ButtonType(DIALOGS.BUTTON_GOT_IT, ButtonType.OK.getButtonData());
     }
     
     // ==================== MISC CONSTANTS ====================
@@ -448,7 +522,7 @@ public final class SpeleoDBConstants {
         public static final String BUTTON_NO_KEEP_LOCK = "No, Keep Lock";
         public static final String MESSAGE_PREFIX = "You have an active lock on project \"";
         public static final String MESSAGE_SUFFIX = "\".\n\nDo you want to release the lock before closing the application?\n\n";
-        public static final String MESSAGE_OPTIONS = "• Yes: Release lock (other users can edit)\n• No: Keep lock (will be released when connection times out)";
+        public static final String MESSAGE_OPTIONS = "- Yes: Release lock (other users can edit)\n- No: Keep lock (will be released when connection times out)";
         public static final String LOG_SHUTTING_DOWN_WITH_LOCK = "Application shutting down with active lock on: ";
         public static final String LOG_LOCK_TIMEOUT_RELEASE = "Lock will be released automatically when connection times out.";
         public static final String LOG_ERROR_RELEASING_LOCK = "Error releasing lock during shutdown: ";
