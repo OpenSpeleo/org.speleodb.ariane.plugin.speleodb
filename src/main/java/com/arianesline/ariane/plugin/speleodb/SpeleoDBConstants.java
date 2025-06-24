@@ -37,6 +37,11 @@ public final class SpeleoDBConstants {
         READ_AND_WRITE, 
         READ_ONLY
     }
+    // ==================== URL CONSTANTS ====================
+    public static final class URLS {
+        // public static final String WEBVIEW = "http://localhost:8000/webview/ariane/";
+        public static final String WEBVIEW = "https://www.speleoDB.org/webview/ariane/";
+    }
     
     // ==================== API ENDPOINTS ====================
     public static final class API {
@@ -271,27 +276,27 @@ public final class SpeleoDBConstants {
     // ==================== UI STYLING ====================
     public static final class STYLES {
         // Colors
-        public static final String COLOR_REQUIRED_FIELD = "#dc2626";
-        public static final String COLOR_SUCCESS_BG = "#4CAF50";
-        public static final String COLOR_ERROR_BG = "#DC143C";
-        public static final String COLOR_ERROR_BORDER = "#B22222";
+        public static final String COLOR_SUCCESS_BG = "#9CCC65";  // Green 400
+        public static final String COLOR_SUCCESS_BORDER = "#43A047";  // Green 600
+        public static final String COLOR_ERROR_BG = "#EF5350";  // Red 400
+        public static final String COLOR_ERROR_BORDER = "#E53935";  // Red 600
         public static final String COLOR_MATERIAL_PRIMARY = "#1976D2";
         public static final String COLOR_MATERIAL_SURFACE = "#FFFFFF";
         public static final String COLOR_MATERIAL_ON_SURFACE = "#212121";
         public static final String COLOR_MATERIAL_SHADOW = "rgba(0,0,0,0.2)";
         
         // Success Animation Style
-        public static final String SUCCESS_STYLE = "-fx-background-color: #4CAF50; -fx-text-fill: white; " +
+        public static final String SUCCESS_STYLE = "-fx-background-color:" + STYLES.COLOR_SUCCESS_BG + "; -fx-text-fill: white; " +
                 "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
                 "-fx-font-weight: bold; -fx-border-radius: 8; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2); " +
                 "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
         // Error Animation Style
-        public static final String ERROR_STYLE = "-fx-background-color: #DC143C; -fx-text-fill: white; " +
+        public static final String ERROR_STYLE = "-fx-background-color: " + STYLES.COLOR_ERROR_BG + "; -fx-text-fill: white; " +
                 "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
                 "-fx-font-weight: bold; -fx-border-radius: 10; " +
-                "-fx-border-color: #B22222; -fx-border-width: 2; " +
+                "-fx-border-color: " + STYLES.COLOR_ERROR_BG + "; -fx-border-width: 2; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3); " +
                 "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
@@ -429,12 +434,6 @@ public final class SpeleoDBConstants {
         public static final String SPELEODB_WORKER_THREAD_NAME = "SpeleoDB-Worker";
     }
     
-    // ==================== URL CONSTANTS ====================
-    public static final class URLS {
-        public static final String LOCAL_WEBVIEW_URL = "http://localhost:8000/webview/ariane/";
-        public static final String PROD_WEBVIEW_URL = "https://www.speleoDB.org/webview/ariane/";
-    }
-    
     // ==================== JSON FIELD NAMES ====================
     public static final class JSON_FIELDS {
         public static final String TOKEN = "token";
@@ -456,6 +455,7 @@ public final class SpeleoDBConstants {
         public static final String SOFTWARE = "software";
         public static final String EXPIRES_AT = "expiracy_date";
         public static final String VERSION = "version";
+        public static final String UUID = "uuid";
     }
     
     // ==================== NETWORK ERROR PATTERNS ====================

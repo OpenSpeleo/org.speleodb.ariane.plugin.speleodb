@@ -176,17 +176,6 @@ public class SpeleoDBControllerStateTest {
             assert dateWithoutMicroseconds.equals("2024-01-15T10:30:00");
         }
         
-        // Test URL construction edge cases
-        String baseUrl = "https://www.speleodb.org";
-        String pathSegment = "/webview/ariane/";
-        String fullUrl = baseUrl + pathSegment;
-        assert fullUrl.equals("https://www.speleodb.org/webview/ariane/");
-        
-        // Test localhost URL
-        String localhostUrl = "http://localhost:8000/webview/ariane/";
-        assert localhostUrl.startsWith("http://localhost");
-        assert localhostUrl.endsWith("/webview/ariane/");
-        
         System.out.println("✓ Edge cases tests passed");
     }
     

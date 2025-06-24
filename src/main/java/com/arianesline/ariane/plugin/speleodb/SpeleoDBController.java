@@ -3,11 +3,8 @@ package com.arianesline.ariane.plugin.speleodb;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -31,6 +28,7 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.URLS;
 
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
@@ -792,17 +790,15 @@ public class SpeleoDBController implements Initializable {
         signupButton.setVisible(true);
         
         // Use localhost URL when in debug mode, production URL otherwise
-        String aboutUrl;
-        boolean isDebugMode = isDebugMode();
+        aboutWebView.getEngine().load(URLS.WEBVIEW);
         
-        if (isDebugMode) {
-            aboutUrl = "http://localhost:8000/webview/ariane/";
-        } else {
-            // On purpose - use the main URL, not the instance one.
-            aboutUrl = "https://www.speleoDB.org/webview/ariane/";
-        }
-
-        aboutWebView.getEngine().load(aboutUrl);
+        // Hide webview scrollbars whenever they appear using ListChangeListener
+        aboutWebView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener.Change<? extends javafx.scene.Node> change) -> {
+            java.util.Set<javafx.scene.Node> scrollBars = aboutWebView.lookupAll(".scroll-bar");
+            for (javafx.scene.Node scroll : scrollBars) {
+                scroll.setVisible(false);
+            }
+        });
 
         // Ensure the About pane is expanded by default in the Accordion
         // This must be done after all UI setup to override Accordion's default behavior
@@ -3076,20 +3072,18 @@ public class SpeleoDBController implements Initializable {
                 SpeleoDBService tempService = new SpeleoDBService(this);
                 JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
                 
-                // Collect all unshown announcements
+                // Filter out announcements that have already been displayed
                 List<JsonObject> unshownAnnouncements = new ArrayList<>();
-                for (int i = 0; i < announcements.size(); i++) {
-                    JsonObject announcement = announcements.getJsonObject(i);
-                    if (!hasAnnouncementBeenDisplayed(announcement, instanceUrl)) {
+                for (JsonValue item : announcements) {
+                    JsonObject announcement = item.asJsonObject();
+                    if (!hasAnnouncementBeenDisplayed(announcement)) {
                         unshownAnnouncements.add(announcement);
                     }
                 }
                 
                 if (!unshownAnnouncements.isEmpty()) {
-                    // Create final variable for lambda expression
-                    final String finalInstanceUrl = instanceUrl;
                     // Show announcements sequentially
-                    Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0, finalInstanceUrl));
+                    Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0));
                 } else {
                     // No new announcements to show
                     logger.debug("No new announcements to display");
@@ -3233,40 +3227,13 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Generates SHA-256 hash of the announcement JSON data combined with the endpoint URL.
-     * This ensures that the same announcement from different endpoints is treated as separate.
+     * Extracts the UUID from the announcement JSON data.
      * 
      * @param announcementJson the JsonObject containing the announcement data
-     * @param endpointUrl the URL of the endpoint where the announcement was fetched from
-     * @return SHA-256 hash as hexadecimal string
+     * @return UUID string, or null if not present
      */
-    private String generateAnnouncementHash(JsonObject announcementJson, String endpointUrl) {
-        // Normalize endpoint URL for consistent hashing
-        String normalizedEndpoint = endpointUrl.toLowerCase()
-            .replaceFirst("^https?://", "")  // Remove http:// or https://
-            .replaceAll("/$", "");           // Remove trailing slash
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            
-            // Combine endpoint URL with JSON data for unique hash per endpoint
-            String combinedData = normalizedEndpoint + "|" + announcementJson.toString();
-            byte[] hashBytes = digest.digest(combinedData.getBytes(StandardCharsets.UTF_8));
-            
-            // Convert to hexadecimal string
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            logger.error("SHA-256 algorithm not available", e);
-            // Fallback to simple hash if SHA-256 is not available
-            return String.valueOf((normalizedEndpoint + "|" + announcementJson.toString()).hashCode());
-        }
+    private String getAnnouncementUUID(JsonObject announcementJson) {
+        return announcementJson.getString(JSON_FIELDS.UUID, null);
     }
 
     /**
@@ -3275,33 +3242,42 @@ public class SpeleoDBController implements Initializable {
      * @param announcementJson the JsonObject containing the announcement data
      * @return true if the announcement has been displayed before, false otherwise
      */
-    private boolean hasAnnouncementBeenDisplayed(JsonObject announcementJson, String endpointUrl) {
-        String hash = generateAnnouncementHash(announcementJson, endpointUrl);
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-        String displayedHashes = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+    private boolean hasAnnouncementBeenDisplayed(JsonObject announcementJson) {
+        String uuid = getAnnouncementUUID(announcementJson);
+        if (uuid == null) {
+            logger.warn("Announcement missing UUID field, treating as not displayed");
+            return false;
+        }
         
-        boolean wasDisplayed = displayedHashes.contains(hash);
+        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+        
+        boolean wasDisplayed = displayedUUIDs.contains(uuid);
         if (wasDisplayed) {
-            logger.debug("Announcement already displayed (hash: " + hash.substring(0, 8) + "...)");
+            logger.debug("Announcement already displayed (UUID: " + uuid + ")");
         }
         return wasDisplayed;
     }
 
     /**
-     * Marks an announcement as displayed by storing its hash in preferences.
-     * In debug mode, does not store the hash to allow repeated displays.
+     * Marks an announcement as displayed by storing its UUID in preferences.
      * 
      * @param announcementJson the JsonObject containing the announcement data
      */
-    private void markAnnouncementAsDisplayed(JsonObject announcementJson, String endpointUrl) {
-        String hash = generateAnnouncementHash(announcementJson, endpointUrl);
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-        String displayedHashes = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+    private void markAnnouncementAsDisplayed(JsonObject announcementJson) {
+        String uuid = getAnnouncementUUID(announcementJson);
+        if (uuid == null) {
+            logger.warn("Cannot mark announcement as displayed - missing UUID field");
+            return;
+        }
         
-        if (!displayedHashes.contains(hash)) {
-            String updatedHashes = displayedHashes.isEmpty() ? hash : displayedHashes + "," + hash;
-            prefs.put(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, updatedHashes);
-            logger.debug("Marked announcement as displayed (hash: " + hash.substring(0, 8) + "...)");
+        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
+        
+        if (!displayedUUIDs.contains(uuid)) {
+            String updatedUUIDs = displayedUUIDs.isEmpty() ? uuid : displayedUUIDs + "," + uuid;
+            prefs.put(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, updatedUUIDs);
+            logger.debug("Marked announcement as displayed (UUID: " + uuid + ")");
         }
     }
 
@@ -3327,7 +3303,7 @@ public class SpeleoDBController implements Initializable {
      * @param announcements list of announcements to show
      * @param currentIndex index of the current announcement to show
      */
-    private void showAnnouncementsSequentially(List<JsonObject> announcements, int currentIndex, String endpointUrl) {
+    private void showAnnouncementsSequentially(List<JsonObject> announcements, int currentIndex) {
         if (currentIndex >= announcements.size()) {
             // All announcements have been shown
             logger.debug("Finished showing " + announcements.size() + " announcements");
@@ -3355,17 +3331,14 @@ public class SpeleoDBController implements Initializable {
         Dialog<Void> infoDialog = createInformationDialog(title, header, message);
         
         // Mark this announcement as displayed
-        markAnnouncementAsDisplayed(announcement, endpointUrl);
-        
-        // Create final variables for lambda expression
-        final String finalEndpointUrl = endpointUrl;
+        markAnnouncementAsDisplayed(announcement);
         
         // Set up callback to show next announcement when this one is closed
         infoDialog.setOnHidden(e -> {
             // Show next announcement after a brief delay
             Timeline nextAnnouncementDelay = createTrackedTimeline(
                 new KeyFrame(Duration.millis(500), event -> 
-                    showAnnouncementsSequentially(announcements, currentIndex + 1, finalEndpointUrl))
+                    showAnnouncementsSequentially(announcements, currentIndex + 1))
             );
             nextAnnouncementDelay.play();
         });

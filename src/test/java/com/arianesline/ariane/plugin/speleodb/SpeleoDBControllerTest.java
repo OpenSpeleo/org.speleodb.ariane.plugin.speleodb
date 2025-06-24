@@ -1,5 +1,14 @@
 package com.arianesline.ariane.plugin.speleodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+
 import java.awt.Desktop;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -9,11 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Assertions;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,12 +26,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.json.Json;
@@ -368,16 +369,6 @@ class SpeleoDBControllerTest {
             assertThat(controllerLogic.getPrefInstance()).isEqualTo("SDB_INSTANCE");
             assertThat(controllerLogic.getPrefSaveCreds()).isEqualTo("SDB_SAVECREDS");
             assertThat(controllerLogic.getDefaultInstance()).isEqualTo("www.speleoDB.org");
-        }
-        
-        @Test
-        @DisplayName("Should generate correct URLs based on debug mode")
-        void shouldGenerateCorrectUrlsBasedOnDebugMode() {
-            String prodUrl = controllerLogic.generateAboutUrl(false);
-            String debugUrl = controllerLogic.generateAboutUrl(true);
-            
-            assertThat(prodUrl).isEqualTo("https://www.speleodb.org/webview/ariane/");
-            assertThat(debugUrl).isEqualTo("http://localhost:8000/webview/ariane/");
         }
     }
     
@@ -1425,12 +1416,6 @@ class SpeleoDBControllerTest {
         
         public boolean isDebugModeFromSystemProperty() {
             return Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"));
-        }
-        
-        public String generateAboutUrl(boolean isDebugMode) {
-            return isDebugMode ? 
-                "http://localhost:8000/webview/ariane/" : 
-                "https://www.speleodb.org/webview/ariane/";
         }
         
         // Confirmation popup methods
