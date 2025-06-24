@@ -15,6 +15,12 @@ public final class SpeleoDBConstants {
     public static final String VERSION = null;
     public static final String VERSION_DISPLAY = "v" + VERSION;
     
+    /**
+     * ARIANE Software Version (for update checking)
+     */
+    public static final String ARIANE_VERSION = "25.2.1";
+    public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
+    
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
         throw new AssertionError("Constants class should not be instantiated");
@@ -49,6 +55,7 @@ public final class SpeleoDBConstants {
         public static final String AUTH_TOKEN_ENDPOINT = BASE_PATH + "/user/auth-token/";
         public static final String PROJECTS_ENDPOINT = BASE_PATH + "/projects/";
         public static final String ANNOUNCEMENTS_ENDPOINT = BASE_PATH + "/announcements/";
+        public static final String PLUGIN_RELEASES_ENDPOINT = BASE_PATH + "/plugin_releases/";
         public static final String UPLOAD_ARIANE_TML_PATH = "/upload/ariane_tml/";
         public static final String ACQUIRE_LOCK_PATH = "/acquire/";
         public static final String RELEASE_LOCK_PATH = "/release/";
@@ -66,7 +73,7 @@ public final class SpeleoDBConstants {
     public static final class NETWORK {
         public static final String HTTP_PROTOCOL = "http://";
         public static final String HTTPS_PROTOCOL = "https://";
-        public static final String LOCAL_PATTERN = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
+        public static final String LOCAL_PATTERN = "(^localhost(:[0-9]+)?$)|(^127\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$)|(^10\\.[0-9]+\\.[0-9]+\\.[0-9]+(:[0-9]+)?$)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.[0-9]+\\.[0-9]+(:[0-9]+)?$)|(^192\\.168\\.[0-9]+\\.[0-9]+(:[0-9]+)?$)";
         public static final int CONNECT_TIMEOUT_SECONDS = 30;
         public static final int REQUEST_TIMEOUT_SECONDS = 60;
         public static final int DOWNLOAD_TIMEOUT_SECONDS = 120;
@@ -118,9 +125,11 @@ public final class SpeleoDBConstants {
     // ==================== FILE PATHS & DIRECTORIES ====================
     public static final class PATHS {
         public static final String ARIANE_ROOT_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane";
+        public static final String PLUGINS_DIR = ARIANE_ROOT_DIR + System.getProperty("file.separator") + "Plugins";
         public static final String COUNTRIES_RESOURCE = "countries.json";
         public static final String DEBUG_PROPERTIES = "/debug.properties";
         public static final String TML_FILE_EXTENSION = ".tml";
+        public static final String JAR_FILE_EXTENSION = ".jar";
         public static final String SPELEODB_FXML = "/fxml/SpeleoDB.fxml";
         public static final String LOGO_IMAGE = "/images/logo.png";
         public static final String EMPTY_TML = "/tml/empty_project.tml";
@@ -185,6 +194,20 @@ public final class SpeleoDBConstants {
         public static final String OAUTH_TOKEN_SAVED = "OAuth token saved to preferences (format validated)";
         public static final String OAUTH_TOKEN_FORMAT_PASSED = "OAuth token format validation: PASSED";
         public static final String ADDING_SPELEODB_ID = "Adding SpeleoDB ID: ";
+        
+        // Update Messages
+        public static final String UPDATE_CHECK_STARTING = "Checking for SpeleoDB plugin updates...";
+        public static final String UPDATE_AVAILABLE = "SpeleoDB update available: v%s";
+        public static final String UPDATE_NOT_AVAILABLE = "SpeleoDB plugin is up to date (v%s)";
+        public static final String UPDATE_DOWNLOAD_STARTING = "Downloading SpeleoDB update v%s...";
+        public static final String UPDATE_DOWNLOAD_SUCCESS = "SpeleoDB updated to version %s";
+        public static final String UPDATE_HASH_VERIFICATION_FAILED = "Update download failed: SHA256 hash verification failed";
+        public static final String UPDATE_DOWNLOAD_FAILED = "Failed to download SpeleoDB update: %s";
+        public static final String UPDATE_CHECK_FAILED = "Failed to check for updates: %s";
+        public static final String UPDATE_INSTALL_SUCCESS = "SpeleoDB plugin updated successfully to v%s";
+        public static final String UPDATE_DIALOG_TITLE = "SpeleoDB Updated";
+        public static final String UPDATE_DIALOG_HEADER = "Plugin Update Successful";
+        public static final String UPDATE_RESTART_WARNING = "Please restart Ariane now for the new plugin to take effect";
         
         // Loading Messages
         public static final String LOADING_PROJECT = "Loading project file...";
@@ -336,6 +359,20 @@ public final class SpeleoDBConstants {
                 "-fx-wrap-text: true; " +
                 "-fx-padding: 8 0 8 0;";
         
+        public static final String MATERIAL_WARNING_TEXT_STYLE = 
+                "-fx-font-size: 14px; " +
+                "-fx-font-weight: bold; " +
+                "-fx-text-fill: #F57C00; " +
+                "-fx-background-color: #FFF3E0; " +
+                "-fx-background-radius: 4; " +
+                "-fx-padding: 12 16; " +
+                "-fx-border-color: #FFB74D; " +
+                "-fx-border-width: 1; " +
+                "-fx-border-radius: 4; " +
+                "-fx-line-spacing: 4; " +
+                "-fx-wrap-text: true; " +
+                "-fx-margin: 8 0 8 0;";
+        
         public static final String MATERIAL_BUTTON_STYLE = 
                 "-fx-background-color: " + COLOR_MATERIAL_PRIMARY + "; " +
                 "-fx-text-fill: white; " +
@@ -456,6 +493,13 @@ public final class SpeleoDBConstants {
         public static final String EXPIRES_AT = "expiracy_date";
         public static final String VERSION = "version";
         public static final String UUID = "uuid";
+        // Plugin release fields
+        public static final String PLUGIN_VERSION = "plugin_version";
+        public static final String SOFTWARE_VERSION = "software_version";
+        public static final String OPERATING_SYSTEM = "operating_system";
+        public static final String DOWNLOAD_URL = "download_url";
+        public static final String SHA256_HASH = "sha256_hash";
+        public static final String CHANGELOG = "changelog";
     }
     
     // ==================== NETWORK ERROR PATTERNS ====================

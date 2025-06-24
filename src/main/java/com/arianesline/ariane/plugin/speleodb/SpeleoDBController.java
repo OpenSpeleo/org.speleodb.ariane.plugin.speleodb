@@ -1,10 +1,16 @@
 package com.arianesline.ariane.plugin.speleodb;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -20,10 +26,12 @@ import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.HTTP_STATUS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.ICONS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
+import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
 import com.arianesline.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
@@ -3057,40 +3065,26 @@ public class SpeleoDBController implements Initializable {
      * Shows a Material Design style information popup with welcome message.
      * This popup appears 3 seconds after the application starts to provide
      * helpful information to new users without being intrusive.
-     * Fetches the latest announcement from the SpeleoDB API and shows all unshown announcements.
+     * First checks for plugin updates, then fetches the latest announcement from the SpeleoDB API.
      */
     private void showInformationPopup() {
-        // Fetch announcement data asynchronously to avoid blocking UI
+        // Fetch data asynchronously to avoid blocking UI
         parentPlugin.executorService.execute(() -> {
             try {
-                // Try to fetch announcement from API
+                // Get instance URL
                 String instanceUrl = instanceTextField.getText();
                 if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
                     instanceUrl = PREFERENCES.DEFAULT_INSTANCE;
                 }
                 
-                SpeleoDBService tempService = new SpeleoDBService(this);
-                JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
+                // First check for plugin updates
+                checkForPluginUpdates(instanceUrl);
                 
-                // Filter out announcements that have already been displayed
-                List<JsonObject> unshownAnnouncements = new ArrayList<>();
-                for (JsonValue item : announcements) {
-                    JsonObject announcement = item.asJsonObject();
-                    if (!hasAnnouncementBeenDisplayed(announcement)) {
-                        unshownAnnouncements.add(announcement);
-                    }
-                }
-                
-                if (!unshownAnnouncements.isEmpty()) {
-                    // Show announcements sequentially
-                    Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0));
-                } else {
-                    // No new announcements to show
-                    logger.debug("No new announcements to display");
-                }
+                // Then check for announcements
+                checkForAnnouncements(instanceUrl);
                 
             } catch (Exception e) {
-                logger.warn("Failed to fetch announcements, error: " + e.getMessage());
+                logger.warn("Failed to fetch updates and announcements, error: " + e.getMessage());
             }
         });
     }
@@ -3463,6 +3457,321 @@ public class SpeleoDBController implements Initializable {
             fallbackDialog.setContentText(message);
             fallbackDialog.getDialogPane().getButtonTypes().add(BUTTON_TYPES.FAST_GOT_IT);
             return fallbackDialog;
+        }
+    }
+
+    /**
+     * Checks for plugin updates and handles the update process if available.
+     * 
+     * @param instanceUrl the SpeleoDB instance URL to check for updates
+     */
+    private void checkForPluginUpdates(String instanceUrl) {
+        try {
+            logger.debug(MESSAGES.UPDATE_CHECK_STARTING);
+            
+            SpeleoDBService tempService = new SpeleoDBService(this);
+            JsonArray releases = tempService.fetchPluginReleases(instanceUrl);
+            
+            if (releases.isEmpty()) {
+                logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
+                return;
+            }
+            
+            // Find the latest version
+            JsonObject latestPluginJson = null;
+            String latestPluginVersion = null;
+            
+            for (JsonValue releaseJsonValue : releases) {
+                JsonObject releaseJson = releaseJsonValue.asJsonObject();
+                String pluginVersion = releaseJson.getString(JSON_FIELDS.PLUGIN_VERSION, null);
+                
+                if (pluginVersion != null) {
+                    if (latestPluginVersion == null || compareVersions(pluginVersion, latestPluginVersion) > 0) {
+                        latestPluginVersion = pluginVersion;
+                        latestPluginJson = releaseJson;
+                    }
+                }
+            }
+            
+            if (latestPluginJson == null || latestPluginVersion == null) {
+                // No candidate for update found
+                logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
+                return;
+            }
+            
+            // Compare with current version
+            if (SpeleoDBConstants.VERSION != null && compareVersions(latestPluginVersion, SpeleoDBConstants.VERSION) > 0) {
+                logger.info(String.format(MESSAGES.UPDATE_AVAILABLE, latestPluginVersion));
+                
+                // Download and install the update
+                downloadAndInstallUpdate(latestPluginJson, latestPluginVersion);
+                
+            } else {
+                logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
+            }
+            
+        } catch (Exception e) {
+            logger.warn(String.format(MESSAGES.UPDATE_CHECK_FAILED, e.getMessage()));
+        }
+    }
+    
+    /**
+     * Downloads and installs a plugin update.
+     * 
+     * @param release the JsonObject containing release information
+     * @param version the version string of the update
+     */
+    private void downloadAndInstallUpdate(JsonObject release, String version) {
+        try {
+            String downloadUrl = release.getString(JSON_FIELDS.DOWNLOAD_URL, null);
+            String expectedHash = release.getString(JSON_FIELDS.SHA256_HASH, null);
+            String changelog = release.getString(JSON_FIELDS.CHANGELOG, "");
+            
+            if (downloadUrl == null || expectedHash == null) {
+                logger.error("Invalid release data: missing download URL or hash");
+                return;
+            }
+            
+            logger.info(String.format(MESSAGES.UPDATE_DOWNLOAD_STARTING, version));
+            
+            // Download the file
+            byte[] fileData = downloadFile(downloadUrl);
+            
+            // Verify SHA256 hash
+            if (!verifyFileHash(fileData, expectedHash)) {
+                logger.error(MESSAGES.UPDATE_HASH_VERIFICATION_FAILED);
+                return;
+            }
+            
+            // Create plugins directory if it doesn't exist
+            Path pluginsDir = Paths.get(PATHS.PLUGINS_DIR);
+            Files.createDirectories(pluginsDir);
+            
+            // Extract filename from download URL to preserve the exact filename
+            String fileName;
+            URI downloadUri = new URI(downloadUrl);
+            String urlPath = downloadUri.getPath();
+            fileName = urlPath.substring(urlPath.lastIndexOf('/') + 1);
+            
+            // Validate extracted filename
+            if (fileName.isEmpty() || !fileName.endsWith(PATHS.JAR_FILE_EXTENSION)) {
+                throw new IllegalArgumentException("Invalid filename extracted from download URL: " + fileName);
+            }
+            
+            // Save the file to plugins directory (overwrite if exists)
+            Path targetFile = pluginsDir.resolve(fileName);
+            Files.write(targetFile, fileData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            
+            logger.info(String.format(MESSAGES.UPDATE_INSTALL_SUCCESS, version));
+            
+            // Show success dialog on UI thread
+            Platform.runLater(() -> showUpdateSuccessDialog(version, changelog));
+            
+        } catch (Exception e) {
+            logger.error(String.format(MESSAGES.UPDATE_DOWNLOAD_FAILED, e.getMessage()), e);
+        }
+    }
+    
+    /**
+     * Downloads a file from the given URL.
+     * 
+     * @param url the URL to download from
+     * @return byte array containing the file data
+     * @throws Exception if download fails
+     */
+    private byte[] downloadFile(String url) throws Exception {
+        URI uri = new URI(url);
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .GET()
+                .timeout(java.time.Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))
+                .build();
+                
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))
+                .followRedirects(HttpClient.Redirect.NORMAL)  // Follow redirects automatically
+                .build();
+                
+        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        
+        if (response.statusCode() != HTTP_STATUS.OK) {
+            throw new Exception("HTTP " + response.statusCode() + " when downloading update");
+        }
+        
+        return response.body();
+    }
+    
+    /**
+     * Verifies the SHA256 hash of file data.
+     * 
+     * @param fileData the file data to verify
+     * @param expectedHash the expected SHA256 hash (hex string)
+     * @return true if hash matches, false otherwise
+     */
+    private boolean verifyFileHash(byte[] fileData, String expectedHash) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(fileData);
+            
+            // Convert to hex string
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            
+            String actualHash = hexString.toString();
+            return actualHash.equalsIgnoreCase(expectedHash);
+            
+        } catch (Exception e) {
+            logger.error("Failed to verify file hash: " + e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Compares two version strings in CalVer format (YYYY.MM.DD).
+     * 
+     * @param version1 first version string
+     * @param version2 second version string
+     * @return positive if version1 > version2, negative if version1 < version2, 0 if equal
+     */
+    private int compareVersions(String version1, String version2) {
+        if (version1 == null && version2 == null) return 0;
+        if (version1 == null) return -1;
+        if (version2 == null) return 1;
+        
+        String[] parts1 = version1.split("\\.");
+        String[] parts2 = version2.split("\\.");
+        
+        int maxLength = Math.max(parts1.length, parts2.length);
+        
+        for (int i = 0; i < maxLength; i++) {
+            int num1 = i < parts1.length ? parseVersionPart(parts1[i]) : 0;
+            int num2 = i < parts2.length ? parseVersionPart(parts2[i]) : 0;
+            
+            int comparison = Integer.compare(num1, num2);
+            if (comparison != 0) {
+                return comparison;
+            }
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Parses a version part to integer, handling non-numeric parts.
+     * 
+     * @param part the version part string
+     * @return integer value of the part, or 0 if not numeric
+     */
+    private int parseVersionPart(String part) {
+        try {
+            return Integer.parseInt(part);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+    
+    /**
+     * Shows a success dialog when an update has been installed.
+     * 
+     * @param version the version that was installed
+     * @param changelog the changelog for the update
+     */
+    private void showUpdateSuccessDialog(String version, String changelog) {
+        try {
+            Dialog<Void> updateDialog = new Dialog<>();
+            updateDialog.setTitle(MESSAGES.UPDATE_DIALOG_TITLE);
+            updateDialog.setHeaderText(null);
+            
+            DialogPane dialogPane = updateDialog.getDialogPane();
+            dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
+            dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
+            dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
+            dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            
+            dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
+            
+            VBox content = new VBox();
+            content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
+            
+            Label titleLabel = new Label(MESSAGES.UPDATE_DIALOG_HEADER);
+            titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
+            
+            Label messageLabel = new Label(String.format(MESSAGES.UPDATE_DOWNLOAD_SUCCESS, version));
+            messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+            messageLabel.setWrapText(true);
+            
+            Label changelogLabel = new Label(changelog);
+            changelogLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+            changelogLabel.setWrapText(true);
+            
+            // Add restart warning with material design warning style
+            Label restartWarningLabel = new Label(MESSAGES.UPDATE_RESTART_WARNING);
+            restartWarningLabel.setStyle(STYLES.MATERIAL_WARNING_TEXT_STYLE);
+            restartWarningLabel.setWrapText(true);
+            restartWarningLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
+            restartWarningLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            restartWarningLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            
+            content.getChildren().addAll(titleLabel, messageLabel, changelogLabel, restartWarningLabel);
+            dialogPane.setContent(content);
+            
+            ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
+            dialogPane.getButtonTypes().add(gotItButton);
+            
+            Platform.runLater(() -> {
+                javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
+                if (button != null) {
+                    button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
+                    button.setOnMouseEntered(e -> button.setStyle(STYLES.MATERIAL_BUTTON_HOVER_STYLE));
+                    button.setOnMouseExited(e -> button.setStyle(STYLES.MATERIAL_BUTTON_STYLE));
+                }
+            });
+            
+            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
+                updateDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+            }
+            
+            updateDialog.show();
+            
+        } catch (Exception e) {
+            logger.error("Error showing update success dialog", e);
+        }
+    }
+    
+    /**
+     * Checks for announcements and displays them.
+     * 
+     * @param instanceUrl the SpeleoDB instance URL to check for announcements
+     */
+    private void checkForAnnouncements(String instanceUrl) {
+        try {
+            SpeleoDBService tempService = new SpeleoDBService(this);
+            JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
+            
+            // Filter out announcements that have already been displayed
+            List<JsonObject> unshownAnnouncements = new ArrayList<>();
+            for (JsonValue item : announcements) {
+                JsonObject announcement = item.asJsonObject();
+                if (!hasAnnouncementBeenDisplayed(announcement)) {
+                    unshownAnnouncements.add(announcement);
+                }
+            }
+            
+            if (!unshownAnnouncements.isEmpty()) {
+                // Show announcements sequentially
+                Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0));
+            } else {
+                // No new announcements to show
+                logger.debug("No new announcements to display");
+            }
+            
+        } catch (Exception e) {
+            logger.warn("Failed to fetch announcements, error: " + e.getMessage());
         }
     }
 

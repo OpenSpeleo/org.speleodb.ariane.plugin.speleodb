@@ -501,9 +501,7 @@ public class SpeleoDBService {
     public JsonArray fetchAnnouncements(String instanceUrl) throws Exception {
         // Set up instance URL for this request (without requiring authentication)
         String tempInstance;
-        String localPattern = NETWORK.LOCAL_PATTERN;
-
-        if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
+        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(instanceUrl).find()) {
             // For local addresses and IPs, use http://
             tempInstance = NETWORK.HTTP_PROTOCOL + instanceUrl;
         } else {
@@ -566,6 +564,61 @@ public class SpeleoDBService {
                     })
                     .collect(Json::createArrayBuilder, 
                             (builder, announcement) -> builder.add(announcement),
+                            (builder1, builder2) -> {
+                                // This combiner is for parallel streams, but we're using sequential
+                                throw new UnsupportedOperationException("Parallel processing not supported");
+                            })
+                    .build();
+        }
+    }
+
+    /* ========================= PLUGIN UPDATES ======================== */
+
+    /**
+     * Fetches plugin releases from SpeleoDB for the ARIANE software.
+     * This endpoint does not require authentication.
+     *
+     * @param instanceUrl the SpeleoDB instance URL to fetch releases from
+     * @return A JsonArray containing plugin release details for ARIANE
+     * @throws Exception if the request fails
+     */
+    public JsonArray fetchPluginReleases(String instanceUrl) throws Exception {
+        // Set up instance URL for this request (without requiring authentication)
+        String tempInstance;
+        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(instanceUrl).find()) {
+            // For local addresses and IPs, use http://
+            tempInstance = NETWORK.HTTP_PROTOCOL + instanceUrl;
+        } else {
+            // For non-local addresses, use https://
+            tempInstance = NETWORK.HTTPS_PROTOCOL + instanceUrl;
+        }
+
+        URI uri = new URI(tempInstance + API.PLUGIN_RELEASES_ENDPOINT);
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .GET()
+                .setHeader(HEADERS.CONTENT_TYPE, HEADERS.APPLICATION_JSON)
+                .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))
+                .build();
+
+        HttpResponse<String> response = createHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != HTTP_STATUS.OK) {
+            throw new Exception("Failed to fetch plugin releases with status code: " + response.statusCode());
+        }
+
+        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+            JsonObject responseObject = reader.readObject();
+            JsonArray releases = responseObject.getJsonArray(JSON_FIELDS.DATA);
+            
+            // Filter for ARIANE releases matching current software version
+            return releases.stream()
+                    .filter(JsonObject.class::isInstance)
+                    .map(JsonObject.class::cast)
+                    .filter(release -> SpeleoDBConstants.ARIANE_SOFTWARE_NAME.equals(release.getString(JSON_FIELDS.SOFTWARE, "")))
+                    .filter(release -> SpeleoDBConstants.ARIANE_VERSION.equals(release.getString(JSON_FIELDS.SOFTWARE_VERSION, "")))
+                    .collect(Json::createArrayBuilder, 
+                            (builder, release) -> builder.add(release),
                             (builder1, builder2) -> {
                                 // This combiner is for parallel streams, but we're using sequential
                                 throw new UnsupportedOperationException("Parallel processing not supported");
