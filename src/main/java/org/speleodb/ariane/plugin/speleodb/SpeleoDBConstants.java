@@ -1,5 +1,7 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import java.util.prefs.Preferences;
+
 import javafx.scene.control.ButtonType;
 
 /**
@@ -13,13 +15,60 @@ public final class SpeleoDBConstants {
      * SpeleoDB Plugin Version (CalVer format: YYYY.MM.DD)
      */
     public static final String VERSION = null;
-    public static final String VERSION_DISPLAY = "v" + VERSION;
+    public static final String VERSION_DISPLAY = VERSION != null ? "v" + VERSION : "Development";
     
     /**
-     * ARIANE Software Version (for update checking)
+     * ARIANE Software Version (loaded dynamically from Ariane preferences)
      */
-    public static final String ARIANE_VERSION = "25.2.1";
+    public static final String ARIANE_VERSION;
     public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
+    
+    // Messages from static initialization (logged later to avoid circular dependency)
+    private static final String ARIANE_VERSION_INIT_MESSAGE;
+    private static final String ARIANE_VERSION_INIT_ERROR;
+    
+    // Static initialization block to load ARIANE_VERSION from preferences
+    static {
+        String version = null;
+        String initMessage = null;
+        String initError = null;
+        
+        try {
+            // Try to load Ariane classes directly (simple approach when available)
+            Class<?> arianeClass = Class.forName("com.arianesline.ariane.Ariane");
+            Class<?> constantClass = Class.forName("com.arianesline.ariane.Constant");
+            
+            Preferences ariane_prefs = Preferences.userNodeForPackage(arianeClass);
+            String versionKey = (String) constantClass.getField("VERSION_KEY").get(null);
+            version = ariane_prefs.get(versionKey, "");
+            
+            if (version != null && !version.trim().isEmpty()) {
+                initMessage = "Ariane version loaded successfully: " + version;
+            } else {
+                initError = "Ariane version not found in preferences";
+                version = "";
+            }
+        } catch (Exception e) {
+            initError = "Failed to load Ariane classes: " + e.getMessage();
+            version = "";
+        }
+        
+        ARIANE_VERSION = version;
+        ARIANE_VERSION_INIT_MESSAGE = initMessage;
+        ARIANE_VERSION_INIT_ERROR = initError;
+    }
+    
+    /**
+     * Logs any deferred initialization messages. Call this after the logger is fully initialized.
+     */
+    public static void logDeferredInitMessages() {
+        if (ARIANE_VERSION_INIT_MESSAGE != null) {
+            SpeleoDBLogger.getInstance().info(ARIANE_VERSION_INIT_MESSAGE);
+        }
+        if (ARIANE_VERSION_INIT_ERROR != null) {
+            SpeleoDBLogger.getInstance().error(ARIANE_VERSION_INIT_ERROR);
+        }
+    }
     
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
@@ -139,7 +188,9 @@ public final class SpeleoDBConstants {
     
     // ==================== LOGGING CONFIGURATION ====================
     public static final class LOGGING {
-        public static final String LOG_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane" + System.getProperty("file.separator") + "logs";
+        public static final String ARIANE_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane";
+        public static final String SDB_DIR = ARIANE_DIR + System.getProperty("file.separator") + "speleodb";
+        public static final String LOG_DIR = SDB_DIR + System.getProperty("file.separator") + "logs";
         public static final String LOG_FILE_NAME = "speleodb-plugin.log";
         public static final String LOG_FILE_PATH = LOG_DIR + System.getProperty("file.separator") + LOG_FILE_NAME;
         public static final String LOG_ARCHIVE_PATTERN = "speleodb-plugin-%d{yyyy-MM-dd}.log";
@@ -495,7 +546,8 @@ public final class SpeleoDBConstants {
         public static final String UUID = "uuid";
         // Plugin release fields
         public static final String PLUGIN_VERSION = "plugin_version";
-        public static final String SOFTWARE_VERSION = "software_version";
+        public static final String MIN_SOFTWARE_VERSION = "min_software_version";
+        public static final String MAX_SOFTWARE_VERSION = "max_software_version";
         public static final String OPERATING_SYSTEM = "operating_system";
         public static final String DOWNLOAD_URL = "download_url";
         public static final String SHA256_HASH = "sha256_hash";

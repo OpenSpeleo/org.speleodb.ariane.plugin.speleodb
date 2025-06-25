@@ -611,12 +611,39 @@ public class SpeleoDBService {
             JsonObject responseObject = reader.readObject();
             JsonArray releases = responseObject.getJsonArray(JSON_FIELDS.DATA);
             
-            // Filter for ARIANE releases matching current software version
+            // Filter for ARIANE releases that are compatible with current software version
             return releases.stream()
                     .filter(JsonObject.class::isInstance)
                     .map(JsonObject.class::cast)
                     .filter(release -> SpeleoDBConstants.ARIANE_SOFTWARE_NAME.equals(release.getString(JSON_FIELDS.SOFTWARE, "")))
-                    .filter(release -> SpeleoDBConstants.ARIANE_VERSION.equals(release.getString(JSON_FIELDS.SOFTWARE_VERSION, "")))
+                    .filter(release -> {
+                        // Check if current Ariane version is within the release's version bounds
+                        String minVersion = release.getString(JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
+                        String maxVersion = release.getString(JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
+                        String currentVersion = SpeleoDBConstants.ARIANE_VERSION;
+                        
+                        // If current version is empty, skip all releases (can't determine compatibility)
+                        if (currentVersion.isEmpty()) {
+                            return false;
+                        }
+                        
+                        // If no version bounds specified, include the release
+                        if (minVersion == null && maxVersion == null) {
+                            return true;
+                        }
+                        
+                        // Check minimum version (current >= min)
+                        if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                            return false;
+                        }
+                        
+                        // Check maximum version (current <= max)
+                        if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                            return false;
+                        }
+                        
+                        return true;
+                    })
                     .collect(Json::createArrayBuilder, 
                             (builder, release) -> builder.add(release),
                             (builder1, builder2) -> {

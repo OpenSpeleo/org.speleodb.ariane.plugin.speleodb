@@ -31,62 +31,26 @@ dependencies {
     testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
 }
 
-tasks.register('buildDebug') {
+// Task to clean build/libs directory before build
+tasks.register('cleanLibs') {
     group = 'build'
-    description = 'Builds the SpeleoDB plugin with debug information enabled and localhost URLs'
-    
-    dependsOn generateReleaseVersion
-    
-    doFirst {
-        println 'Starting SpeleoDB plugin debug build with localhost configuration...'
-        
-        // Create debug configuration file
-        def debugConfigDir = file("src/main/resources")
-        debugConfigDir.mkdirs()
-        def debugConfigFile = new File(debugConfigDir, "debug.properties")
-        debugConfigFile.text = "debug.mode=true\n"
-        
-        // Configure debug settings for compilation
-        tasks.withType(JavaCompile) {
-            options.debug = true
-            options.debugOptions.debugLevel = "source,lines,vars"
-            options.compilerArgs += ['-g', '-Xlint:all', '-parameters']
-        }
-    }
-    
-    dependsOn 'compileJava', 'processResources', 'classes', 'jar'
+    description = 'Cleans the build/libs directory before building'
     
     doLast {
-        println 'SpeleoDB plugin debug build completed with localhost URLs enabled'
-        println 'Debug configuration file created at: src/main/resources/debug.properties'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('buildProduction') {
-    group = 'build'
-    description = 'Builds the SpeleoDB plugin for production with remote URLs'
-    
-    dependsOn generateReleaseVersion
-    
-    doFirst {
-        println 'Starting SpeleoDB plugin production build...'
-        
-        // Remove debug configuration file if it exists
-        def debugConfigFile = file("src/main/resources/debug.properties")
-        if (debugConfigFile.exists()) {
-            debugConfigFile.delete()
+        def libsDir = file('build/libs')
+        if (libsDir.exists()) {
+            println "Cleaning build/libs directory..."
+            libsDir.listFiles().each { file ->
+                if (file.isFile()) {
+                    println "Deleting: ${file.name}"
+                    file.delete()
+                }
+            }
+            println "build/libs directory cleaned"
+        } else {
+            println "build/libs directory does not exist, skipping clean"
         }
     }
-    
-    dependsOn 'compileJava', 'processResources', 'classes', 'jar'
-    
-    doLast {
-        println 'SpeleoDB plugin production build completed'
-    }
-    
-    finalizedBy resetReleaseVersion
 }
 
 // Task to generate version based on build date
@@ -95,8 +59,7 @@ tasks.register('generateReleaseVersion') {
     description = 'Generates version string based on current date in CalVer format (YYYY.MM.DD)'
     
     doLast {
-        def today = new Date()
-        def versionString = today.format('yyyy.MM.dd')
+        def versionString = project.calVerVersion
         def versionDisplay = "v${versionString}"
         
         println "Generating version: ${versionString} (display: ${versionDisplay})"
@@ -319,24 +282,13 @@ tasks.register('runPluginTests', JavaExec) {
     finalizedBy resetReleaseVersion
 }
 
-tasks.register('testDebug', JavaExec) {
-    group = 'verification'
-    description = 'Runs tests with debug mode enabled'
-    
-    dependsOn generateReleaseVersion, buildDebug, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'org.speleodb.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
-    
-    doLast {
-        println 'HTTPRequestMultipartBody tests completed in debug mode!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
 
-// Configure jar task to exclude version from filename
+// Store the CalVer version as a project property
+ext.calVerVersion = new Date().format('yyyy.MM.dd')
+
+// Configure jar task to use CalVer version in filename
 jar {
+    dependsOn generateReleaseVersion, cleanLibs
     archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
-    archiveVersion = ''
+    archiveVersion = project.calVerVersion
 }

@@ -7,6 +7,7 @@ import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -703,7 +704,7 @@ public class SpeleoDBController implements Initializable {
     private void loadPreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
 
-        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREFERENCES.PREF_SAVE_CREDS, false));
+        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREFERENCES.PREF_SAVE_CREDS, true));
 
         if (rememberCredentialsCheckBox.isSelected()) {
             emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
@@ -1015,7 +1016,11 @@ public class SpeleoDBController implements Initializable {
         
         // Initialize logging
         logger.debug("SpeleoDBController initializing");
-        logger.info("SpeleoDB Plugin started - Version: " + (SpeleoDBConstants.VERSION != null ? SpeleoDBConstants.VERSION_DISPLAY : "Development"));
+        logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
+        logger.info("SpeleoDB Plugin Version: " + SpeleoDBConstants.VERSION_DISPLAY);
+        
+        // Log any deferred initialization messages from SpeleoDBConstants
+        SpeleoDBConstants.logDeferredInitMessages();
         
         setupUI();
         setupKeyboardShortcuts();
@@ -1076,7 +1081,11 @@ public class SpeleoDBController implements Initializable {
                 speleoDBService = new SpeleoDBService(this);
                 speleoDBService.authenticate(email, password, oauthToken, instance);
                 logger.info("Connected successfully.");
-                savePreferences();
+                
+                // Only save preferences if "remember me" is checked
+                if (rememberCredentialsCheckBox.isSelected()) {
+                    savePreferences();
+                }
 
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
@@ -3558,7 +3567,10 @@ public class SpeleoDBController implements Initializable {
                 throw new IllegalArgumentException("Invalid filename extracted from download URL: " + fileName);
             }
             
-            // Save the file to plugins directory (overwrite if exists)
+            // Delete any existing SpeleoDB plugin jar files.
+            deletePluginFiles("org.speleodb.ariane.plugin.speleodb-*.jar");
+            
+            // Save the file to plugins directory
             Path targetFile = pluginsDir.resolve(fileName);
             Files.write(targetFile, fileData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             
@@ -3632,13 +3644,66 @@ public class SpeleoDBController implements Initializable {
     }
     
     /**
+     * Deletes plugin jar files matching the specified glob patterns from the plugins directory.
+     * 
+     * @param patterns glob patterns to match files for deletion (e.g., "*.jar", "plugin-*.jar")
+     * @return number of files successfully deleted
+     */
+    private int deletePluginFiles(String... patterns) {
+        int deletedCount = 0;
+        Path pluginsDir = Paths.get(PATHS.PLUGINS_DIR);
+        
+        if (!Files.exists(pluginsDir)) {
+            logger.debug("Plugins directory does not exist: " + pluginsDir);
+            return 0;
+        }
+        
+        for (String pattern : patterns) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsDir, pattern)) {
+                for (Path file : stream) {
+                    try {
+                        String fileName = file.getFileName().toString();
+                        Files.delete(file);
+                        logger.debug("Deleted old plugin file: " + fileName);
+                        deletedCount++;
+                    } catch (IOException e) {
+                        logger.warn("Failed to delete plugin file: " + file.getFileName() + " - " + e.getMessage());
+                    }
+                }
+            } catch (IOException e) {
+                logger.warn("Failed to scan plugins directory with pattern '" + pattern + "': " + e.getMessage());
+            }
+        }
+        
+        return deletedCount;
+    }
+    
+    /**
+     * Cleans up old plugin files during initialization.
+     * Only removes the old filename pattern to prevent conflicts.
+     */
+    public void cleanupOldPlugins() {
+        try {
+            // Only delete files with the old naming convention during initialization
+            int deletedCount = deletePluginFiles("com.arianesline.ariane.plugin.speleoDB-*.jar");
+            
+            if (deletedCount > 0) {
+                logger.info("Cleaned up " + deletedCount + " old plugin file(s) during initialization");
+            }
+        } catch (Exception e) {
+            logger.warn("Error during plugin cleanup: " + e.getMessage());
+        }
+    }
+    
+    /**
      * Compares two version strings in CalVer format (YYYY.MM.DD).
+     * Made package-private to allow use by SpeleoDBService for version bounds checking.
      * 
      * @param version1 first version string
      * @param version2 second version string
      * @return positive if version1 > version2, negative if version1 < version2, 0 if equal
      */
-    private int compareVersions(String version1, String version2) {
+    static int compareVersions(String version1, String version2) {
         if (version1 == null && version2 == null) return 0;
         if (version1 == null) return -1;
         if (version2 == null) return 1;
@@ -3667,7 +3732,7 @@ public class SpeleoDBController implements Initializable {
      * @param part the version part string
      * @return integer value of the part, or 0 if not numeric
      */
-    private int parseVersionPart(String part) {
+    private static int parseVersionPart(String part) {
         try {
             return Integer.parseInt(part);
         } catch (NumberFormatException e) {

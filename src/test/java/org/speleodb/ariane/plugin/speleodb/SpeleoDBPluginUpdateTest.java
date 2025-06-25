@@ -42,48 +42,32 @@ class SpeleoDBPluginUpdateTest {
         @Test
         @DisplayName("Should compare CalVer versions correctly")
         void shouldCompareCalVerVersionsCorrectly() {
-            // Use reflection to access private method
-            try {
-                var method = SpeleoDBController.class.getDeclaredMethod("compareVersions", String.class, String.class);
-                method.setAccessible(true);
+            // Now compareVersions is a static package-private method, so we can call it directly
+            // Test equal versions
+            assertEquals(0, SpeleoDBController.compareVersions("2025.06.23", "2025.06.23"));
 
-                // Test equal versions
-                assertEquals(0, (Integer) method.invoke(controller, "2025.06.23", "2025.06.23"));
+            // Test newer version
+            assertTrue(SpeleoDBController.compareVersions("2025.06.24", "2025.06.23") > 0);
+            assertTrue(SpeleoDBController.compareVersions("2025.07.01", "2025.06.23") > 0);
+            assertTrue(SpeleoDBController.compareVersions("2026.01.01", "2025.12.31") > 0);
 
-                // Test newer version
-                assertTrue((Integer) method.invoke(controller, "2025.06.24", "2025.06.23") > 0);
-                assertTrue((Integer) method.invoke(controller, "2025.07.01", "2025.06.23") > 0);
-                assertTrue((Integer) method.invoke(controller, "2026.01.01", "2025.12.31") > 0);
+            // Test older version
+            assertTrue(SpeleoDBController.compareVersions("2025.06.22", "2025.06.23") < 0);
+            assertTrue(SpeleoDBController.compareVersions("2025.05.23", "2025.06.23") < 0);
+            assertTrue(SpeleoDBController.compareVersions("2024.12.31", "2025.01.01") < 0);
 
-                // Test older version
-                assertTrue((Integer) method.invoke(controller, "2025.06.22", "2025.06.23") < 0);
-                assertTrue((Integer) method.invoke(controller, "2025.05.23", "2025.06.23") < 0);
-                assertTrue((Integer) method.invoke(controller, "2024.12.31", "2025.01.01") < 0);
-
-                // Test null handling
-                assertEquals(0, (Integer) method.invoke(controller, null, null));
-                assertTrue((Integer) method.invoke(controller, "2025.06.23", null) > 0);
-                assertTrue((Integer) method.invoke(controller, null, "2025.06.23") < 0);
-
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to test version comparison", e);
-            }
+            // Test null handling
+            assertEquals(0, SpeleoDBController.compareVersions(null, null));
+            assertTrue(SpeleoDBController.compareVersions("2025.06.23", null) > 0);
+            assertTrue(SpeleoDBController.compareVersions(null, "2025.06.23") < 0);
         }
 
         @Test
         @DisplayName("Should handle malformed version strings")
         void shouldHandleMalformedVersionStrings() {
-            try {
-                var method = SpeleoDBController.class.getDeclaredMethod("compareVersions", String.class, String.class);
-                method.setAccessible(true);
-
-                // Test with non-numeric parts
-                assertEquals(0, (Integer) method.invoke(controller, "2025.06.23-beta", "2025.06.23-alpha"));
-                assertTrue((Integer) method.invoke(controller, "2025.06.24", "2025.06.23-beta") > 0);
-
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to test malformed version handling", e);
-            }
+            // Test with non-numeric parts
+            assertEquals(0, SpeleoDBController.compareVersions("2025.06.23-beta", "2025.06.23-alpha"));
+            assertTrue(SpeleoDBController.compareVersions("2025.06.24", "2025.06.23-beta") > 0);
         }
     }
 
@@ -140,68 +124,93 @@ class SpeleoDBPluginUpdateTest {
     class ReleaseFilteringTests {
 
         @Test
-        @DisplayName("Should filter releases correctly")
+        @DisplayName("Should filter releases correctly by version bounds")
         void shouldFilterReleasesCorrectly() {
-            // Create test release data
+            // Create test release data with version bounds
             JsonArray releases = Json.createArrayBuilder()
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.2.1")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, "25.3.0")
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.23")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/plugin.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "abc123")
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Initial Release"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "OTHER_SOFTWARE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.2.1")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.1")
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.24")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/other.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "def456")
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Other software release"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.1.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.0.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, "25.1.0")
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.25")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/old.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "ghi789")
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Old ARIANE version"))
                 .build();
 
-            // Count ARIANE releases for current software version
-            int arianeReleases = 0;
+            // Count ARIANE releases compatible with current software version (25.2.1)
+            int compatibleReleases = 0;
+            String currentVersion = SpeleoDBConstants.ARIANE_VERSION; // "25.2.1"
+            
             for (int i = 0; i < releases.size(); i++) {
                 JsonObject release = releases.getJsonObject(i);
-                if ("ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "")) &&
-                    "25.2.1".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, ""))) {
-                    arianeReleases++;
+                if (!"ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, ""))) {
+                    continue;
+                }
+                
+                String minVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
+                String maxVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
+                
+                boolean isCompatible = true;
+                
+                // Check minimum version
+                if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                    isCompatible = false;
+                }
+                
+                // Check maximum version
+                if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                    isCompatible = false;
+                }
+                
+                if (isCompatible) {
+                    compatibleReleases++;
                 }
             }
 
-            assertEquals(1, arianeReleases, "Should find exactly 1 ARIANE release for version 25.2.1");
+            assertEquals(1, compatibleReleases, "Should find exactly 1 ARIANE release compatible with version 25.2.1");
         }
 
         @Test
         @DisplayName("Should find latest version from multiple releases")
         void shouldFindLatestVersionFromMultipleReleases() {
-            // Create test releases with different plugin versions
+            // Create test releases with different plugin versions, all compatible with 25.2.1
             JsonArray releases = Json.createArrayBuilder()
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.2.1")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, "25.3.0")
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.20")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/v1.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "hash1")
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Version 1"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.2.1")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.1")
+                    // No max version - compatible with 25.2.1 and above
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.25")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/v3.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "hash3")
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Version 3 - Latest"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, "25.2.1")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.1.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, "25.3.0")
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.22")
                     .add(SpeleoDBConstants.JSON_FIELDS.DOWNLOAD_URL, "https://example.com/v2.jar")
                     .add(SpeleoDBConstants.JSON_FIELDS.SHA256_HASH, "hash2")
@@ -211,15 +220,32 @@ class SpeleoDBPluginUpdateTest {
             // Find the latest version manually (simulating the controller logic)
             String latestVersion = null;
             JsonObject latestRelease = null;
+            String currentVersion = SpeleoDBConstants.ARIANE_VERSION; // "25.2.1"
 
             for (int i = 0; i < releases.size(); i++) {
                 JsonObject release = releases.getJsonObject(i);
-                if ("ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "")) &&
-                    "25.2.1".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE_VERSION, ""))) {
-                    
+                if (!"ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, ""))) {
+                    continue;
+                }
+                
+                // Check version bounds
+                String minVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
+                String maxVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
+                
+                boolean isCompatible = true;
+                
+                if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                    isCompatible = false;
+                }
+                
+                if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                    isCompatible = false;
+                }
+                
+                if (isCompatible) {
                     String pluginVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, null);
                     if (pluginVersion != null) {
-                        if (latestVersion == null || compareVersionStrings(pluginVersion, latestVersion) > 0) {
+                        if (latestVersion == null || SpeleoDBController.compareVersions(pluginVersion, latestVersion) > 0) {
                             latestVersion = pluginVersion;
                             latestRelease = release;
                         }
@@ -233,37 +259,5 @@ class SpeleoDBPluginUpdateTest {
         }
     }
 
-    /**
-     * Simple version comparison for testing (duplicates the private method logic)
-     */
-    private int compareVersionStrings(String version1, String version2) {
-        if (version1 == null && version2 == null) return 0;
-        if (version1 == null) return -1;
-        if (version2 == null) return 1;
-        
-        String[] parts1 = version1.split("\\.");
-        String[] parts2 = version2.split("\\.");
-        
-        int maxLength = Math.max(parts1.length, parts2.length);
-        
-        for (int i = 0; i < maxLength; i++) {
-            int num1 = i < parts1.length ? parseVersionPart(parts1[i]) : 0;
-            int num2 = i < parts2.length ? parseVersionPart(parts2[i]) : 0;
-            
-            int comparison = Integer.compare(num1, num2);
-            if (comparison != 0) {
-                return comparison;
-            }
-        }
-        
-        return 0;
-    }
 
-    private int parseVersionPart(String part) {
-        try {
-            return Integer.parseInt(part);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
 } 

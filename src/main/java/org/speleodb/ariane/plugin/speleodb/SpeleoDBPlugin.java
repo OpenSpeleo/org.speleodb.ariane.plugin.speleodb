@@ -72,9 +72,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
      * Default constructor for SpeleoDBPlugin.
      */
     public SpeleoDBPlugin() {
-        // Initialize logging
-        logger.info("SpeleoDB Plugin initialized - Version: " + 
-                (SpeleoDBConstants.VERSION != null ? SpeleoDBConstants.VERSION_DISPLAY : "Development"));
+        // Initialize logging - these lines trigger static initialization
+        logger.info("SpeleoDB Plugin Version: " + SpeleoDBConstants.VERSION_DISPLAY);
+        logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
+        
+        // Log any deferred initialization messages from SpeleoDBConstants
+        SpeleoDBConstants.logDeferredInitMessages();
     }
 
     @Override
