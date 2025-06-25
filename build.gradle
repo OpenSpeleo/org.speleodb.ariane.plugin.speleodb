@@ -36,7 +36,7 @@ tasks.register('cleanLibs') {
     group = 'build'
     description = 'Cleans the build/libs directory before building'
     
-    doLast {
+    doFirst {
         def libsDir = file('build/libs')
         if (libsDir.exists()) {
             println "Cleaning build/libs directory..."
@@ -58,7 +58,7 @@ tasks.register('generateReleaseVersion') {
     group = 'build'
     description = 'Generates version string based on current date in CalVer format (YYYY.MM.DD)'
     
-    doLast {
+    doFirst {
         def versionString = project.calVerVersion
         def versionDisplay = "v${versionString}"
         
@@ -119,7 +119,7 @@ check {
 }
 
 // Make compileJava depend on generateReleaseVersion so version is always up to date
-compileJava.dependsOn generateReleaseVersion
+compileJava.dependsOn generateReleaseVersion, cleanLibs
 
 // Completely override the build task to exclude tests
 build {
@@ -288,7 +288,7 @@ ext.calVerVersion = new Date().format('yyyy.MM.dd')
 
 // Configure jar task to use CalVer version in filename
 jar {
-    dependsOn generateReleaseVersion, cleanLibs
+    dependsOn generateReleaseVersion
     archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
     archiveVersion = project.calVerVersion
 }
