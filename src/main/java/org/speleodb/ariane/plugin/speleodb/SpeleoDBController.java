@@ -819,6 +819,10 @@ public class SpeleoDBController implements Initializable {
             aboutTitlePane.setExpanded(true);
         });
 
+        // Configure TextArea without scrollbars using CSS
+        pluginUILogArea.setWrapText(true);
+        pluginUILogArea.getStyleClass().add("no-scrollbar-textarea");
+        
         pluginUILogArea.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
             // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
             pluginUILogArea.setScrollTop(Double.MAX_VALUE);

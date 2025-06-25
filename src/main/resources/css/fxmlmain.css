@@ -227,17 +227,35 @@
     -fx-prompt-text-fill: #6a6a6a;
 }
 
-/* Hide scroll arrows for the logging area */
-#pluginUILogArea .scroll-bar:vertical .increment-button,
-#pluginUILogArea .scroll-bar:vertical .decrement-button {
+/* Generic disabled scrollbar styling */
+.text-area .scroll-bar:vertical:disabled {
     -fx-opacity: 0;
-    -fx-cursor: default;
 }
 
-#pluginUILogArea .scroll-bar:vertical .increment-arrow,
-#pluginUILogArea .scroll-bar:vertical .decrement-arrow {
+/* Complete scrollbar removal for no-scrollbar-textarea */
+.no-scrollbar-textarea .scroll-bar:vertical {
+    -fx-opacity: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+    -fx-min-width: 0;
+}
+
+.no-scrollbar-textarea .scroll-bar:horizontal {
+    -fx-opacity: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+    -fx-min-height: 0;
+}
+
+.no-scrollbar-textarea .scroll-pane {
+    -fx-hbar-policy: never;
+    -fx-vbar-policy: never;
+}
+
+.no-scrollbar-textarea .scroll-pane .corner {
     -fx-opacity: 0;
 }
+
 
 /* Hide scroll arrows for the about WebView */
 #aboutWebView .scroll-bar:vertical .increment-button,
@@ -246,18 +264,10 @@
     -fx-cursor: default;
 }
 
-#aboutWebView .scroll-bar:vertical .increment-arrow,
-#aboutWebView .scroll-bar:vertical .decrement-arrow {
-    -fx-opacity: 0;
-}
-
 #aboutWebView .scroll-bar:horizontal .increment-button,
 #aboutWebView .scroll-bar:horizontal .decrement-button {
     -fx-opacity: 0;
     -fx-cursor: default;
 }
 
-#aboutWebView .scroll-bar:horizontal .increment-arrow,
-#aboutWebView .scroll-bar:horizontal .decrement-arrow {
-    -fx-opacity: 0;
-}
+

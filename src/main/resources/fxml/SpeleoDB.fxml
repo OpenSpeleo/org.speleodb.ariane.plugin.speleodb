@@ -279,7 +279,7 @@
 				</TitledPane>
 			</panes>
 		</Accordion>
-		<TextArea fx:id="pluginUILogArea" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" />
+		<TextArea fx:id="pluginUILogArea" editable="false" prefHeight="64.0" AnchorPane.bottomAnchor="20.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="8.0" wrapText="true"  />
 		<Label fx:id="versionLabel" text="" textFill="WHITE" AnchorPane.bottomAnchor="2.0" AnchorPane.rightAnchor="8.0">
 			<font>
 				<Font size="9.0" />
