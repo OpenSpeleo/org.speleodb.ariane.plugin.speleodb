@@ -1,8 +1,8 @@
 import com.arianesline.ariane.plugin.api.DataServerPlugin;
-import com.arianesline.ariane.plugin.speleodb.SpeleoDBPlugin;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBPlugin;
 
 
-module com.arianesline.ariane.plugin.speleoDB {
+module org.speleodb.ariane.plugin.speleodb {
     requires transitive com.arianesline.ariane.plugin.api;
     requires transitive com.arianesline.cavelib.api;
 
@@ -16,8 +16,8 @@ module com.arianesline.ariane.plugin.speleoDB {
     requires transitive jakarta.json;
     requires java.net.http;
 
-    exports com.arianesline.ariane.plugin.speleodb to javafx.graphics,javafx.fxml,javafx.web;
-    opens com.arianesline.ariane.plugin.speleodb to javafx.fxml,javafx.graphics,java.base,javafx.web;
+    exports org.speleodb.ariane.plugin.speleodb to javafx.graphics,javafx.fxml,javafx.web;
+    opens org.speleodb.ariane.plugin.speleodb to javafx.fxml,javafx.graphics,java.base,javafx.web;
 
     provides DataServerPlugin
             with SpeleoDBPlugin;
