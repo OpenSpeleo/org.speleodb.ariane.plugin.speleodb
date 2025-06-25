@@ -334,3 +334,9 @@ tasks.register('testDebug', JavaExec) {
     
     finalizedBy resetReleaseVersion
 }
+
+// Configure jar task to exclude version from filename
+jar {
+    archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
+    archiveVersion = ''
+}
