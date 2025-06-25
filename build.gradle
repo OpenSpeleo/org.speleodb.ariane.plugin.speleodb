@@ -102,7 +102,7 @@ tasks.register('generateReleaseVersion') {
         println "Generating version: ${versionString} (display: ${versionDisplay})"
         
         // Read the constants file
-        def constantsFile = file('src/main/java/com/arianesline/ariane/plugin/speleodb/SpeleoDBConstants.java')
+        def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
         
         // Replace the version constants
@@ -127,7 +127,7 @@ tasks.register('resetReleaseVersion') {
         println "Restoring version placeholders to null..."
         
         // Read the constants file
-        def constantsFile = file('src/main/java/com/arianesline/ariane/plugin/speleodb/SpeleoDBConstants.java')
+        def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
         
         // Restore the version constants to null
@@ -246,7 +246,7 @@ tasks.register('runHttpTests', JavaExec) {
     dependsOn generateReleaseVersion, compileJava, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
+    mainClass = 'org.speleodb.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
     
     doLast {
         println 'HTTPRequestMultipartBody tests completed successfully!'
@@ -262,7 +262,7 @@ tasks.register('runServiceTests', JavaExec) {
     dependsOn generateReleaseVersion, compileJava, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBServiceTest'
+    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBServiceTest'
     
     doLast {
         println 'SpeleoDBService tests completed successfully!'
@@ -278,7 +278,7 @@ tasks.register('runControllerTests', JavaExec) {
     dependsOn generateReleaseVersion, compileJava, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBControllerTest'
+    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBControllerTest'
     
     doLast {
         println 'SpeleoDBController tests completed successfully!'
@@ -310,7 +310,7 @@ tasks.register('runPluginTests', JavaExec) {
     dependsOn generateReleaseVersion, compileJava, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.SpeleoDBPluginTest'
+    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBPluginTest'
     
     doLast {
         println 'SpeleoDBPlugin tests completed successfully!'
@@ -326,7 +326,7 @@ tasks.register('testDebug', JavaExec) {
     dependsOn generateReleaseVersion, buildDebug, compileTestJava
     
     classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
+    mainClass = 'org.speleodb.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
     
     doLast {
         println 'HTTPRequestMultipartBody tests completed in debug mode!'
