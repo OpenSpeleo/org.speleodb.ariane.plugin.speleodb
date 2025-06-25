@@ -1,5 +1,6 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -108,6 +109,9 @@ public class SpeleoDBController implements Initializable {
     private Button createNewProjectButton;
     @FXML
     private Button refreshProjectsButton;
+    
+    @FXML
+    private Button reloadProjectButton;
     
     @FXML
     private Button sortByNameButton;
@@ -2151,6 +2155,102 @@ public class SpeleoDBController implements Initializable {
         }
         
         uploadProjectWithMessage(message);
+    }
+    
+    /**
+     * Handles the "Reload Project" button click event for SpeleoDB.
+     * Reloads the current project from disk after confirming with the user.
+     */
+    @FXML
+    public void onReloadProject(ActionEvent actionEvent) {
+        // Ensure we have a current project
+        if (currentProject == null) {
+            logger.info("No project is currently loaded to reload");
+            showErrorAnimation("No project to reload");
+            return;
+        }
+        
+        String projectName = currentProject.getString("name");
+        
+        // Show confirmation dialog following material design
+        String message = "Are you sure you want to reload the project \"" + projectName + "\"?\n\n" +
+                        "⚠️ WARNING: Any unsaved modifications will be lost!\n\n" +
+                        "• All changes since last save will be discarded\n" +
+                        "• The project will be reloaded from disk\n" +
+                        "• This action cannot be undone";
+        
+        boolean shouldReload = showConfirmationModal("Reload Project", message, "Reload", "Cancel");
+        
+        if (!shouldReload) {
+            logger.info("User cancelled reload operation for project: " + projectName);
+            return;
+        }
+        
+        // Show progress indicator
+        serverProgressIndicator.setVisible(true);
+        uploadButton.setDisable(true);
+        unlockButton.setDisable(true);
+        
+        // Execute reload in background thread
+        parentPlugin.executorService.execute(() -> {
+            try {
+                String projectId = currentProject.getString("id");
+                Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+                
+                if (!Files.exists(tmlFilePath)) {
+                    Platform.runLater(() -> {
+                        logger.info("Project file not found on disk: " + tmlFilePath);
+                        showErrorAnimation("Project file not found");
+                        showErrorModal("Reload Failed", "The project file could not be found on disk.\n\nPath: " + tmlFilePath);
+                    });
+                    return;
+                }
+                
+                logger.info("Reloading project from disk: " + projectName);
+                
+                // Save any preferences before reloading
+                Platform.runLater(() -> savePreferences());
+                
+                // Load the project using the existing loadSurvey method
+                try {
+                    parentPlugin.loadSurvey(tmlFilePath.toFile());
+                    
+                    Platform.runLater(() -> {
+                        logger.info("Project reloaded successfully: " + projectName);
+                        showSuccessAnimation("Project Reloaded!");
+                        
+                        // Update SpeleoDB ID if needed
+                        checkAndUpdateSpeleoDBId(currentProject);
+                        
+                        // Clear upload message field as we've reloaded
+                        uploadMessageTextField.clear();
+                    });
+                    
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        String errorMessage = "Failed to reload project: " + getSafeErrorMessage(e);
+                        logger.info(errorMessage);
+                        showErrorAnimation("Reload failed");
+                        showErrorModal("Reload Failed", "Failed to reload the project from disk.\n\nError: " + getSafeErrorMessage(e));
+                    });
+                }
+                
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    String errorMessage = "Error during project reload: " + getSafeErrorMessage(e);
+                    logger.info(errorMessage);
+                    showErrorAnimation("Reload error");
+                    showErrorModal("Reload Error", "An unexpected error occurred during reload.\n\nError: " + getSafeErrorMessage(e));
+                });
+            } finally {
+                Platform.runLater(() -> {
+                    // Re-enable UI controls
+                    serverProgressIndicator.setVisible(false);
+                    uploadButton.setDisable(false);
+                    unlockButton.setDisable(false);
+                });
+            }
+        });
     }
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {

@@ -1328,6 +1328,231 @@ class SpeleoDBControllerTest {
         }
     }
     
+    @Nested
+    @DisplayName("Reload Project Functionality")
+    class ReloadProjectFunctionalityTests {
+        
+        @Test
+        @DisplayName("Should generate correct reload confirmation message")
+        void shouldGenerateCorrectReloadConfirmationMessage() {
+            // Setup
+            controllerLogic.setCurrentProject("Test Project");
+            
+            // Execute
+            String message = controllerLogic.generateReloadConfirmationMessage();
+            
+            // Verify
+            assertThat(message).contains("Are you sure you want to reload the project \"Test Project\"");
+            assertThat(message).contains("WARNING: Any unsaved modifications will be lost!");
+            assertThat(message).contains("All changes since last save will be discarded");
+            assertThat(message).contains("The project will be reloaded from disk");
+            assertThat(message).contains("This action cannot be undone");
+        }
+        
+        @Test
+        @DisplayName("Should handle reload when no project is loaded")
+        void shouldHandleReloadWhenNoProjectIsLoaded() {
+            // Setup
+            controllerLogic.setCurrentProject(null);
+            
+            // Execute
+            String message = controllerLogic.generateReloadConfirmationMessage();
+            
+            // Verify
+            assertThat(message).isEqualTo("No project is currently loaded to reload");
+        }
+        
+        @Test
+        @DisplayName("Should validate reload confirmation dialog properties")
+        void shouldValidateReloadConfirmationDialogProperties() {
+            // Setup
+            controllerLogic.setCurrentProject("Sample Project");
+            
+            // Execute
+            DialogProperties props = controllerLogic.getReloadConfirmationDialogProperties();
+            
+            // Verify
+            assertThat(props.getTitle()).isEqualTo("Reload Project");
+            assertThat(props.getHeaderText()).isEqualTo("Confirm Reload");
+            assertThat(props.getContentText()).contains("Are you sure you want to reload the project \"Sample Project\"");
+            assertThat(props.getYesButtonText()).isEqualTo("Reload");
+            assertThat(props.getNoButtonText()).isEqualTo("Cancel");
+        }
+        
+        @Test
+        @DisplayName("Should simulate user choosing to reload project")
+        void shouldSimulateUserChoosingToReloadProject() {
+            // Setup
+            controllerLogic.setCurrentProject("My Project");
+            controllerLogic.setUserConfirmationResponse(true);
+            
+            // Execute
+            boolean result = controllerLogic.simulateReloadConfirmation();
+            
+            // Verify
+            assertThat(result).isTrue();
+        }
+        
+        @Test
+        @DisplayName("Should simulate user cancelling reload")
+        void shouldSimulateUserCancellingReload() {
+            // Setup
+            controllerLogic.setCurrentProject("My Project");
+            controllerLogic.setUserConfirmationResponse(false);
+            
+            // Execute
+            boolean result = controllerLogic.simulateReloadConfirmation();
+            
+            // Verify
+            assertThat(result).isFalse();
+        }
+        
+        @Test
+        @DisplayName("Should handle successful project reload")
+        void shouldHandleSuccessfulProjectReload() {
+            // Setup
+            controllerLogic.setCurrentProject("Successful Project");
+            
+            // Execute
+            String result = controllerLogic.simulateReloadProject(true, true);
+            
+            // Verify
+            assertThat(result).isEqualTo("Project reloaded successfully: Successful Project");
+        }
+        
+        @Test
+        @DisplayName("Should handle project file not found during reload")
+        void shouldHandleProjectFileNotFoundDuringReload() {
+            // Setup
+            controllerLogic.setCurrentProject("Missing Project");
+            
+            // Execute
+            String result = controllerLogic.simulateReloadProject(false, false);
+            
+            // Verify
+            assertThat(result).isEqualTo("Project file not found on disk");
+        }
+        
+        @Test
+        @DisplayName("Should handle failed project reload when file exists")
+        void shouldHandleFailedProjectReloadWhenFileExists() {
+            // Setup
+            controllerLogic.setCurrentProject("Corrupted Project");
+            
+            // Execute
+            String result = controllerLogic.simulateReloadProject(true, false);
+            
+            // Verify
+            assertThat(result).isEqualTo("Failed to reload project: Corrupted Project");
+        }
+        
+        @Test
+        @DisplayName("Should track reload confirmation dialog invocations")
+        void shouldTrackReloadConfirmationDialogInvocations() {
+            // Setup
+            controllerLogic.setCurrentProject("Track Project");
+            controllerLogic.resetConfirmationDialogCount();
+            
+            // Execute
+            controllerLogic.simulateReloadConfirmation();
+            controllerLogic.simulateReloadConfirmation();
+            
+            // Verify
+            assertThat(controllerLogic.getConfirmationDialogCount()).isEqualTo(2);
+        }
+        
+        @Test
+        @DisplayName("Should prevent reload when no project is active")
+        void shouldPreventReloadWhenNoProjectIsActive() {
+            // Setup
+            controllerLogic.setCurrentProject(null);
+            
+            // Execute
+            String result = controllerLogic.simulateReloadProject(true, true);
+            
+            // Verify
+            assertThat(result).isEqualTo("No project is currently loaded to reload");
+        }
+        
+        @Test
+        @DisplayName("Should validate reload confirmation message includes warning emoji")
+        void shouldValidateReloadConfirmationMessageIncludesWarningEmoji() {
+            // Setup
+            controllerLogic.setCurrentProject("Emoji Test");
+            
+            // Execute
+            String message = controllerLogic.generateReloadConfirmationMessage();
+            
+            // Verify
+            assertThat(message).contains("⚠️");
+        }
+        
+        @Test
+        @DisplayName("Should handle empty project name in reload confirmation")
+        void shouldHandleEmptyProjectNameInReloadConfirmation() {
+            // Setup
+            controllerLogic.setCurrentProject("");
+            
+            // Execute
+            String message = controllerLogic.generateReloadConfirmationMessage();
+            
+            // Verify
+            assertThat(message).contains("Are you sure you want to reload the project \"\"");
+        }
+        
+        @Test
+        @DisplayName("Should validate reload workflow consistency")
+        void shouldValidateReloadWorkflowConsistency() {
+            // Setup
+            controllerLogic.setCurrentProject("Workflow Test");
+            
+            // Execute & Verify - User cancels reload
+            controllerLogic.setUserConfirmationResponse(false);
+            boolean cancelled = controllerLogic.simulateReloadConfirmation();
+            assertThat(cancelled).isFalse();
+            
+            // Execute & Verify - User confirms reload, file exists, reload successful
+            controllerLogic.setUserConfirmationResponse(true);
+            boolean confirmed = controllerLogic.simulateReloadConfirmation();
+            assertThat(confirmed).isTrue();
+            
+            String result = controllerLogic.simulateReloadProject(true, true);
+            assertThat(result).isEqualTo("Project reloaded successfully: Workflow Test");
+        }
+        
+        @Test
+        @DisplayName("Should handle special characters in project name during reload")
+        void shouldHandleSpecialCharactersInProjectNameDuringReload() {
+            // Setup
+            String specialName = "Project \"Test\" & <Special>";
+            controllerLogic.setCurrentProject(specialName);
+            
+            // Execute
+            String message = controllerLogic.generateReloadConfirmationMessage();
+            String result = controllerLogic.simulateReloadProject(true, true);
+            
+            // Verify
+            assertThat(message).contains("Project \"Test\" & <Special>");
+            assertThat(result).isEqualTo("Project reloaded successfully: " + specialName);
+        }
+        
+        @Test
+        @DisplayName("Should maintain proper reload dialog button text")
+        void shouldMaintainProperReloadDialogButtonText() {
+            // Setup
+            controllerLogic.setCurrentProject("Button Test");
+            
+            // Execute
+            DialogProperties props = controllerLogic.getReloadConfirmationDialogProperties();
+            
+            // Verify - Buttons should be "Reload" and "Cancel" not "Yes" and "No"
+            assertThat(props.getYesButtonText()).isEqualTo("Reload");
+            assertThat(props.getNoButtonText()).isEqualTo("Cancel");
+            assertThat(props.getYesButtonText()).doesNotContain("Yes");
+            assertThat(props.getNoButtonText()).doesNotContain("No");
+        }
+    }
+    
     // ===================== TEST HELPER CLASSES ===================== //
     
     /**
@@ -1627,6 +1852,50 @@ class SpeleoDBControllerTest {
             
             currentSortMode = "BY_DATE";
             return "User requested sort by date";
+        }
+        
+        // Reload project functionality methods
+        public String generateReloadConfirmationMessage() {
+            if (currentProject == null) {
+                return "No project is currently loaded to reload";
+            }
+            
+            return "Are you sure you want to reload the project \"" + currentProject + "\"?\n\n" +
+                   "⚠️ WARNING: Any unsaved modifications will be lost!\n\n" +
+                   "• All changes since last save will be discarded\n" +
+                   "• The project will be reloaded from disk\n" +
+                   "• This action cannot be undone";
+        }
+        
+        public boolean simulateReloadConfirmation() {
+            confirmationDialogCount++;
+            return userConfirmationResponse != null ? userConfirmationResponse : false;
+        }
+        
+        public String simulateReloadProject(boolean fileExists, boolean loadSuccessful) {
+            if (currentProject == null) {
+                return "No project is currently loaded to reload";
+            }
+            
+            if (!fileExists) {
+                return "Project file not found on disk";
+            }
+            
+            if (loadSuccessful) {
+                return "Project reloaded successfully: " + currentProject;
+            } else {
+                return "Failed to reload project: " + currentProject;
+            }
+        }
+        
+        public DialogProperties getReloadConfirmationDialogProperties() {
+            return new DialogProperties(
+                "Reload Project",
+                "Confirm Reload", 
+                generateReloadConfirmationMessage(),
+                "Reload",
+                "Cancel"
+            );
         }
     }
     
