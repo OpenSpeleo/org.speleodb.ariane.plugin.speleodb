@@ -6,6 +6,15 @@ repositories {
     mavenCentral()
 }
 
+// Target Java 21 exclusively - Same as Ariane
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
 dependencies {
     api project(':com.arianesline.cavelib.api')
     api project(':com.arianesline.ariane.plugin.api')
@@ -126,8 +135,19 @@ check {
     }
 }
 
-// Make compileJava depend on generateReleaseVersion so version is always up to date
-compileJava.dependsOn generateReleaseVersion, cleanLibs
+// Configure Java compiler optimizations for release builds
+compileJava {
+    // Make compileJava depend on generateReleaseVersion so version is always up to date
+    dependsOn generateReleaseVersion, cleanLibs
+
+    options.compilerArgs += [
+        '-Xlint:all',          // Enable all warnings (helps catch inefficiencies)
+        '-Xlint:-serial',      // Disable serial warnings if not needed
+        '-parameters'          // Preserve parameter names for better debugging
+    ]
+    options.encoding = 'UTF-8'
+    options.debug = false      // Disable debug info for release builds
+}
 
 // Completely override the build task to exclude tests
 build {
@@ -297,9 +317,34 @@ tasks.register('runPluginTests', JavaExec) {
 // Store the CalVer version as a project property
 ext.calVerVersion = new Date().format('yyyy.MM.dd')
 
-// Configure jar task to use CalVer version in filename
+// Configure jar task to use CalVer version in filename with ZIP compression
 jar {
     dependsOn generateReleaseVersion
     archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
     archiveVersion = project.calVerVersion
+    
+    // Optimize JAR structure and compression
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    // Use most aggressive compression available in standard ZIP format
+    entryCompression = ZipEntryCompression.DEFLATED
+    zip64 = true  // Enable ZIP64 extensions for better compression
+    
+    // Add security and optimization manifest entries
+    manifest {
+        attributes(
+            'Sealed': 'true',
+            'Implementation-Title': 'SpeleoDB Ariane Plugin',
+            'Implementation-Version': project.calVerVersion,
+            'Implementation-Vendor': 'SpeleoDB Software',
+            'Built-By': 'Jonathan Dekhtiar',
+            'Build-Jdk': System.getProperty('java.version'),
+            'Created-By': "Gradle ${gradle.gradleVersion}",
+            'Multi-Release': 'false'  // Explicitly disable for clarity
+        )
+    }
+    
+    // Preserve file timestamps for better caching
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }
