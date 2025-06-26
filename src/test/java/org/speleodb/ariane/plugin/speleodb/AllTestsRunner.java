@@ -39,7 +39,10 @@ import org.junit.platform.suite.api.SuiteDisplayName;
     
     // Plugin tests
     SpeleoDBPluginTest.class,
-    SpeleoDBPluginExtendedTest.class
+    SpeleoDBPluginExtendedTest.class,
+    
+    // Preference isolation tests
+    SpeleoDBPreferenceIsolationTest.class
 })
 public class AllTestsRunner {
     // This class serves as a test suite runner

@@ -782,8 +782,23 @@ public class SpeleoDBController implements Initializable {
     /**
      * Loads user preferences into the UI fields.
      */
+    /**
+     * Gets the preferences node for this controller.
+     * Uses test-specific preferences when running in test mode to avoid affecting user preferences.
+     */
+    protected Preferences getPreferencesNode() {
+        // Check if we're running in test mode
+        if (Boolean.parseBoolean(System.getProperty("speleodb.test.mode", "false"))) {
+            // Use test-specific preferences node to avoid affecting user's real preferences
+            return Preferences.userRoot().node("org/speleodb/ariane/plugin/speleodb/test");
+        } else {
+            // Use normal preferences for production
+            return Preferences.userNodeForPackage(SpeleoDBController.class);
+        }
+    }
+
     private void loadPreferences() {
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        Preferences prefs = getPreferencesNode();
         emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
         passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, MISC.EMPTY_STRING));
         oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, MISC.EMPTY_STRING));
@@ -796,7 +811,7 @@ public class SpeleoDBController implements Initializable {
      * Always saves credentials.
      */
     private void savePreferences() {
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        Preferences prefs = getPreferencesNode();
 
         // Save email and instance
         prefs.put(PREFERENCES.PREF_EMAIL, emailTextField.getText());
@@ -1264,7 +1279,7 @@ public class SpeleoDBController implements Initializable {
         setConnectionFormEnabled(true);
         
         // Clear only password and OAuth token from preferences
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        Preferences prefs = getPreferencesNode();
         prefs.remove(PREFERENCES.PREF_PASSWORD);
         prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
         
@@ -1355,7 +1370,7 @@ public class SpeleoDBController implements Initializable {
             instanceTextField.setText(PREFERENCES.DEFAULT_INSTANCE);
             
             // Clear all saved preferences when resetting form
-            Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+            Preferences prefs = getPreferencesNode();
             prefs.remove(PREFERENCES.PREF_INSTANCE);
             prefs.remove(PREFERENCES.PREF_EMAIL);
             prefs.remove(PREFERENCES.PREF_PASSWORD);
@@ -3072,7 +3087,7 @@ public class SpeleoDBController implements Initializable {
             }
             
             // Get current index from preferences
-            Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+            Preferences prefs = getPreferencesNode();
             int currentIndex = prefs.getInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, 0);
             
             // Ensure index is within bounds
@@ -3384,7 +3399,7 @@ public class SpeleoDBController implements Initializable {
             return;
         }
         
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        Preferences prefs = getPreferencesNode();
         String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
         
         if (!displayedUUIDs.contains(uuid)) {

@@ -110,12 +110,20 @@ test {
     useJUnitPlatform()
     dependsOn generateReleaseVersion
     finalizedBy resetReleaseVersion
+    
+    // Set system property to enable test mode - this prevents tests from affecting user preferences
+    systemProperty 'speleodb.test.mode', 'true'
 }
 
 // Ensure check task also restores version
 check {
     dependsOn generateReleaseVersion
     finalizedBy resetReleaseVersion
+    
+    // Set system property to enable test mode for check task too
+    tasks.withType(Test) {
+        systemProperty 'speleodb.test.mode', 'true'
+    }
 }
 
 // Make compileJava depend on generateReleaseVersion so version is always up to date
@@ -194,6 +202,9 @@ tasks.register('runAllTests') {
     description = 'Runs all unit tests using JUnit 5'
     
     dependsOn generateReleaseVersion, test
+    
+    // Ensure test mode is enabled
+    test.systemProperty 'speleodb.test.mode', 'true'
     
     doLast {
         println 'All unit tests completed successfully!'
