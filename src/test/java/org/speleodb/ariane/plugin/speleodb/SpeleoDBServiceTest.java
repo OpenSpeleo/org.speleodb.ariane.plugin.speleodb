@@ -145,7 +145,7 @@ public class SpeleoDBServiceTest {
         MockSpeleoDBController controller = new MockSpeleoDBController();
         TestableSpeleoDBService service = new TestableSpeleoDBService(controller);
         
-        // Test various URL formats
+        // Test basic URL formats (existing tests)
         service.setInstanceUrlPublic("localhost:8000");
         assert service.getInstanceUrlPublic().equals("http://localhost:8000");
         
@@ -158,7 +158,54 @@ public class SpeleoDBServiceTest {
         service.setInstanceUrlPublic("www.example.com:443");
         assert service.getInstanceUrlPublic().equals("https://www.example.com:443");
         
-        System.out.println("✓ Instance URL validation tests passed");
+        // Test URLs with HTTP prefix (new functionality)
+        service.setInstanceUrlPublic("http://localhost:8000");
+        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
+        
+        service.setInstanceUrlPublic("http://127.0.0.1:8000");
+        assert service.getInstanceUrlPublic().equals("http://127.0.0.1:8000");
+        
+        service.setInstanceUrlPublic("http://www.speleodb.org");
+        assert service.getInstanceUrlPublic().equals("https://www.speleodb.org");
+        
+        // Test URLs with HTTPS prefix (new functionality)  
+        service.setInstanceUrlPublic("https://www.speleodb.org");
+        assert service.getInstanceUrlPublic().equals("https://www.speleodb.org");
+        
+        service.setInstanceUrlPublic("https://stage.speleodb.org");
+        assert service.getInstanceUrlPublic().equals("https://stage.speleodb.org");
+        
+        service.setInstanceUrlPublic("https://localhost:8000");
+        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
+        
+        // Test URLs with trailing slashes (new functionality)
+        service.setInstanceUrlPublic("www.speleodb.org/");
+        assert service.getInstanceUrlPublic().equals("https://www.speleodb.org");
+        
+        service.setInstanceUrlPublic("localhost:8000/");
+        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
+        
+        service.setInstanceUrlPublic("192.168.1.100:3000/");
+        assert service.getInstanceUrlPublic().equals("http://192.168.1.100:3000");
+        
+        // Test URLs with both prefix and trailing slash (new functionality)
+        service.setInstanceUrlPublic("https://www.speleodb.org/");
+        assert service.getInstanceUrlPublic().equals("https://www.speleodb.org");
+        
+        service.setInstanceUrlPublic("http://localhost:8000/");
+        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
+        
+        service.setInstanceUrlPublic("https://stage.speleodb.org/");
+        assert service.getInstanceUrlPublic().equals("https://stage.speleodb.org");
+        
+        // Test URLs with multiple trailing slashes (edge case)
+        service.setInstanceUrlPublic("www.speleodb.org///");
+        assert service.getInstanceUrlPublic().equals("https://www.speleodb.org");
+        
+        service.setInstanceUrlPublic("http://localhost:8000//");
+        assert service.getInstanceUrlPublic().equals("http://localhost:8000");
+        
+        System.out.println("✓ Instance URL validation tests passed (including new prefix/slash handling)");
     }
     
     static void testProjectCreation() {
@@ -339,13 +386,38 @@ public class SpeleoDBServiceTest {
         }
         
         public void setInstanceUrlPublic(String instanceUrl) {
+            // Test version of setSDBInstance - use the same normalization logic
+            String normalizedUrl = normalizeInstanceUrlPublic(instanceUrl);
             String localPattern = "(^localhost)|(^127\\.)|(^10\\.)|(^172\\.(1[6-9]|2[0-9]|3[0-1])\\.)|(^192\\.168\\.)";
             
-            if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
-                testSDBInstance = "http://" + instanceUrl;
+            if (Pattern.compile(localPattern).matcher(normalizedUrl).find()) {
+                testSDBInstance = "http://" + normalizedUrl;
             } else {
-                testSDBInstance = "https://" + instanceUrl;
+                testSDBInstance = "https://" + normalizedUrl;
             }
+        }
+        
+        // Test version of normalizeInstanceUrl method
+        private String normalizeInstanceUrlPublic(String instanceUrl) {
+            if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
+                return instanceUrl;
+            }
+            
+            String normalized = instanceUrl.trim();
+            
+            // Remove http:// or https:// protocol prefixes
+            if (normalized.startsWith("https://")) {
+                normalized = normalized.substring(8);
+            } else if (normalized.startsWith("http://")) {
+                normalized = normalized.substring(7);
+            }
+            
+            // Remove trailing slashes
+            while (normalized.endsWith("/") && normalized.length() > 1) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
+            
+            return normalized;
         }
         
         public String getInstanceUrlPublic() {

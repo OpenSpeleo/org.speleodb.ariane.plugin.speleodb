@@ -67,20 +67,58 @@ public class SpeleoDBService {
     /**
      * Sets the current SpeleoDB instance address.
      * This allows controlled access to the private `SDB_instance` field.
+     * Supports URLs with or without protocol prefixes and optional trailing slashes.
      *
      * @param instanceUrl the SpeleoDB instance URL.
      */
     private void setSDBInstance(String instanceUrl) {
+        // Normalize the input URL by removing protocol prefixes and trailing slashes
+        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
+        
         // Regex to match localhost, private IP ranges, or loopback addresses.
         String localPattern = NETWORK.LOCAL_PATTERN;
 
-        if (Pattern.compile(localPattern).matcher(instanceUrl).find()) {
+        if (Pattern.compile(localPattern).matcher(normalizedUrl).find()) {
             // For local addresses and IPs, use http://
-            SDB_instance = NETWORK.HTTP_PROTOCOL + instanceUrl;
+            SDB_instance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
         } else {
             // For non-local addresses, use https://
-            SDB_instance = NETWORK.HTTPS_PROTOCOL + instanceUrl;
+            SDB_instance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
         }
+    }
+    
+    /**
+     * Normalizes an instance URL by removing protocol prefixes and trailing slashes.
+     * This ensures consistent processing regardless of user input format.
+     * 
+     * Examples:
+     * - "https://www.speleodb.org/" -> "www.speleodb.org"
+     * - "http://localhost:8000/" -> "localhost:8000"
+     * - "stage.speleodb.org" -> "stage.speleodb.org"
+     * 
+     * @param instanceUrl the raw instance URL from user input
+     * @return normalized URL without protocol prefix or trailing slashes
+     */
+    private String normalizeInstanceUrl(String instanceUrl) {
+        if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
+            return instanceUrl;
+        }
+        
+        String normalized = instanceUrl.trim();
+        
+        // Remove http:// or https:// protocol prefixes
+        if (normalized.startsWith(NETWORK.HTTPS_PROTOCOL)) {
+            normalized = normalized.substring(NETWORK.HTTPS_PROTOCOL.length());
+        } else if (normalized.startsWith(NETWORK.HTTP_PROTOCOL)) {
+            normalized = normalized.substring(NETWORK.HTTP_PROTOCOL.length());
+        }
+        
+        // Remove trailing slashes
+        while (normalized.endsWith("/") && normalized.length() > 1) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        
+        return normalized;
     }
 
     /* ===================== AUTHENTICATION MANAGEMENT ===================== */
@@ -500,13 +538,14 @@ public class SpeleoDBService {
      */
     public JsonArray fetchAnnouncements(String instanceUrl) throws Exception {
         // Set up instance URL for this request (without requiring authentication)
+        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
         String tempInstance;
-        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(instanceUrl).find()) {
+        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
             // For local addresses and IPs, use http://
-            tempInstance = NETWORK.HTTP_PROTOCOL + instanceUrl;
+            tempInstance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
         } else {
             // For non-local addresses, use https://
-            tempInstance = NETWORK.HTTPS_PROTOCOL + instanceUrl;
+            tempInstance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
         }
 
         URI uri = new URI(tempInstance + API.ANNOUNCEMENTS_ENDPOINT);
@@ -584,13 +623,14 @@ public class SpeleoDBService {
      */
     public JsonArray fetchPluginReleases(String instanceUrl) throws Exception {
         // Set up instance URL for this request (without requiring authentication)
+        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
         String tempInstance;
-        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(instanceUrl).find()) {
+        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
             // For local addresses and IPs, use http://
-            tempInstance = NETWORK.HTTP_PROTOCOL + instanceUrl;
+            tempInstance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
         } else {
             // For non-local addresses, use https://
-            tempInstance = NETWORK.HTTPS_PROTOCOL + instanceUrl;
+            tempInstance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
         }
 
         URI uri = new URI(tempInstance + API.PLUGIN_RELEASES_ENDPOINT);
