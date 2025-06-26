@@ -686,17 +686,99 @@ public class SpeleoDBController implements Initializable {
      */
     private void showErrorModal(String title, String message) {
         Platform.runLater(() -> {
-            Alert errorAlert = new Alert(Alert.AlertType.ERROR);
-            errorAlert.setTitle(title);
-            errorAlert.setHeaderText(null);
-            errorAlert.setContentText(message);
+            // Create Material Design styled dialog
+            Dialog<Void> errorDialog = new Dialog<>();
+            errorDialog.setTitle(title);
+            errorDialog.setHeaderText(null); // No header for cleaner Material Design look
+            
+            // Set dialog properties
+            DialogPane dialogPane = errorDialog.getDialogPane();
+            dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
+            dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
+            dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
+            dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            
+            // Apply Material Design dialog styling
+            dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
+            
+            // Create content layout with Material Design principles
+            VBox content = new VBox();
+            content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
+            
+            // Create title label
+            Label titleLabel = new Label(title);
+            titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
+            
+            // Create message label
+            Label messageLabel = new Label(message);
+            messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+            messageLabel.setWrapText(true);
+            messageLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
+            messageLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            messageLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
+            
+            // Add components to content
+            content.getChildren().addAll(titleLabel, messageLabel);
+            
+            // Set content
+            dialogPane.setContent(content);
+            
+            // Add Material Design button with INFO styling
+            ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
+            dialogPane.getButtonTypes().add(gotItButton);
+            
+            // Center the button
+            Platform.runLater(() -> {
+                javafx.scene.layout.HBox buttonBar = (javafx.scene.layout.HBox) dialogPane.lookup(".button-bar");
+                if (buttonBar != null) {
+                    buttonBar.setAlignment(javafx.geometry.Pos.CENTER);
+                }
+            });
+            
+            // Style the button with Material Design INFO color - delay to ensure button exists
+            Platform.runLater(() -> {
+                javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
+                if (button != null) {
+                    // INFO color styling (blue tones)
+                    String infoButtonStyle = 
+                        "-fx-background-color: #2196F3; " +  // Material Blue 500
+                        "-fx-text-fill: white; " +
+                        "-fx-font-size: 14px; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-padding: 12 24; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-min-width: 100px; " +
+                        "-fx-pref-width: 100px; " +
+                        "-fx-effect: dropshadow(three-pass-box, rgba(33,150,243,0.3), 4, 0, 0, 2);";
+                    
+                    String infoButtonHoverStyle = 
+                        "-fx-background-color: #1976D2; " +  // Material Blue 700
+                        "-fx-text-fill: white; " +
+                        "-fx-font-size: 14px; " +
+                        "-fx-font-weight: bold; " +
+                        "-fx-padding: 12 24; " +
+                        "-fx-background-radius: 4; " +
+                        "-fx-cursor: hand; " +
+                        "-fx-min-width: 100px; " +
+                        "-fx-pref-width: 100px; " +
+                        "-fx-effect: dropshadow(three-pass-box, rgba(33,150,243,0.4), 6, 0, 0, 3);";
+                    
+                    // Set initial style
+                    button.setStyle(infoButtonStyle);
+                    
+                    // Add hover effects
+                    button.setOnMouseEntered(e -> button.setStyle(infoButtonHoverStyle));
+                    button.setOnMouseExited(e -> button.setStyle(infoButtonStyle));
+                }
+            });
             
             // Set owner for proper modal behavior
             if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
-                errorAlert.initOwner(speleoDBAnchorPane.getScene().getWindow());
+                errorDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
             }
             
-            errorAlert.showAndWait();
+            errorDialog.showAndWait();
         });
     }
 
@@ -1070,8 +1152,25 @@ public class SpeleoDBController implements Initializable {
         String oauthToken = oauthtokenPasswordField.getText();
         String instance = instanceTextField.getText();
 
+        // Validate that user has provided authentication credentials
+        boolean hasOAuthToken = oauthToken != null && !oauthToken.trim().isEmpty();
+        boolean hasEmailPassword = (email != null && !email.trim().isEmpty()) && 
+                                  (password != null && !password.trim().isEmpty());
+        
+        if (!hasOAuthToken && !hasEmailPassword) {
+            showErrorModal("Invalid SpeleoDB Credentials", """
+                                                      Please provide authentication credentials to connect to SpeleoDB.
+                                                      
+                                                      You must provide either:
+                                                      • An OAuth Token (40-character hex string)
+                                                      • Both Email and Password
+                                                      
+                                                      Please fill in the required fields and try again.""");
+            return;
+        }
+
         // Validate OAuth token format if provided
-        if (oauthToken != null && !oauthToken.trim().isEmpty()) {
+        if (hasOAuthToken) {
             if (!validateOAuthToken(oauthToken)) {
                 showErrorModal("Invalid OAuth Token", """
                                                       OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).

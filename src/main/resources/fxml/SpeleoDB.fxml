@@ -82,12 +82,12 @@
 													</GridPane.margin>
 												</Label>
 												<VBox maxWidth="Infinity" spacing="5" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER">
-													<Label alignment="CENTER" text="Instance" textFill="WHITE">
+													<Label alignment="CENTER" text="SpeleoDB Instance" textFill="WHITE">
 														<styleClass>
 															<String fx:value="bold" />
 														</styleClass>
 													</Label>
-													<TextField fx:id="instanceTextField" maxWidth="Infinity" prefHeight="25.0" />
+													<TextField fx:id="instanceTextField" maxWidth="Infinity"/>
 												</VBox>
 												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="3" GridPane.valignment="CENTER" />
 												<Label text="Provide Email &amp; Password or OAuth Token" textFill="WHITE" GridPane.halignment="CENTER" GridPane.rowIndex="4" GridPane.valignment="CENTER">
@@ -101,7 +101,7 @@
 															<String fx:value="bold" />
 														</styleClass>
 													</Label>
-													<TextField fx:id="emailTextField" maxWidth="Infinity" prefHeight="25.0" />
+													<TextField fx:id="emailTextField" maxWidth="Infinity"/>
 													<GridPane.margin>
 														<Insets top="4.0" />
 													</GridPane.margin>
