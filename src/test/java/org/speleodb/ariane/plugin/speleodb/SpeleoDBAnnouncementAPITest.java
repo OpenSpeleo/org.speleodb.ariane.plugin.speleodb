@@ -300,6 +300,7 @@ class SpeleoDBAnnouncementAPITest {
                 JsonArray announcements = responseObject.getJsonArray("data");
                 
                 // Test version filtering logic
+                // Use the plugin VERSION constant which might be null in test environment
                 String currentVersion = SpeleoDBConstants.VERSION; // null in development, set during build
                 
                 long validCount = announcements.stream()
@@ -312,17 +313,22 @@ class SpeleoDBAnnouncementAPITest {
                             if (announcementVersion != null && !announcementVersion.isEmpty()) {
                                 return announcementVersion.equals(currentVersion);
                             }
-                            return true; // No version specified
+                            return true; // No version specified - always include
                         })
                         .count();
                 
                 // The count depends on whether we're in development (VERSION = null) or build (VERSION = "2025.06.23")
                 if (currentVersion == null) {
-                    // In development, only announcements without version should be included
-                    assertEquals(1, validCount, "Should include announcements without version when current version is null");
+                    // In development/test, only announcements without version should be included
+                    assertEquals(1, validCount, "Should include only announcements without version when current version is null");
                 } else {
                     // During build, both no-version and matching-version announcements should be included
-                    assertEquals(2, validCount, "Should include announcements without version and matching version during build");
+                    // But only if the version matches exactly
+                    if ("2025.06.23".equals(currentVersion)) {
+                        assertEquals(2, validCount, "Should include announcements without version and matching version");
+                    } else {
+                        assertEquals(1, validCount, "Should include only announcements without version when no exact match");
+                    }
                 }
             });
         }

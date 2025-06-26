@@ -1,6 +1,7 @@
 package org.speleodb.ariane.plugin.speleodb;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -195,7 +196,7 @@ class NewProjectDialogTest {
             
             // Test that the resource path is correct
             assertThat(expectedResourcePath).contains("countries.json");
-            assertThat(expectedResourcePath).startsWith("/com/arianesline/ariane/plugin/speleodb/");
+            assertThat(expectedResourcePath).startsWith("/org/speleodb/ariane/plugin/speleodb/");
         }
         
         @Test

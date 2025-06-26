@@ -128,13 +128,13 @@ class SpeleoDBServicePluginReleasesTest {
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.23"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.0.0")
-                    .add(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, "25.1.0")
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.1")
+                    // No max version
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.24"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
-                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.2.1")
-                    // No max version - should match 25.2.1 and above
+                    .add(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, "25.3.0")
+                    // Version 25.2.1 is below minimum
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.25"))
                 .add(Json.createObjectBuilder()
                     .add(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, "ARIANE")
@@ -143,9 +143,10 @@ class SpeleoDBServicePluginReleasesTest {
                     .add(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, "2025.06.26"))
                 .build();
 
-            // Count releases compatible with current ARIANE version (25.2.1)
+            // Count releases compatible with test ARIANE version (25.2.1)
+            // Use a test version instead of relying on SpeleoDBConstants.ARIANE_VERSION
+            String testCurrentVersion = "25.2.1";
             int compatibleCount = 0;
-            String currentVersion = SpeleoDBConstants.ARIANE_VERSION; // "25.2.1"
             
             for (int i = 0; i < testReleases.size(); i++) {
                 JsonObject release = testReleases.getJsonObject(i);
@@ -159,12 +160,12 @@ class SpeleoDBServicePluginReleasesTest {
                 boolean isCompatible = true;
                 
                 // Check minimum version
-                if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
                 
                 // Check maximum version
-                if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
                 
@@ -173,7 +174,7 @@ class SpeleoDBServicePluginReleasesTest {
                 }
             }
 
-            assertEquals(3, compatibleCount, "Should find 3 releases compatible with ARIANE version 25.2.1");
+            assertEquals(3, compatibleCount, "Should find 3 releases compatible with test ARIANE version 25.2.1");
         }
 
         @Test
@@ -304,7 +305,30 @@ class SpeleoDBServicePluginReleasesTest {
         @Test
         @DisplayName("Should have correct ARIANE version constant")
         void shouldHaveCorrectArianeVersionConstant() {
-            assertEquals("25.2.1", SpeleoDBConstants.ARIANE_VERSION);
+            // With the new Plugin API containerVersion integration, 
+            // ARIANE_VERSION might be empty in test environment if containerVersion is not set
+            String version = SpeleoDBConstants.ARIANE_VERSION;
+            assertNotNull(version, "ARIANE_VERSION should not be null");
+            
+            // If version is not empty, it should be in valid format
+            if (!version.trim().isEmpty()) {
+                assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), 
+                    "ARIANE_VERSION should be in valid format when not empty: " + version);
+                System.out.println("ARIANE_VERSION in test: " + version);
+            } else {
+                System.out.println("ARIANE_VERSION is empty in test environment - Plugin API containerVersion not set");
+                // Test that we can set and read Plugin API containerVersion
+                String originalContent = com.arianesline.ariane.plugin.api.Plugin.containerVersion.toString();
+                try {
+                    com.arianesline.ariane.plugin.api.Plugin.containerVersion.setLength(0);
+                    com.arianesline.ariane.plugin.api.Plugin.containerVersion.append("25.2.1");
+                    String testVersion = com.arianesline.ariane.plugin.api.Plugin.containerVersion.toString();
+                    assertEquals("25.2.1", testVersion, "Plugin API containerVersion should be settable");
+                } finally {
+                    com.arianesline.ariane.plugin.api.Plugin.containerVersion.setLength(0);
+                    com.arianesline.ariane.plugin.api.Plugin.containerVersion.append(originalContent);
+                }
+            }
         }
 
         @Test

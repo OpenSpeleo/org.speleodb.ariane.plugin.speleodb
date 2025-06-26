@@ -153,9 +153,10 @@ class SpeleoDBPluginUpdateTest {
                     .add(SpeleoDBConstants.JSON_FIELDS.CHANGELOG, "Old ARIANE version"))
                 .build();
 
-            // Count ARIANE releases compatible with current software version (25.2.1)
+            // Count ARIANE releases compatible with test software version (25.2.1)
+            // Use a test version instead of relying on SpeleoDBConstants.ARIANE_VERSION
+            String testCurrentVersion = "25.2.1";
             int compatibleReleases = 0;
-            String currentVersion = SpeleoDBConstants.ARIANE_VERSION; // "25.2.1"
             
             for (int i = 0; i < releases.size(); i++) {
                 JsonObject release = releases.getJsonObject(i);
@@ -169,12 +170,12 @@ class SpeleoDBPluginUpdateTest {
                 boolean isCompatible = true;
                 
                 // Check minimum version
-                if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
                 
                 // Check maximum version
-                if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
                 
@@ -183,7 +184,7 @@ class SpeleoDBPluginUpdateTest {
                 }
             }
 
-            assertEquals(1, compatibleReleases, "Should find exactly 1 ARIANE release compatible with version 25.2.1");
+            assertEquals(1, compatibleReleases, "Should find exactly 1 ARIANE release compatible with test version 25.2.1");
         }
 
         @Test
@@ -218,9 +219,10 @@ class SpeleoDBPluginUpdateTest {
                 .build();
 
             // Find the latest version manually (simulating the controller logic)
+            // Use a test version instead of relying on SpeleoDBConstants.ARIANE_VERSION
             String latestVersion = null;
             JsonObject latestRelease = null;
-            String currentVersion = SpeleoDBConstants.ARIANE_VERSION; // "25.2.1"
+            String testCurrentVersion = "25.2.1";
 
             for (int i = 0; i < releases.size(); i++) {
                 JsonObject release = releases.getJsonObject(i);
@@ -234,11 +236,11 @@ class SpeleoDBPluginUpdateTest {
                 
                 boolean isCompatible = true;
                 
-                if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
+                if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
                 
-                if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
+                if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
                 
