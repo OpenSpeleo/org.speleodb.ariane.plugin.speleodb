@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.prefs.Preferences;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ANIMATIONS;
@@ -86,7 +85,6 @@ import javafx.util.Duration;
  * Delegates server communication to SpeleoDBService.
  */
 public class SpeleoDBController implements Initializable {
-    public static AtomicInteger messageIndexCounter = new AtomicInteger(0);
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
     public TextArea serverTextArea;
@@ -1385,12 +1383,7 @@ public class SpeleoDBController implements Initializable {
     // ************************* Project Management ************************ //
 
     // -------------------------- Project Creation ------------------------- //
-
-    // TODO: Add functionality
-    //    - TODO: Add the UI part - Form & Button
-    //    - TODO: Add the controller code
-    //    - TODO: Add the service code
-    // Note: Once the project is created:
+    // Note: Once a project is created:
     //   - immediately acquire mutex
     //   - create an empty TML in Ariane, wait on "first save" to do first commit. 
 
@@ -2828,97 +2821,6 @@ public class SpeleoDBController implements Initializable {
         
         // Delegate logging shutdown to the plugin's centralized system
         // No need to shutdown file logger here since it's managed by the plugin
-    }
-
-    /**
-     * Diagnostic method to check if animations can be displayed.
-     * This can be called by the host application to verify UI state.
-     * 
-     * @return diagnostic information about the UI state
-     */
-    public String getAnimationDiagnostics() {
-        StringBuilder diagnostics = new StringBuilder();
-        diagnostics.append("Animation System Diagnostics:\n");
-        diagnostics.append("- UI Pane: ").append(speleoDBAnchorPane != null ? "Available" : "NULL").append("\n");
-        if (speleoDBAnchorPane != null) {
-            diagnostics.append("- Scene: ").append(speleoDBAnchorPane.getScene() != null ? "Available" : "NULL").append("\n");
-            if (speleoDBAnchorPane.getScene() != null) {
-                diagnostics.append("- Scene Width: ").append(speleoDBAnchorPane.getScene().getWidth()).append("\n");
-                diagnostics.append("- Scene Height: ").append(speleoDBAnchorPane.getScene().getHeight()).append("\n");
-            }
-        }
-        diagnostics.append("- Running Animations: ").append(runningAnimations.size()).append("\n");
-        diagnostics.append("- JavaFX Application Thread: ").append(Platform.isFxApplicationThread()).append("\n");
-        return diagnostics.toString();
-    }
-    
-    /**
-     * Gets logging diagnostics for debugging.
-     * Delegates to the centralized logging system.
-     * 
-     * @return diagnostic information about the logging system
-     */
-    public String getLoggingDiagnostics() {
-        return logger.getDiagnostics();
-    }
-    
-    /**
-     * Gets the current log file path for external access.
-     * Delegates to the centralized logging system.
-     * 
-     * @return the path to the current log file
-     */
-    public String getLogFilePath() {
-        return logger.getLogFilePath();
-    }
-    
-    /**
-     * Gets the log directory path.
-     * Delegates to the centralized logging system.
-     * 
-     * @return the path to the log directory
-     */
-    public String getLogDirectory() {
-        return logger.getLogDirectory();
-    }
-    
-    /**
-     * Test method to verify animation system is working.
-     * This can be called by the host application to test animations.
-     */
-    public void testAnimations() {
-        showSuccessAnimation("Test Success Animation");
-        // Delay error animation to avoid overlap
-        Timeline delayedError = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
-            showErrorAnimation("Test Error Animation");
-        }));
-        delayedError.play();
-    }
-    
-    /**
-     * Alternative method to show success message that falls back to console if animations fail.
-     * This provides a guaranteed way to show success feedback.
-     */
-    public void showSuccessMessage(String message) {
-        try {
-            showSuccessAnimation(message);
-        } catch (Exception e) {
-            // Fallback to console logging
-            System.out.println("SUCCESS: " + (message != null ? message : MESSAGES.SUCCESS_DEFAULT));
-        }
-    }
-    
-    /**
-     * Alternative method to show error message that falls back to console if animations fail.
-     * This provides a guaranteed way to show error feedback.
-     */
-    public void showErrorMessage(String message) {
-        try {
-            showErrorAnimation(message);
-        } catch (Exception e) {
-            // Fallback to console logging
-            System.err.println("ERROR: " + (message != null ? message : MESSAGES.ERROR_DEFAULT));
-        }
     }
 
     /**

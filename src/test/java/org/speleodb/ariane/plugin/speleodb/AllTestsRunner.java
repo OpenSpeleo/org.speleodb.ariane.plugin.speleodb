@@ -32,7 +32,7 @@ import org.junit.platform.suite.api.SuiteDisplayName;
     SpeleoDBControllerStateTest.class,
     
     // Controller tests - Utility coverage (FIXED)
-    SpeleoDBControllerUtilityTest.class,
+    SpeleoDBControllerIntegrationTest.class,
     
     // Dialog tests
     NewProjectDialogTest.class,
