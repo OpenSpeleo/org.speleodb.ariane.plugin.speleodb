@@ -3671,11 +3671,8 @@ public class SpeleoDBController implements Initializable {
                 throw new IllegalArgumentException("Invalid filename extracted from download URL: " + fileName);
             }
             
-            // Delete any existing SpeleoDB plugin jar files.
-            deletePluginFiles("org.speleodb.ariane.plugin.speleodb-*.jar");
-            
-            // Save the file to plugins directory
-            Path targetFile = pluginsDir.resolve(fileName);
+            // Save the file to plugins directory with .new extension
+            Path targetFile = pluginsDir.resolve(fileName + ".new");
             Files.write(targetFile, fileData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             
             logger.info(String.format(MESSAGES.UPDATE_INSTALL_SUCCESS, version));
