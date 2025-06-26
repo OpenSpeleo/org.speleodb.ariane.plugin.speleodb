@@ -18,7 +18,7 @@ public final class SpeleoDBConstants {
     public static final String VERSION_DISPLAY = VERSION != null ? "v" + VERSION : "Development";
     
     /**
-     * ARIANE Software Version (loaded dynamically from Ariane preferences)
+     * ARIANE Software Version (loaded from Plugin API containerVersion)
      */
     public static final String ARIANE_VERSION;
     public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
@@ -27,29 +27,42 @@ public final class SpeleoDBConstants {
     private static final String ARIANE_VERSION_INIT_MESSAGE;
     private static final String ARIANE_VERSION_INIT_ERROR;
     
-    // Static initialization block to load ARIANE_VERSION from preferences
+    // Static initialization block to load ARIANE_VERSION from Plugin API
     static {
         String version = null;
         String initMessage = null;
         String initError = null;
         
         try {
-            // Try to load Ariane classes directly (simple approach when available)
-            Class<?> arianeClass = Class.forName("com.arianesline.ariane.Ariane");
-            Class<?> constantClass = Class.forName("com.arianesline.ariane.Constant");
+            // Use the Plugin API containerVersion StringBuilder directly
+            String containerVersionStr = com.arianesline.ariane.plugin.api.Plugin.containerVersion.toString();
             
-            Preferences ariane_prefs = Preferences.userNodeForPackage(arianeClass);
-            String versionKey = (String) constantClass.getField("VERSION_KEY").get(null);
-            version = ariane_prefs.get(versionKey, "");
-            
-            if (version != null && !version.trim().isEmpty()) {
-                initMessage = "Ariane version loaded successfully: " + version;
+            if (containerVersionStr != null && !containerVersionStr.trim().isEmpty()) {
+                version = containerVersionStr.trim();
+                initMessage = "Ariane version loaded successfully from Plugin API: " + version;
             } else {
-                initError = "Ariane version not found in preferences";
-                version = "";
+                // Fallback to reflection approach for backward compatibility
+                try {
+                    Class<?> arianeClass = Class.forName("com.arianesline.ariane.Ariane");
+                    Class<?> constantClass = Class.forName("com.arianesline.ariane.Constant");
+                    
+                    Preferences ariane_prefs = Preferences.userNodeForPackage(arianeClass);
+                    String versionKey = (String) constantClass.getField("VERSION_KEY").get(null);
+                    version = ariane_prefs.get(versionKey, "");
+                    
+                    if (version != null && !version.trim().isEmpty()) {
+                        initMessage = "Ariane version loaded successfully from fallback preferences: " + version;
+                    } else {
+                        initError = "Ariane version not found in preferences (fallback)";
+                        version = "";
+                    }
+                } catch (Exception fallbackException) {
+                    initError = "Plugin API containerVersion empty and fallback failed: " + fallbackException.getMessage();
+                    version = "";
+                }
             }
         } catch (Exception e) {
-            initError = "Failed to load Ariane classes: " + e.getMessage();
+            initError = "Failed to load Ariane version from Plugin API: " + e.getMessage();
             version = "";
         }
         
