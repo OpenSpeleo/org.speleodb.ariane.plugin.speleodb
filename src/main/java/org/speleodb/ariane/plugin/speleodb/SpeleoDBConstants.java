@@ -178,7 +178,6 @@ public final class SpeleoDBConstants {
         public static final String PREF_PASSWORD = "SDB_PASSWORD";
         public static final String PREF_OAUTH_TOKEN = "SDB_OAUTH_TOKEN";
         public static final String PREF_INSTANCE = "SDB_INSTANCE";
-        public static final String PREF_SAVE_CREDS = "SDB_SAVECREDS";
         public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
         public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
@@ -256,6 +255,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_LOADED_READONLY_SUCCESS = "Read-only project loaded successfully: ";
         public static final String COUNTRIES_CACHED_SUCCESS = "Successfully cached %d countries from JSON";
         public static final String OAUTH_TOKEN_SAVED = "OAuth token saved to preferences (format validated)";
+        public static final String PASSWORD_SAVED = "Password saved to preferences";
         public static final String OAUTH_TOKEN_FORMAT_PASSED = "OAuth token format validation: PASSED";
         public static final String ADDING_SPELEODB_ID = "Adding SpeleoDB ID: ";
         

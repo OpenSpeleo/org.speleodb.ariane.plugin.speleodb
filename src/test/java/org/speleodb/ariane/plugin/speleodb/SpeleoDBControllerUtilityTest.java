@@ -1,13 +1,13 @@
 package org.speleodb.ariane.plugin.speleodb;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 
 import jakarta.json.Json;
@@ -146,7 +146,6 @@ class SpeleoDBControllerUtilityTest {
             assertThat(controller.getPrefPasswordConstant()).isEqualTo("SDB_PASSWORD");
             assertThat(controller.getPrefOAuthTokenConstant()).isEqualTo("SDB_OAUTH_TOKEN");
             assertThat(controller.getPrefInstanceConstant()).isEqualTo("SDB_INSTANCE");
-            assertThat(controller.getPrefSaveCredsConstant()).isEqualTo("SDB_SAVECREDS");
             assertThat(controller.getDefaultInstanceConstant()).isEqualTo("www.speleoDB.org");
         }
         
@@ -157,7 +156,6 @@ class SpeleoDBControllerUtilityTest {
             assertThat(controller.getPrefPasswordConstant()).isNotNull().isNotEmpty();
             assertThat(controller.getPrefOAuthTokenConstant()).isNotNull().isNotEmpty();
             assertThat(controller.getPrefInstanceConstant()).isNotNull().isNotEmpty();
-            assertThat(controller.getPrefSaveCredsConstant()).isNotNull().isNotEmpty();
             assertThat(controller.getDefaultInstanceConstant()).isNotNull().isNotEmpty();
         }
     }
@@ -683,7 +681,7 @@ class SpeleoDBControllerUtilityTest {
         public String getPrefPasswordConstant() { return "SDB_PASSWORD"; }
         public String getPrefOAuthTokenConstant() { return "SDB_OAUTH_TOKEN"; }
         public String getPrefInstanceConstant() { return "SDB_INSTANCE"; }
-        public String getPrefSaveCredsConstant() { return "SDB_SAVECREDS"; }
+
         public String getDefaultInstanceConstant() { return "www.speleoDB.org"; }
         
         // Simulate access level methods

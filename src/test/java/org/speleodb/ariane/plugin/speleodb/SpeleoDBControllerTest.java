@@ -367,7 +367,6 @@ class SpeleoDBControllerTest {
             assertThat(controllerLogic.getPrefPassword()).isEqualTo("SDB_PASSWORD");
             assertThat(controllerLogic.getPrefOAuthToken()).isEqualTo("SDB_OAUTH_TOKEN");
             assertThat(controllerLogic.getPrefInstance()).isEqualTo("SDB_INSTANCE");
-            assertThat(controllerLogic.getPrefSaveCreds()).isEqualTo("SDB_SAVECREDS");
             assertThat(controllerLogic.getDefaultInstance()).isEqualTo("www.speleoDB.org");
         }
     }
@@ -1824,7 +1823,7 @@ class SpeleoDBControllerTest {
         public String getPrefPassword() { return "SDB_PASSWORD"; }
         public String getPrefOAuthToken() { return "SDB_OAUTH_TOKEN"; }
         public String getPrefInstance() { return "SDB_INSTANCE"; }
-        public String getPrefSaveCreds() { return "SDB_SAVECREDS"; }
+
         public String getDefaultInstance() { return "www.speleoDB.org"; }
         
         // Sorting functionality methods

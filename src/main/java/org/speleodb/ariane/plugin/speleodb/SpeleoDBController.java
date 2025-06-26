@@ -55,7 +55,6 @@ import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
@@ -101,8 +100,6 @@ public class SpeleoDBController implements Initializable {
     private Button unlockButton;
     @FXML
     private Button uploadButton;
-    @FXML
-    private CheckBox rememberCredentialsCheckBox;
     @FXML
     private ListView<Button> projectListView;
     @FXML
@@ -789,53 +786,57 @@ public class SpeleoDBController implements Initializable {
      */
     private void loadPreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-
-        rememberCredentialsCheckBox.setSelected(prefs.getBoolean(PREFERENCES.PREF_SAVE_CREDS, true));
-
-        if (rememberCredentialsCheckBox.isSelected()) {
-            emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
-            passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, MISC.EMPTY_STRING));
-            oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, MISC.EMPTY_STRING));
-        }
-
+        emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
+        passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, MISC.EMPTY_STRING));
+        oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, MISC.EMPTY_STRING));
         instanceTextField.setText(prefs.get(PREFERENCES.PREF_INSTANCE, PREFERENCES.DEFAULT_INSTANCE));
     }
 
     /**
      * Saves user preferences based on the current UI state.
      * Validates OAuth token format before saving to prevent invalid tokens from being persisted.
+     * Always saves credentials.
      */
     private void savePreferences() {
         Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
-        if (!rememberCredentialsCheckBox.isSelected()) {
-            prefs.remove(PREFERENCES.PREF_INSTANCE);
-            prefs.remove(PREFERENCES.PREF_EMAIL);
-            prefs.remove(PREFERENCES.PREF_PASSWORD);
-            prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
-            prefs.remove(PREFERENCES.PREF_SAVE_CREDS);
-            return;
-        }
 
+        // Save email and instance
         prefs.put(PREFERENCES.PREF_EMAIL, emailTextField.getText());
         prefs.put(PREFERENCES.PREF_INSTANCE, instanceTextField.getText());
-        prefs.put(PREFERENCES.PREF_PASSWORD, passwordPasswordField.getText());
             
-        // Validate OAuth token before saving
         String oauthToken = oauthtokenPasswordField.getText();
+        String password = passwordPasswordField.getText();
 
         if (oauthToken != null && !oauthToken.trim().isEmpty()) {
+            // If OAuth token is provided, save it and remove password
+            prefs.put(PREFERENCES.PREF_PASSWORD, password);
+            
             if (validateOAuthToken(oauthToken)) {
                 prefs.put(PREFERENCES.PREF_OAUTH_TOKEN, oauthToken);
                 logger.info(MESSAGES.OAUTH_TOKEN_SAVED);
             } else {
-                // Don't save invalid token, but log the issue
+                oauthtokenPasswordField.setText("");
                 prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
-                logger.info(MESSAGES.OAUTH_TOKEN_INVALID_NOT_SAVED);
+                logger.error(MESSAGES.OAUTH_TOKEN_INVALID_NOT_SAVED);
+            }
+
+        } else {
+            // Remove OAuth token if field is empty
+            prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
+
+            // Save password only if not empty, otherwise remove it
+            if (password != null && !password.trim().isEmpty()) {
+                prefs.put(PREFERENCES.PREF_PASSWORD, password);
+                logger.info(MESSAGES.PASSWORD_SAVED);
+            } else {
+                // Don't save invalid token, but log the issue
+                prefs.remove(PREFERENCES.PREF_PASSWORD);
+                logger.error("Password fieldis empty.");
             }
         }
-
-        prefs.putBoolean(PREFERENCES.PREF_SAVE_CREDS, true);
     }
+
+
 
     // ==================== UI INITIALIZATION FUNCTIONS ==================== //
 
@@ -1189,10 +1190,8 @@ public class SpeleoDBController implements Initializable {
                 speleoDBService.authenticate(email, password, oauthToken, instance);
                 logger.info("Connected successfully.");
                 
-                // Only save preferences if "remember me" is checked
-                if (rememberCredentialsCheckBox.isSelected()) {
-                    savePreferences();
-                }
+                // Always save preferences on successful connection
+                savePreferences();
 
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
@@ -1266,12 +1265,16 @@ public class SpeleoDBController implements Initializable {
         // Re-enable connection form fields
         setConnectionFormEnabled(true);
         
-        // Clear password if remember me is not checked
-        if (!rememberCredentialsCheckBox.isSelected()) {
-            passwordPasswordField.clear();
-        }
+        // Clear only password and OAuth token from preferences
+        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        prefs.remove(PREFERENCES.PREF_PASSWORD);
+        prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
         
-        logger.info("Disconnected from " + SDB_instance);
+        // Clear only password and OAuth token from UI (leave email and instance)
+        passwordPasswordField.clear();
+        oauthtokenPasswordField.clear();
+        
+        logger.info("Disconnected from " + SDB_instance + " and cleared password/OAuth token");
     }
     
     /**
@@ -1286,7 +1289,6 @@ public class SpeleoDBController implements Initializable {
         passwordPasswordField.setDisable(!enabled);
         oauthtokenPasswordField.setDisable(!enabled);
         instanceTextField.setDisable(!enabled);
-        rememberCredentialsCheckBox.setDisable(!enabled);
         resetButton.setDisable(!enabled);
     }
 
@@ -1353,12 +1355,15 @@ public class SpeleoDBController implements Initializable {
             passwordPasswordField.setText("");
             oauthtokenPasswordField.setText("");
             instanceTextField.setText(PREFERENCES.DEFAULT_INSTANCE);
-            rememberCredentialsCheckBox.setSelected(true);
             
-            // Clear saved preferences if remember me was unchecked
-            savePreferences();
+            // Clear all saved preferences when resetting form
+            Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+            prefs.remove(PREFERENCES.PREF_INSTANCE);
+            prefs.remove(PREFERENCES.PREF_EMAIL);
+            prefs.remove(PREFERENCES.PREF_PASSWORD);
+            prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
             
-            logger.info("Connection form reset to defaults");
+            logger.info("Connection form reset to defaults and cleared all preferences");
             showSuccessAnimation("Form reset successfully");
         }
     }
