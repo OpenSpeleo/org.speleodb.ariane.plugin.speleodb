@@ -10,24 +10,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DEBUG;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SHUTDOWN;
+
 import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.ariane.plugin.api.DataServerPlugin;
 import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DEBUG;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SHUTDOWN;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
-import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonType;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -52,12 +50,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     // Reference to the active controller for shutdown handling
     private SpeleoDBController activeController = null;
     
-    /* Pre-warmed UI Component */
-    private Alert preWarmedShutdownModal = null;
-    
-    // Fast button types to avoid repeated instantiation
-    private static final ButtonType FAST_RELEASE_LOCK = new ButtonType(SHUTDOWN.BUTTON_YES_RELEASE_LOCK);
-    private static final ButtonType FAST_KEEP_LOCK = new ButtonType(SHUTDOWN.BUTTON_NO_KEEP_LOCK);
+
 
     // ==================== CENTRALIZED LOGGING SYSTEM ====================
     
@@ -72,12 +65,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
      * Default constructor for SpeleoDBPlugin.
      */
     public SpeleoDBPlugin() {
-        // Initialize logging - these lines trigger static initialization
-        logger.info("SpeleoDB Plugin Version: " + SpeleoDBConstants.VERSION_DISPLAY);
-        logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
-        
-        // Log any deferred initialization messages from SpeleoDBConstants
-        SpeleoDBConstants.logDeferredInitMessages();
     }
 
     @Override
@@ -108,39 +95,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     /**
-     * Pre-warms the shutdown modal system to eliminate first-time display lag.
-     * Called during plugin initialization to prepare JavaFX Alert system.
-     */
-    private void preWarmShutdownModal() {
-        Platform.runLater(() -> {
-            if (preWarmedShutdownModal == null) {
-                preWarmedShutdownModal = new Alert(Alert.AlertType.CONFIRMATION);
-                preWarmedShutdownModal.setTitle(SHUTDOWN.DIALOG_TITLE);
-                preWarmedShutdownModal.setHeaderText(SHUTDOWN.DIALOG_HEADER);
-                preWarmedShutdownModal.setContentText("");
-                preWarmedShutdownModal.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
-            }
-        });
-    }
-
-    /**
      * Shows a confirmation dialog asking the user if they want to release the project lock before shutdown.
-     * OPTIMIZED: Uses pre-warmed modal + pre-created buttons for instant display.
      * 
      * @param projectName the name of the project that has an active lock
      * @return true if the user wants to release the lock, false otherwise
      */
     public boolean showShutdownConfirmation(String projectName) {
-        // Use pre-warmed modal for maximum speed, fallback to new modal if needed
-        Alert alert = (preWarmedShutdownModal != null) ? preWarmedShutdownModal : new Alert(Alert.AlertType.CONFIRMATION);
-        
-        // Configure the modal (minimal operations for speed)
-        if (alert != preWarmedShutdownModal) {
-            alert.setTitle(SHUTDOWN.DIALOG_TITLE);
-            alert.setHeaderText(SHUTDOWN.DIALOG_HEADER);
-            alert.getButtonTypes().setAll(FAST_RELEASE_LOCK, FAST_KEEP_LOCK);
-        }
-        
         // Build message efficiently using StringBuilder with pre-allocated capacity
         StringBuilder message = new StringBuilder(200);
         message.append(SHUTDOWN.MESSAGE_PREFIX)
@@ -148,12 +108,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                .append(SHUTDOWN.MESSAGE_SUFFIX)
                .append(SHUTDOWN.MESSAGE_OPTIONS);
         
-        alert.setContentText(message.toString());
-        
-        // Show and get result (optimized path)
-        return alert.showAndWait()
-                   .map(response -> response == FAST_RELEASE_LOCK)
-                   .orElse(false);
+        return SpeleoDBModals.showConfirmation(
+            SHUTDOWN.DIALOG_TITLE,
+            message.toString(),
+            SHUTDOWN.BUTTON_YES_RELEASE_LOCK,
+            SHUTDOWN.BUTTON_NO_KEEP_LOCK
+        );
     }
 
     /**
@@ -179,9 +139,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         
         try {
             Parent root = fxmlLoader.load();
-            
-            // Pre-warm shutdown modal for instant display (only once)
-            preWarmShutdownModal();
             
             return root;
         } catch (IOException e) {

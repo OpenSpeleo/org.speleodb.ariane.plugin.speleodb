@@ -1,6 +1,6 @@
 package org.speleodb.ariane.plugin.speleodb;
 
-import java.util.prefs.Preferences;
+import com.arianesline.ariane.plugin.api.Plugin;
 
 import javafx.scene.control.ButtonType;
 
@@ -20,68 +20,8 @@ public final class SpeleoDBConstants {
     /**
      * ARIANE Software Version (loaded from Plugin API containerVersion)
      */
-    public static final String ARIANE_VERSION;
+    public static final String ARIANE_VERSION = Plugin.containerVersion.toString();
     public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
-    
-    // Messages from static initialization (logged later to avoid circular dependency)
-    private static final String ARIANE_VERSION_INIT_MESSAGE;
-    private static final String ARIANE_VERSION_INIT_ERROR;
-    
-    // Static initialization block to load ARIANE_VERSION from Plugin API
-    static {
-        String version = null;
-        String initMessage = null;
-        String initError = null;
-        
-        try {
-            // Use the Plugin API containerVersion StringBuilder directly
-            String containerVersionStr = com.arianesline.ariane.plugin.api.Plugin.containerVersion.toString();
-            
-            if (containerVersionStr != null && !containerVersionStr.trim().isEmpty()) {
-                version = containerVersionStr.trim();
-                initMessage = "Ariane version loaded successfully from Plugin API: " + version;
-            } else {
-                // Fallback to reflection approach for backward compatibility
-                try {
-                    Class<?> arianeClass = Class.forName("com.arianesline.ariane.Ariane");
-                    Class<?> constantClass = Class.forName("com.arianesline.ariane.Constant");
-                    
-                    Preferences ariane_prefs = Preferences.userNodeForPackage(arianeClass);
-                    String versionKey = (String) constantClass.getField("VERSION_KEY").get(null);
-                    version = ariane_prefs.get(versionKey, "");
-                    
-                    if (version != null && !version.trim().isEmpty()) {
-                        initMessage = "Ariane version loaded successfully from fallback preferences: " + version;
-                    } else {
-                        initError = "Ariane version not found in preferences (fallback)";
-                        version = "";
-                    }
-                } catch (Exception fallbackException) {
-                    initError = "Plugin API containerVersion empty and fallback failed: " + fallbackException.getMessage();
-                    version = "";
-                }
-            }
-        } catch (Exception e) {
-            initError = "Failed to load Ariane version from Plugin API: " + e.getMessage();
-            version = "";
-        }
-        
-        ARIANE_VERSION = version;
-        ARIANE_VERSION_INIT_MESSAGE = initMessage;
-        ARIANE_VERSION_INIT_ERROR = initError;
-    }
-    
-    /**
-     * Logs any deferred initialization messages. Call this after the logger is fully initialized.
-     */
-    public static void logDeferredInitMessages() {
-        if (ARIANE_VERSION_INIT_MESSAGE != null) {
-            SpeleoDBLogger.getInstance().info(ARIANE_VERSION_INIT_MESSAGE);
-        }
-        if (ARIANE_VERSION_INIT_ERROR != null) {
-            SpeleoDBLogger.getInstance().error(ARIANE_VERSION_INIT_ERROR);
-        }
-    }
     
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
@@ -108,7 +48,7 @@ public final class SpeleoDBConstants {
     // ==================== URL CONSTANTS ====================
     public static final class URLS {
         // public static final String WEBVIEW = "http://localhost:8000/webview/ariane/";
-        public static final String WEBVIEW = "https://www.speleoDB.org/webview/ariane/";
+        public static final String WEBVIEW = "https://" + PREFERENCES.DEFAULT_INSTANCE + "/webview/ariane/";
     }
     
     // ==================== API ENDPOINTS ====================
@@ -260,10 +200,10 @@ public final class SpeleoDBConstants {
         public static final String ADDING_SPELEODB_ID = "Adding SpeleoDB ID: ";
         
         // Update Messages
-        public static final String UPDATE_CHECK_STARTING = "Checking for SpeleoDB plugin updates...";
+        public static final String UPDATE_CHECK_STARTING = "Checking for SpeleoDB plugin updates ...";
         public static final String UPDATE_AVAILABLE = "SpeleoDB update available: v%s";
         public static final String UPDATE_NOT_AVAILABLE = "SpeleoDB plugin is up to date (v%s)";
-        public static final String UPDATE_DOWNLOAD_STARTING = "Downloading SpeleoDB update v%s...";
+        public static final String UPDATE_DOWNLOAD_STARTING = "Downloading SpeleoDB update v%s ...";
         public static final String UPDATE_DOWNLOAD_SUCCESS = "SpeleoDB updated to version %s";
         public static final String UPDATE_HASH_VERIFICATION_FAILED = "Update download failed: SHA256 hash verification failed";
         public static final String UPDATE_DOWNLOAD_FAILED = "Failed to download SpeleoDB update: %s";
@@ -274,8 +214,8 @@ public final class SpeleoDBConstants {
         public static final String UPDATE_RESTART_WARNING = "Please restart Ariane now for the new plugin to take effect";
         
         // Loading Messages
-        public static final String LOADING_PROJECT = "Loading project file...";
-        public static final String LOADING_READONLY_PROJECT = "Loading read-only project file...";
+        public static final String LOADING_PROJECT = "Loading project file ...";
+        public static final String LOADING_READONLY_PROJECT = "Loading read-only project file ...";
         
         // Validation Messages
         public static final String OAUTH_TOKEN_FORMAT_FAILED = "OAuth token format validation: FAILED - Expected 40 hex characters, got: %d characters";
@@ -362,6 +302,23 @@ public final class SpeleoDBConstants {
     
     // ==================== UI STYLING ====================
     public static final class STYLES {
+        // CSS File Path
+        public static final String MAIN_CSS_PATH = "/css/fxmlmain.css";
+        
+        // Material Design Colors
+        public static final class MATERIAL_COLORS {
+            public static final String PRIMARY = "#2196F3";       // Blue 500
+            public static final String PRIMARY_DARK = "#1976D2";  // Blue 700
+            public static final String SUCCESS = "#4CAF50";       // Green 500
+            public static final String SUCCESS_DARK = "#388E3C";  // Green 700
+            public static final String ERROR = "#F44336";         // Red 500
+            public static final String ERROR_DARK = "#D32F2F";    // Red 700
+            public static final String WARNING = "#FF9800";       // Orange 500
+            public static final String WARNING_DARK = "#F57C00";  // Orange 700
+            public static final String INFO = "#2196F3";          // Blue 500
+            public static final String INFO_DARK = "#1976D2";     // Blue 700
+        }
+        
         // Colors
         public static final String COLOR_SUCCESS_BG = "#9CCC65";  // Green 400
         public static final String COLOR_SUCCESS_BORDER = "#43A047";  // Green 600

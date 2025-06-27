@@ -140,7 +140,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
         
         // Apply CSS stylesheet to the dialog
-        getDialogPane().getStylesheets().add(getClass().getResource("/css/fxmlmain.css").toExternalForm());
+        getDialogPane().getStylesheets().add(getClass().getResource(STYLES.MAIN_CSS_PATH).toExternalForm());
     }
 
     private void createDialogContent() {
