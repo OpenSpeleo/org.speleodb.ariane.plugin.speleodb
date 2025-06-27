@@ -18,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +83,15 @@ class SpeleoDBControllerTest {
     @BeforeEach
     void setUp() {
         controllerLogic = new SpeleoDBControllerLogic();
+        
+        // Reset singleton instance before each test
+        SpeleoDBController.resetInstance();
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Reset singleton instance after each test to ensure clean state
+        SpeleoDBController.resetInstance();
     }
     
     @Nested
@@ -1994,7 +2004,7 @@ class SpeleoDBControllerTest {
         
         // Use reflection to access the private validateOAuthToken method
         try {
-            controller = new SpeleoDBController();
+            controller = SpeleoDBController.getInstance();
             validateMethod = SpeleoDBController.class.getDeclaredMethod("validateOAuthToken", String.class);
             validateMethod.setAccessible(true);
             
@@ -2054,7 +2064,7 @@ class SpeleoDBControllerTest {
         Method isServerOfflineMethod = null;
         
         try {
-            controller = new SpeleoDBController();
+            controller = SpeleoDBController.getInstance();
             isServerOfflineMethod = SpeleoDBController.class.getDeclaredMethod("isServerOfflineError", Exception.class);
             isServerOfflineMethod.setAccessible(true);
             
@@ -2113,7 +2123,7 @@ class SpeleoDBControllerTest {
         Method isTimeoutMethod = null;
         
         try {
-            controller = new SpeleoDBController();
+            controller = SpeleoDBController.getInstance();
             isTimeoutMethod = SpeleoDBController.class.getDeclaredMethod("isTimeoutError", Exception.class);
             isTimeoutMethod.setAccessible(true);
             
@@ -2168,7 +2178,7 @@ class SpeleoDBControllerTest {
         Method getNetworkErrorMethod = null;
         
         try {
-            controller = new SpeleoDBController();
+            controller = SpeleoDBController.getInstance();
             getNetworkErrorMethod = SpeleoDBController.class.getDeclaredMethod("getNetworkErrorMessage", Exception.class, String.class);
             getNetworkErrorMethod.setAccessible(true);
             
@@ -2253,7 +2263,7 @@ class SpeleoDBControllerTest {
         Method getSafeErrorMethod = null;
         
         try {
-            controller = new SpeleoDBController();
+            controller = SpeleoDBController.getInstance();
             getSafeErrorMethod = SpeleoDBController.class.getDeclaredMethod("getSafeErrorMessage", Exception.class);
             getSafeErrorMethod.setAccessible(true);
             

@@ -1,11 +1,5 @@
 package org.speleodb.ariane.plugin.speleodb;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Instant;
-
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,6 +8,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +40,7 @@ import jakarta.json.JsonObject;
 public class SpeleoDBAPITest {
     
     private static SpeleoDBService service;
-    private static SpeleoDBController mockController;
+    private static SpeleoDBController testController;
     private static JsonObject testProject;
     private static JsonObject minimalProject;
     private static JsonObject comprehensiveProject;
@@ -48,6 +49,12 @@ public class SpeleoDBAPITest {
     // Test configuration
     private static final int API_TIMEOUT_SECONDS = 30;
     private static final int RETRY_COUNT = 3;
+    
+    private static SpeleoDBPlugin testPlugin;
+    
+    private static String capturedURL;
+    private static String capturedHeaders;
+    private static String capturedBody;
     
     @BeforeAll
     static void setupEnvironment() {
@@ -81,11 +88,31 @@ public class SpeleoDBAPITest {
             return;
         }
         
-        // Initialize service
-        mockController = new SpeleoDBController();
-        service = new SpeleoDBService(mockController);
+        // Note: Controller and service initialization moved to setUp() method
+        // to properly use the singleton pattern
         
         System.out.println("✅ Environment setup complete. Running API tests...");
+    }
+    
+    @BeforeEach
+    void setUp() {
+        // Reset singleton instance before each test
+        SpeleoDBController.resetInstance();
+        
+        // Create real plugin instance (not a mock) since we need the final executorService field
+        testPlugin = new SpeleoDBPlugin();
+        
+        // Get controller instance and set up
+        testController = SpeleoDBController.getInstance();
+        testController.parentPlugin = testPlugin;
+        
+        // Create real service instance without server communication
+        service = new SpeleoDBService(testController);
+        
+        // Reset captured values
+        capturedURL = null;
+        capturedHeaders = null;
+        capturedBody = null;
     }
     
     /**
@@ -623,6 +650,16 @@ public class SpeleoDBAPITest {
     @FunctionalInterface
     private interface ThrowingSupplier<T> {
         T get() throws Exception;
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Reset singleton instance after each test to ensure clean state
+        SpeleoDBController.resetInstance();
+        // Shutdown the executor from the plugin
+        if (testPlugin != null && testPlugin.executorService != null) {
+            testPlugin.executorService.shutdownNow();
+        }
     }
     
     @AfterAll

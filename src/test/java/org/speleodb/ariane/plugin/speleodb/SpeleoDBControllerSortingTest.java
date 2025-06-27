@@ -1,16 +1,17 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
 
 import jakarta.json.Json;
@@ -30,7 +31,16 @@ class SpeleoDBControllerSortingTest {
     
     @BeforeEach
     void setUp() {
+        // Reset singleton instance before each test
+        SpeleoDBController.resetInstance();
+        
         sortingLogic = new SpeleoDBControllerSortingLogic();
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Reset singleton instance after each test to ensure clean state
+        SpeleoDBController.resetInstance();
     }
     
     @Nested

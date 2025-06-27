@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.InvocationTargetException;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,9 +33,17 @@ class SpeleoDBPluginUpdateTest {
 
     @BeforeEach
     void setUp() {
+        // Reset singleton instance before each test
+        SpeleoDBController.resetInstance();
+        controller = SpeleoDBController.getInstance();
         MockitoAnnotations.openMocks(this);
-        controller = new SpeleoDBController();
         controller.parentPlugin = mockPlugin;
+    }
+
+    @AfterEach
+    void tearDown() {
+        // Reset singleton instance after each test to ensure clean state
+        SpeleoDBController.resetInstance();
     }
 
     @Nested
@@ -113,7 +124,7 @@ class SpeleoDBPluginUpdateTest {
                 // Test with empty hash
                 assertFalse((Boolean) method.invoke(controller, testData, ""));
 
-            } catch (Exception e) {
+            } catch (IllegalAccessException | NoSuchMethodException | SecurityException | InvocationTargetException e) {
                 throw new RuntimeException("Failed to test invalid hash handling", e);
             }
         }

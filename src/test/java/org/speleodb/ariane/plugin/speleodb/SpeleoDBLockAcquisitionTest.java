@@ -1,21 +1,21 @@
 package org.speleodb.ariane.plugin.speleodb;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 
 import jakarta.json.Json;
@@ -362,6 +362,10 @@ class SpeleoDBLockAcquisitionTest {
     // Test helper class that extends SpeleoDBController for testing
     static class TestableSpeleoDBController extends SpeleoDBController {
         private SpeleoDBService speleoDBService;
+
+        public TestableSpeleoDBController() {
+            super(true); // Use protected constructor for testing
+        }
 
         public void setSpeleoDBService(SpeleoDBService service) {
             this.speleoDBService = service;

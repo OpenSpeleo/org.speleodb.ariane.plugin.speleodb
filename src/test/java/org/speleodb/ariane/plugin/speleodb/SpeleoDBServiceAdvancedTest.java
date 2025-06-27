@@ -1,18 +1,18 @@
 package org.speleodb.ariane.plugin.speleodb;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 
 import jakarta.json.JsonObject;
@@ -129,6 +129,13 @@ class SpeleoDBServiceAdvancedTest {
     static class TestableSpeleoDBController extends SpeleoDBController {
         private JsonObject currentProject = null;
         
+        // For testing purposes
+        public String lastLoggedMessage = "";
+        
+        public TestableSpeleoDBController() {
+            super(true); // Use protected constructor for testing
+        }
+        
         public void setCurrentProject(JsonObject project) {
             this.currentProject = project;
         }
@@ -141,6 +148,11 @@ class SpeleoDBServiceAdvancedTest {
         @Override
         public String getCurrentProjectName() {
             return currentProject != null ? currentProject.getString("name") : null;
+        }
+        
+        @Override
+        public void appendToUILog(String message) {
+            lastLoggedMessage = message;
         }
     }
     

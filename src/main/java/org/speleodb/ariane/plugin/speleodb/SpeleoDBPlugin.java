@@ -47,11 +47,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         return t;
     });
     
-    // Reference to the active controller for shutdown handling
-    private SpeleoDBController activeController = null;
-    
-
-
     // ==================== CENTRALIZED LOGGING SYSTEM ====================
     
     /**
@@ -117,23 +112,12 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     /**
-     * Gets or creates the single shared controller instance.
-     * Uses lazy initialization to ensure only one controller exists.
-     */
-    private SpeleoDBController getOrCreateController() {
-        if (activeController == null) {
-            activeController = new SpeleoDBController();
-            activeController.parentPlugin = this;
-        }
-        return activeController;
-    }
-    
-    /**
-     * Loads the FXML UI using the shared controller instance.
+     * Loads the FXML UI using the singleton controller instance.
      * This ensures the same controller is used whether called from showUI() or getUINode().
      */
     private Parent loadUIWithSharedController() {
-        SpeleoDBController controller = getOrCreateController();
+        SpeleoDBController controller = SpeleoDBController.getInstance();
+        controller.parentPlugin = this; // Set the parent plugin reference
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
         fxmlLoader.setController(controller);
         
@@ -177,20 +161,17 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         // NOTE: No confirmation dialogs here - they're handled by the window close handler
         // This prevents app crashes during the JavaFX shutdown sequence
         
-        if (activeController != null) {
-            // Just log the current state, don't show any dialogs
-            if (activeController.hasActiveProjectLock()) {
-                String projectName = activeController.getCurrentProjectName();
-                logger.info("Application shutting down with active lock on: " + projectName);
-                logger.info("Lock will be released automatically when connection times out.");
-            }
-            
-            // Cleanup resources to prevent shutdown hangs
-            activeController.cleanup();
+        SpeleoDBController controller = SpeleoDBController.getInstance();
+        
+        // Just log the current state, don't show any dialogs
+        if (controller.hasActiveProjectLock()) {
+            String projectName = controller.getCurrentProjectName();
+            logger.info("Application shutting down with active lock on: " + projectName);
+            logger.info("Lock will be released automatically when connection times out.");
         }
         
-        // Clear references
-        activeController = null;
+        // Cleanup resources to prevent shutdown hangs
+        controller.cleanup();
         
         // Shutdown the executor service quickly during application shutdown
         try {

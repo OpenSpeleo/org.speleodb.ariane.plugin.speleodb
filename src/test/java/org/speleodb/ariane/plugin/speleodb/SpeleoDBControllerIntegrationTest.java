@@ -594,6 +594,10 @@ class SpeleoDBControllerIntegrationTest {
         private String instanceValue = "";
         private boolean debugModeValue = false;
         
+        public TestableSpeleoDBController() {
+            super(true); // Use protected constructor for testing
+        }
+        
         public void setCurrentProject(JsonObject project) {
             this.currentProject = project;
         }

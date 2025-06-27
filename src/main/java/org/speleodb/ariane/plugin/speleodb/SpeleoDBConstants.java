@@ -23,6 +23,14 @@ public final class SpeleoDBConstants {
     public static final String ARIANE_VERSION = Plugin.containerVersion.toString();
     public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
     
+    // ==================== TEST MODE ====================
+    /**
+     * Test Mode Flag
+     * When set to true, the plugin uses isolated test preferences to avoid affecting user data.
+     * This is automatically set by the build system during test execution.
+     */
+    public static final boolean TEST_MODE = false;
+    
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
         throw new AssertionError("Constants class should not be instantiated");
@@ -121,6 +129,11 @@ public final class SpeleoDBConstants {
         public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
         public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
+        
+        // Test preferences node path (without leading slash for Preferences.userRoot().node())
+        public static final String TEST_PREFERENCES_NODE = "org/speleodb/ariane/plugin/speleodb/test";
+        // Test preferences absolute path (with leading slash for path comparisons)
+        public static final String TEST_PREFERENCES_PATH = "/" + TEST_PREFERENCES_NODE;
     }
     
     // ==================== FILE PATHS & DIRECTORIES ====================

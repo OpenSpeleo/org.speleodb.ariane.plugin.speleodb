@@ -31,17 +31,51 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.8.0'
     testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
-    testImplementation 'org.junit.platform:junit-platform-suite-api:1.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    testRuntimeOnly 'org.junit.platform:junit-platform-suite-engine:1.10.1'
     
     // JavaFX testing support
     testImplementation 'org.testfx:testfx-core:4.0.16-alpha'
     testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
 }
 
+
+tasks.register('help-build') {
+    group = 'help'
+    description = 'Shows available build and test tasks'
+    
+    doLast {
+        println ''
+        println '=== SpeleoDB Plugin Build Tasks ==='
+        println ''
+        println 'BUILD TASKS (no tests):'
+        println '  ./gradlew build           - Build without running tests'
+        println '  ./gradlew assemble        - Assemble the JAR file'
+        println ''
+        println 'TEST TASKS:'
+        println '  ./gradlew test            - Run all tests'
+        println '  ./gradlew check           - Run tests and checks'
+        println ''
+        println 'COMBINED:'
+        println '  ./gradlew build test      - Build and then run tests (separate tasks)'
+        println ''
+        println 'CLEAN STATE TASKS:'
+        println '  ./gradlew clean           - Clean all build outputs'
+        println '  ./gradlew clean build     - Clean and build from scratch (no tests)'
+        println '  ./gradlew clean test      - Clean and run tests from scratch'
+        println '  ./gradlew clean build test - Clean, build, and test (separate tasks)'
+        println ''
+        println 'USEFUL COMBINATIONS:'
+        println '  ./gradlew clean assemble  - Clean and create JAR only'
+        println '  ./gradlew --refresh-dependencies build - Refresh deps and build'
+        println '  ./gradlew build --info    - Build with detailed output'
+        println '  ./gradlew test --info     - Run tests with detailed output'
+        println ''
+        println 'TIP: Use "clean" before any task to ensure a fresh build state.'
+        println ''
+    }
+}
 // Task to clean build/libs directory before build
-tasks.register('cleanLibs') {
+tasks.register('cleanBuildArtifacts') {
     group = 'build'
     description = 'Cleans the build/libs directory before building'
     
@@ -77,10 +111,11 @@ tasks.register('generateReleaseVersion') {
         def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
         
-        // Replace the version constants
+        // Replace the version constants - match VERSION in main class, not in nested classes
+        // Look for VERSION after the version comment block
         content = content.replaceFirst(
-            /public static final String VERSION = null;/,
-            "public static final String VERSION = \"${versionString}\";"
+            /(?s)(SpeleoDB Plugin Version.*?\n\s*\*\/\s*\n)(\s*public static final String VERSION = )null;/,
+            "\$1\$2\"${versionString}\";"
         )
         
         // Write back to file
@@ -90,55 +125,97 @@ tasks.register('generateReleaseVersion') {
     }
 }
 
-// Task to restore null values after build
-tasks.register('resetReleaseVersion') {
-    group = 'build'
-    description = 'Restores null placeholders in version constants after build'
+// Task to enable test mode for isolated preferences
+tasks.register('enableTestMode') {
+    group = 'test'
+    description = 'Enables test mode to isolate test preferences from user preferences'
     
-    doLast {
-        println "Restoring version placeholders to null..."
+    doFirst {
+        println "Enabling test mode for preference isolation..."
         
         // Read the constants file
         def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
         
-        // Restore the version constants to null
+        // Enable TEST_MODE
         content = content.replaceFirst(
-            /public static final String VERSION = "[^"]*";/,
-            "public static final String VERSION = null;"
+            /public static final boolean TEST_MODE = false;/,
+            "public static final boolean TEST_MODE = true;"
         )
         
         // Write back to file
         constantsFile.text = content
         
-        println "Restored version constants to null placeholders"
+        // Force recompilation by marking outputs as out of date
+        tasks.compileJava.outputs.upToDateWhen { false }
+        tasks.compileTestJava.outputs.upToDateWhen { false }
+        
+        println "Test mode ENABLED - tests will use isolated preferences"
     }
 }
 
+// Configure test task to ensure proper ordering
 test {
     useJUnitPlatform()
-    dependsOn generateReleaseVersion
-    finalizedBy resetReleaseVersion
-    
-    // Set system property to enable test mode - this prevents tests from affecting user preferences
-    systemProperty 'speleodb.test.mode', 'true'
+    dependsOn generateReleaseVersion, enableTestMode, compileJava, compileTestJava
 }
 
-// Ensure check task also restores version
+// Update the check task - only enable test mode when running checks/tests
 check {
-    dependsOn generateReleaseVersion
-    finalizedBy resetReleaseVersion
+    dependsOn generateReleaseVersion, enableTestMode
+}
+
+// Configure the build task to NOT run tests/checks by default
+build {
+    dependsOn.clear()
+    dependsOn assemble
     
-    // Set system property to enable test mode for check task too
-    tasks.withType(Test) {
-        systemProperty 'speleodb.test.mode', 'true'
+    doFirst {
+        println 'Building without running tests. Use "./gradlew test" or "./gradlew check" to run tests.'
+    }
+}
+
+// Cleanup mechanism using gradle.buildFinished
+// This ALWAYS runs at the end of the build, even if the build fails or is aborted
+// This is the ONLY place where TEST_MODE and VERSION are reset
+gradle.buildFinished {
+    def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
+    if (constantsFile.exists()) {
+        def content = constantsFile.text
+        def hasChanges = false
+        
+        // Reset TEST_MODE if needed
+        if (content.contains('public static final boolean TEST_MODE = true;')) {
+            println "Build finished - ensuring test mode is disabled..."
+            content = content.replaceFirst(
+                /public static final boolean TEST_MODE = true;/,
+                "public static final boolean TEST_MODE = false;"
+            )
+            hasChanges = true
+            println "Test mode DISABLED after build completion"
+        }
+        
+        // Reset VERSION if needed
+        if (content =~ /(?s)SpeleoDB Plugin Version.*?\n\s*\*\/\s*\n\s*public static final String VERSION = "[^"]*";/) {
+            println "Build finished - ensuring version is reset to null..."
+            content = content.replaceFirst(
+                /(?s)(SpeleoDB Plugin Version.*?\n\s*\*\/\s*\n)(\s*public static final String VERSION = )"[^"]*";/,
+                '$1$2null;'
+            )
+            hasChanges = true
+            println "Version RESET to null after build completion"
+        }
+        
+        if (hasChanges) {
+            constantsFile.text = content
+        }
     }
 }
 
 // Configure Java compiler optimizations for release builds
 compileJava {
     // Make compileJava depend on generateReleaseVersion so version is always up to date
-    dependsOn generateReleaseVersion, cleanLibs
+    dependsOn generateReleaseVersion, cleanBuildArtifacts
 
     options.compilerArgs += [
         '-Xlint:all',          // Enable all warnings (helps catch inefficiencies)
@@ -147,172 +224,14 @@ compileJava {
     ]
     options.encoding = 'UTF-8'
     options.debug = false      // Disable debug info for release builds
+
+    // Ensure proper ordering: if both tasks run, enableTestMode must run first
+    mustRunAfter enableTestMode
 }
 
-// Completely override the build task to exclude tests
-build {
-    // Clear all dependencies and set only what we want
-    dependsOn.clear()
-    dependsOn assemble
-    
-    doFirst {
-        println 'Building without running tests. Use "./gradlew test" to run tests explicitly.'
-    }
-    
-    finalizedBy resetReleaseVersion
+compileTestJava {
+    mustRunAfter enableTestMode
 }
-
-// Create a separate task for build with tests
-tasks.register('buildWithTests') {
-    group = 'build'
-    description = 'Build and run tests'
-    dependsOn generateReleaseVersion, assemble, check
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('help-build') {
-    group = 'help'
-    description = 'Shows available build and test tasks'
-    
-    doLast {
-        println ''
-        println '=== SpeleoDB Plugin Build Tasks ==='
-        println ''
-        println 'BUILD TASKS (no tests):'
-        println '  ./gradlew build           - Build without running tests'
-        println '  ./gradlew buildDebug      - Build with debug configuration'
-        println '  ./gradlew buildProduction - Build for production'
-        println '  ./gradlew assemble        - Assemble the JAR file'
-        println ''
-        println 'TEST TASKS:'
-        println '  ./gradlew test            - Run all tests'
-        println '  ./gradlew check           - Run tests and checks'
-        println '  ./gradlew runAllTests     - Run all unit tests'
-        println '  ./gradlew runControllerTests - Run controller tests only'
-        println '  ./gradlew runServiceTests - Run service tests only'
-        println '  ./gradlew runHttpTests    - Run HTTP tests only'
-        println '  ./gradlew runPluginTests  - Run plugin tests only'
-        println ''
-        println 'COMBINED:'
-        println '  ./gradlew buildWithTests  - Build and run tests in one command'
-        println '  ./gradlew build test      - Build and then run tests (separate tasks)'
-        println ''
-        println 'CLEAN STATE TASKS:'
-        println '  ./gradlew clean           - Clean all build outputs'
-        println '  ./gradlew clean build     - Clean and build from scratch (no tests)'
-        println '  ./gradlew clean test      - Clean and run tests from scratch'
-        println '  ./gradlew clean buildWithTests - Clean, build, and test from scratch'
-        println '  ./gradlew clean build test - Clean, build, and test (separate tasks)'
-        println '  ./gradlew clean buildDebug - Clean and build with debug config'
-        println '  ./gradlew clean buildProduction - Clean and build for production'
-        println ''
-        println 'USEFUL COMBINATIONS:'
-        println '  ./gradlew clean assemble  - Clean and create JAR only'
-        println '  ./gradlew --refresh-dependencies build - Refresh deps and build'
-        println '  ./gradlew build --info    - Build with detailed output'
-        println '  ./gradlew test --info     - Run tests with detailed output'
-        println ''
-        println 'TIP: Use "clean" before any task to ensure a fresh build state.'
-        println ''
-    }
-}
-
-tasks.register('runAllTests') {
-    group = 'verification'
-    description = 'Runs all unit tests using JUnit 5'
-    
-    dependsOn generateReleaseVersion, test
-    
-    // Ensure test mode is enabled
-    test.systemProperty 'speleodb.test.mode', 'true'
-    
-    doLast {
-        println 'All unit tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('runHttpTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs HTTPRequestMultipartBody tests only'
-    
-    dependsOn generateReleaseVersion, compileJava, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'org.speleodb.ariane.plugin.speleodb.HTTPRequestMultipartBodyTest'
-    
-    doLast {
-        println 'HTTPRequestMultipartBody tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('runServiceTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs SpeleoDBService tests only'
-    
-    dependsOn generateReleaseVersion, compileJava, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBServiceTest'
-    
-    doLast {
-        println 'SpeleoDBService tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('runControllerTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs SpeleoDBController tests only'
-    
-    dependsOn generateReleaseVersion, compileJava, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBControllerTest'
-    
-    doLast {
-        println 'SpeleoDBController tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('runControllerStateTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs SpeleoDBController state management tests only'
-    
-    dependsOn generateReleaseVersion, compileJava, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'com.arianesline.ariana.plugin.speleodb.SpeleoDBControllerStateTest'
-    
-    doLast {
-        println 'SpeleoDBController state tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
-tasks.register('runPluginTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs SpeleoDBPlugin tests only'
-    
-    dependsOn generateReleaseVersion, compileJava, compileTestJava
-    
-    classpath = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
-    mainClass = 'org.speleodb.ariane.plugin.speleodb.SpeleoDBPluginTest'
-    
-    doLast {
-        println 'SpeleoDBPlugin tests completed successfully!'
-    }
-    
-    finalizedBy resetReleaseVersion
-}
-
 
 // Store the CalVer version as a project property
 ext.calVerVersion = new Date().format('yyyy.MM.dd')

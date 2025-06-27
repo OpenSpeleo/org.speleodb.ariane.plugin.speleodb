@@ -340,7 +340,14 @@ public class SpeleoDBServiceTest {
     
     // Mock controller for testing
     static class MockSpeleoDBController extends SpeleoDBController {
-        // Minimal mock implementation
+        private boolean progressVisible = false;
+        private String serverTextAreaText = "";
+        
+        public MockSpeleoDBController() {
+            super(true); // Use protected constructor for testing
+        }
+        
+        // Override methods to avoid JavaFX dependencies in tests
     }
     
     // Testable version of SpeleoDBService that exposes internal methods

@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -49,7 +50,6 @@ import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.geometry.Insets;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
@@ -67,9 +67,6 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
@@ -84,6 +81,32 @@ import javafx.util.Duration;
  * Delegates server communication to SpeleoDBService.
  */
 public class SpeleoDBController implements Initializable {
+    // Singleton instance - eagerly initialized
+    private static final SpeleoDBController instance = new SpeleoDBController();
+    
+    /**
+     * Gets the singleton instance of SpeleoDBController.
+     * 
+     * @return the singleton instance
+     */
+    public static SpeleoDBController getInstance() {
+        return instance;
+    }
+    
+    /**
+     * Resets the singleton instance state.
+     * Since we use eager initialization, we can't null the instance,
+     * but we can reset its state for testing purposes.
+     */
+    protected static void resetInstance() {
+        // Clear the controller state for tests
+        instance.currentProject = null;
+        instance.cachedProjectList = null;
+        if (instance.speleoDBService != null) {
+            instance.speleoDBService.logout();
+        }
+    }
+    
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
     public TextArea serverTextArea;
@@ -103,13 +126,8 @@ public class SpeleoDBController implements Initializable {
     private Button createNewProjectButton;
     @FXML
     private Button refreshProjectsButton;
-    
-    @FXML
-    private Button reloadProjectButton;
-    
     @FXML
     private Button sortByNameButton;
-    
     @FXML
     private Button sortByDateButton;
     @FXML
@@ -191,10 +209,23 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Constructor - SpeleoDBService initialization moved to initialize() method.
+     * Private constructor for singleton pattern.
+     * SpeleoDBService initialization moved to initialize() method.
      */
-    public SpeleoDBController() {
+    private SpeleoDBController() {
         // Service initialization moved to initialize() to avoid 'this' escape
+    }
+    
+    /**
+     * Protected constructor for test subclasses only.
+     * This allows test classes to extend SpeleoDBController for mocking
+     * while maintaining the singleton pattern in production code.
+     * 
+     * @param testOnly marker parameter to distinguish from private constructor
+     */
+    protected SpeleoDBController(boolean testOnly) {
+        // Service initialization moved to initialize() to avoid 'this' escape
+        // This constructor is only for test subclasses
     }
 
     // ========================= UTILITY FUNCTIONS ========================= //
@@ -219,13 +250,6 @@ public class SpeleoDBController implements Initializable {
      */
     private void showSuccessAnimation(String message) {
         SpeleoDBTooltips.showSuccess(message);
-    }
-
-    /**
-     * Shows a success animation with the default "Success" message.
-     */
-    private void showSuccessAnimation() {
-        showSuccessAnimation(null);
     }
 
     /**
@@ -422,17 +446,14 @@ public class SpeleoDBController implements Initializable {
     // ==================== USER PREFERENCES' MANAGEMENT =================== //
 
     /**
-     * Loads user preferences into the UI fields.
-     */
-    /**
      * Gets the preferences node for this controller.
      * Uses test-specific preferences when running in test mode to avoid affecting user preferences.
      */
     protected Preferences getPreferencesNode() {
-        // Check if we're running in test mode
-        if (Boolean.parseBoolean(System.getProperty("speleodb.test.mode", "false"))) {
+        // Check if we're running in test mode using the constant from SpeleoDBConstants
+        if (SpeleoDBConstants.TEST_MODE) {
             // Use test-specific preferences node to avoid affecting user's real preferences
-            return Preferences.userRoot().node("org/speleodb/ariane/plugin/speleodb/test");
+            return Preferences.userRoot().node(PREFERENCES.TEST_PREFERENCES_NODE);
         } else {
             // Use normal preferences for production
             return Preferences.userNodeForPackage(SpeleoDBController.class);
@@ -657,65 +678,6 @@ public class SpeleoDBController implements Initializable {
             }
         });
     }
-    
-    /**
-     * Fallback method to create save modal if pre-warming failed.
-     * This maintains compatibility but won't be as fast as the pre-warmed version.
-     */
-    private Dialog<String> createFallbackSaveModal() {
-        // Create custom dialog with text field (fallback implementation)
-        Dialog<String> dialog = new Dialog<>();
-        dialog.setTitle("Save Project on SpeleoDB");
-        dialog.setHeaderText("Save Current Project: \"" + currentProject.getString("name") + "\"");
-        
-        // Set button types
-        ButtonType saveButtonType = new ButtonType("Save Project", ButtonType.OK.getButtonData());
-        ButtonType cancelButtonType = new ButtonType("Cancel", ButtonType.CANCEL.getButtonData());
-        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
-        
-        // Create the content
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 20, 10, 20));
-        
-        // Set column constraints - column 1 (text field) should grow
-        ColumnConstraints col1 = new ColumnConstraints();
-        ColumnConstraints col2 = new ColumnConstraints();
-        col2.setHgrow(Priority.ALWAYS);
-        col2.setFillWidth(true);
-        grid.getColumnConstraints().addAll(col1, col2);
-        
-        Label messageLabel = new Label("What did you change?");
-        TextField messageField = new TextField();
-        messageField.setText("");
-        messageField.setMaxWidth(Double.MAX_VALUE);
-        
-        grid.add(messageLabel, 0, 0);
-        grid.add(messageField, 1, 0);
-        
-        dialog.getDialogPane().setContent(grid);
-        
-        // Set minimum width for the dialog
-        dialog.getDialogPane().setMinWidth(500);
-        dialog.getDialogPane().setPrefWidth(500);
-        
-        // Apply CSS stylesheet to the dialog
-        dialog.getDialogPane().getStylesheets().add(getClass().getResource(STYLES.MAIN_CSS_PATH).toExternalForm());
-        
-        // Focus on the text field when dialog is shown
-        dialog.setOnShown(e -> messageField.requestFocus());
-        
-        // Convert the result when save button is clicked
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == saveButtonType) {
-                return messageField.getText();
-            }
-            return null;
-        });
-        
-        return dialog;
-    }
 
     /**
      * Initializes the controller, setting up default UI states and preferences.
@@ -773,7 +735,7 @@ public class SpeleoDBController implements Initializable {
         String email = emailTextField.getText();
         String password = passwordPasswordField.getText();
         String oauthToken = oauthtokenPasswordField.getText();
-        String instance = instanceTextField.getText();
+        String sdb_instance = instanceTextField.getText();
 
         // Validate that user has provided authentication credentials
         boolean hasOAuthToken = oauthToken != null && !oauthToken.trim().isEmpty();
@@ -811,13 +773,13 @@ public class SpeleoDBController implements Initializable {
             }
         }
 
-        logger.info("Connecting to " + instance);
+        logger.info("Connecting to " + sdb_instance);
         serverProgressIndicator.setVisible(true);
 
         parentPlugin.executorService.execute(() -> {
             try {
                 speleoDBService = new SpeleoDBService(this);
-                speleoDBService.authenticate(email, password, oauthToken, instance);
+                speleoDBService.authenticate(email, password, oauthToken, sdb_instance);
                 logger.info("Connected successfully.");
                 
                 // Always save preferences on successful connection
@@ -1715,14 +1677,6 @@ public class SpeleoDBController implements Initializable {
     // ---------------------- Project Mutex Management --------------------- //
 
     /**
-     * Shows a confirmation dialog asking the user if they want to release the current project lock
-     * before switching to a different project.
-     * OPTIMIZED: Pre-built components and StringBuilder for faster modal loading.
-     * 
-     * @param newProjectName the name of the project the user wants to switch to
-     * @return true if the user wants to release the lock and switch projects, false otherwise
-     */
-    /**
      * Shows project switch confirmation - uses the ultra-fast modal.
      */
     private boolean showProjectSwitchConfirmation(String newProjectName) {
@@ -1929,9 +1883,6 @@ public class SpeleoDBController implements Initializable {
                 
                 logger.info("Reloading project from disk: " + projectName);
                 
-                // Save any preferences before reloading
-                Platform.runLater(() -> savePreferences());
-                
                 // Load the project using the existing loadSurvey method
                 try {
                     parentPlugin.loadSurvey(tmlFilePath.toFile());
@@ -1988,13 +1939,13 @@ public class SpeleoDBController implements Initializable {
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
         try {
-            String instance = instanceTextField.getText().trim();
-            if (instance.isEmpty()) {
-                instance = PREFERENCES.DEFAULT_INSTANCE;
+            String sdb_instance = instanceTextField.getText().trim();
+            if (sdb_instance.isEmpty()) {
+                sdb_instance = PREFERENCES.DEFAULT_INSTANCE;
             }
             
             String protocol = isDebugMode() ? "http" : "https";
-            String signupUrl = protocol + "://" + instance + "/signup/";
+            String signupUrl = protocol + "://" + sdb_instance + "/signup/";
             
             java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
             logger.info("Opening signup page: " + signupUrl);
@@ -2170,7 +2121,7 @@ public class SpeleoDBController implements Initializable {
                 return LockReleaseResult.failure(project, failureMessage);
             }
             
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | URISyntaxException e) {
             String errorMessage = "Error releasing lock for " + projectName + ": " + getSafeErrorMessage(e);
             logger.info(errorMessage);
             return LockReleaseResult.error(project, errorMessage, e);
@@ -2677,7 +2628,7 @@ public class SpeleoDBController implements Initializable {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException | URISyntaxException e) {
             logger.error("Error scanning GIFs from JAR", e);
         }
     }
@@ -2697,7 +2648,7 @@ public class SpeleoDBController implements Initializable {
                     logger.debug("Found success GIF in filesystem: " + resourcePath);
                 }
             }
-        } catch (Exception e) {
+        } catch (URISyntaxException e) {
             logger.error("Error scanning GIFs from filesystem", e);
         }
     }
@@ -2728,119 +2679,6 @@ public class SpeleoDBController implements Initializable {
                 logger.warn("Failed to fetch updates and announcements, error: " + e.getMessage());
             }
         });
-    }
-    
-    /**
-     * Shows the information dialog with the provided title, header, and message.
-     * Handles content as plain text, converting HTML tags to readable text.
-     * 
-     * @param title the dialog title
-     * @param header the header text to display in bold
-     * @param message the message content (HTML will be converted to plain text)
-     */
-    private void showInformationDialog(String title, String header, String message) {
-        try {
-            // Create the dialog with Material Design styling
-            Dialog<Void> infoDialog = new Dialog<>();
-            infoDialog.setTitle(title);
-            infoDialog.setHeaderText(null); // No header for cleaner Material Design look
-            
-            // Set dialog properties to ensure all content is visible
-            DialogPane dialogPane = infoDialog.getDialogPane();
-            dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
-            dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
-            dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
-            dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            dialogPane.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH + 100); // Allow some expansion
-            
-            // Apply Material Design dialog styling
-            dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
-            
-            // Create content layout with Material Design principles
-            VBox content = new VBox();
-            content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
-            content.setMinHeight(Region.USE_PREF_SIZE);
-            content.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            
-            // Create title label with header from API
-            Label titleLabel = new Label(header);
-            titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
-            
-            // Create message label for plain text content
-            Label messageLabel = new Label();
-            messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
-            messageLabel.setWrapText(true);
-            messageLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
-            messageLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
-            messageLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
-            messageLabel.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            messageLabel.setMinHeight(Region.USE_PREF_SIZE);
-            
-            // Process the message to convert markdown-style formatting to JavaFX
-            String processedMessage = processMarkdownForJavaFX(message);
-            messageLabel.setText(processedMessage);
-            
-            // Add components to content
-            content.getChildren().addAll(titleLabel, messageLabel);
-            
-            // Set content
-            dialogPane.setContent(content);
-            
-            // Add Material Design button
-            ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
-            dialogPane.getButtonTypes().add(gotItButton);
-            
-            // Style the button with Material Design - delay to ensure button exists
-            Platform.runLater(() -> {
-                javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
-                if (button != null) {
-                    // Set initial style
-                    button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
-                    
-                    // Add hover effects that maintain consistent size and text
-                    button.setOnMouseEntered(e -> {
-                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_HOVER_STYLE)) {
-                            button.setStyle(STYLES.MATERIAL_BUTTON_HOVER_STYLE);
-                        }
-                    });
-                    
-                    button.setOnMouseExited(e -> {
-                        if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_STYLE)) {
-                            button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
-                        }
-                    });
-                    
-                    // Ensure button text never changes
-                    button.setText(DIALOGS.BUTTON_GOT_IT);
-                }
-            });
-            
-            // Set owner for proper modal behavior
-            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
-                infoDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
-            }
-            
-            // Add fade-in animation for smooth appearance
-            dialogPane.setOpacity(0.0);
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(ANIMATIONS.FADE_IN_DURATION_MILLIS), dialogPane);
-            fadeIn.setFromValue(0.0);
-            fadeIn.setToValue(1.0);
-            
-            // Show the dialog (non-blocking) and let it size itself
-            infoDialog.show();
-            
-            // After showing, ensure proper sizing
-            Platform.runLater(() -> {
-                dialogPane.autosize();
-            });
-            
-            fadeIn.play();
-            
-            logger.debug("Information popup displayed with Material Design styling and content-based sizing");
-            
-        } catch (Exception e) {
-            logger.error("Error showing information popup", e);
-        }
     }
     
     /**
@@ -2884,7 +2722,7 @@ public class SpeleoDBController implements Initializable {
             return false;
         }
         
-        Preferences prefs = Preferences.userNodeForPackage(SpeleoDBController.class);
+        Preferences prefs = getPreferencesNode();
         String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
         
         boolean wasDisplayed = displayedUUIDs.contains(uuid);
@@ -3266,7 +3104,7 @@ public class SpeleoDBController implements Initializable {
             String actualHash = hexString.toString();
             return actualHash.equalsIgnoreCase(expectedHash);
             
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to verify file hash: " + e.getMessage(), e);
             return false;
         }

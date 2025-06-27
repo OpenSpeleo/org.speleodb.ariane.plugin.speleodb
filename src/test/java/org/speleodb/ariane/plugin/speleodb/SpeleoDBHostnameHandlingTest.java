@@ -260,7 +260,15 @@ class SpeleoDBHostnameHandlingTest {
 
     // Helper classes for testing
     private static class MockSpeleoDBController extends SpeleoDBController {
-        // Minimal mock implementation
+        private String instanceValue = "www.speleoDB.org";
+        
+        public MockSpeleoDBController() {
+            super(true); // Use protected constructor for testing
+        }
+        
+        public void setInstance(String instance) {
+            // ... existing code ...
+        }
     }
 
     // Testable version of SpeleoDBService that exposes internal methods

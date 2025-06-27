@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +38,9 @@ class SpeleoDBControllerDialogTest {
     
     @BeforeEach
     void setUp() {
+        // Reset singleton instance before each test
+        SpeleoDBController.resetInstance();
+        
         // Create test project data
         testProject = Json.createObjectBuilder()
             .add("id", "test-project-123")
@@ -44,12 +49,18 @@ class SpeleoDBControllerDialogTest {
             .add("permission", "READ_WRITE")
             .build();
         
-        // Initialize controller with mocked dependencies
-        controller = new SpeleoDBController();
+        // Get singleton controller instance with mocked dependencies
+        controller = SpeleoDBController.getInstance();
         controller.parentPlugin = mockPlugin;
         
         // Set up the test project in controller
         setCurrentProject(testProject);
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Reset singleton instance after each test to ensure clean state
+        SpeleoDBController.resetInstance();
     }
     
     /**
@@ -315,22 +326,6 @@ class SpeleoDBControllerDialogTest {
                 () -> assertTrue(unlockMessage.contains("other users"), "Unlock message should explain consequences"),
                 () -> assertTrue(releaseMessage.contains("other users"), "Release message should explain consequences")
             );
-        }
-    }
-    
-    @Nested
-    @DisplayName("Modal Performance Optimization Tests")
-    class ModalPerformanceOptimizationTests {
-        
-        @Test
-        @DisplayName("Should have fallback save modal creation method")
-        void shouldHaveFallbackSaveModalCreationMethod() {
-            try {
-                var method = SpeleoDBController.class.getDeclaredMethod("createFallbackSaveModal");
-                assertNotNull(method, "Fallback save modal creation method should exist");
-            } catch (NoSuchMethodException e) {
-                fail("Fallback save modal creation method should exist: " + e.getMessage());
-            }
         }
     }
     
