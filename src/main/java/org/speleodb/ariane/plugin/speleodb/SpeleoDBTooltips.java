@@ -313,46 +313,4 @@ public class SpeleoDBTooltips {
     public static boolean isInitialized() {
         return initialized;
     }
-    
-    /**
-     * Builder class for advanced tooltip configuration.
-     */
-    public static class TooltipBuilder {
-        private String message;
-        private TooltipType type = TooltipType.INFO;
-        private double displayDuration = -1;
-        private Position position = Position.TOP_CENTER;
-        
-        public enum Position {
-            TOP_CENTER, TOP_LEFT, TOP_RIGHT,
-            BOTTOM_CENTER, BOTTOM_LEFT, BOTTOM_RIGHT,
-            CENTER
-        }
-        
-        public TooltipBuilder message(String message) {
-            this.message = message;
-            return this;
-        }
-        
-        public TooltipBuilder type(TooltipType type) {
-            this.type = type;
-            return this;
-        }
-        
-        public TooltipBuilder duration(double seconds) {
-            this.displayDuration = seconds;
-            return this;
-        }
-        
-        public TooltipBuilder position(Position position) {
-            this.position = position;
-            return this;
-        }
-        
-        public void show() {
-            // For now, delegate to standard show method
-            // Future enhancement: implement position-based display
-            SpeleoDBTooltips.show(message, type);
-        }
-    }
-} 
+}

@@ -235,16 +235,20 @@ public final class SpeleoDBConstants {
         public static final String OAUTH_TOKEN_INVALID_NOT_SAVED = "Warning: Invalid OAuth token format not saved to preferences";
         
         // Connection Error Messages
-        public static final String NETWORK_ERROR_ADVICE = "Can't reach server - Please check:\n" +
-                "• Server is online and accessible\n" +
-                "• Network connection is working\n" +
-                "• Server URL is correct\n" +
-                "• Firewall isn't blocking the connection";
-        public static final String TIMEOUT_ERROR_ADVICE = "Request timed out - Server may be:\n" +
-                "• Overloaded or slow to respond\n" +
-                "• Experiencing network issues\n" +
-                "• Temporarily unavailable\n" +
-                "Try again in a few moments";
+        public static final String NETWORK_ERROR_ADVICE = 
+                """
+                Can't reach server - Please check:
+                \u2022 Server is online and accessible
+                \u2022 Network connection is working
+                \u2022 Server URL is correct
+                \u2022 Firewall isn't blocking the connection""";
+        public static final String TIMEOUT_ERROR_ADVICE = 
+                """
+                Request timed out - Server may be:
+                \u2022 Overloaded or slow to respond
+                \u2022 Experiencing network issues
+                \u2022 Temporarily unavailable
+                Try again in a few moments""";
         
         // Auth Error Messages
         public static final String AUTH_FAILED_STATUS = "Authentication failed with status code: ";

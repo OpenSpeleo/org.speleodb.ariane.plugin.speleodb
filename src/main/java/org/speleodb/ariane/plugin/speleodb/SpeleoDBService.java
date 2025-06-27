@@ -677,12 +677,7 @@ public class SpeleoDBService {
                             return false;
                         }
                         
-                        // Check maximum version (current <= max)
-                        if (maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0) {
-                            return false;
-                        }
-                        
-                        return true;
+                        return !(maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0);
                     })
                     .collect(Json::createArrayBuilder, 
                             (builder, release) -> builder.add(release),

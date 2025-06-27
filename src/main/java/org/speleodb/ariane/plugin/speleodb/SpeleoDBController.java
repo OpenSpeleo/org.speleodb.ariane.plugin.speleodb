@@ -2233,7 +2233,6 @@ public class SpeleoDBController implements Initializable {
      */
     private LockResult acquireProjectLock(JsonObject project, String context) {
         String projectName = project.getString("name");
-        String projectId = project.getString("id");
         
         try {
             // Check if project allows editing
@@ -2258,7 +2257,7 @@ public class SpeleoDBController implements Initializable {
                 return LockResult.failure(project, failureMessage);
             }
             
-        } catch (Exception e) {
+        } catch (IOException | InterruptedException | URISyntaxException e) {
             String errorMessage = "❌ Error acquiring lock for " + context + ": " + projectName + " - " + getSafeErrorMessage(e);
             logger.info(errorMessage);
             return LockResult.error(project, errorMessage, e);
