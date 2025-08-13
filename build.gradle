@@ -267,3 +267,24 @@ jar {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }
+
+// Task to reset the 'Do not show again' preference for success GIF
+tasks.register('resetSuccessGifPreference') {
+    group = 'utilities'
+    description = 'Resets the SpeleoDB preference that suppresses the success GIF (sets it back to false)'
+
+    doLast {
+        def suppressKey = 'SDB_SUPPRESS_SUCCESS_GIF'
+        println "Resetting preference '${suppressKey}' to false..."
+        try {
+            // Use explicit absolute node path matching the controller package
+            def prefs = java.util.prefs.Preferences.userRoot().node('/org/speleodb/ariane/plugin/speleodb')
+            prefs.putBoolean(suppressKey, false)
+            prefs.flush()
+            println "Preference '${suppressKey}' set to: " + prefs.getBoolean(suppressKey, false)
+        } catch (Throwable t) {
+            println "Failed to reset preference: ${t.message}"
+            throw t
+        }
+    }
+}

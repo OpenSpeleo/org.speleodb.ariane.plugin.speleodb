@@ -505,7 +505,7 @@ public class SpeleoDBModals {
      */
     public static void showSuccessCelebration(String gifPath, Runnable onClose, Window owner) {
         try {
-            Dialog<Void> dialog = new Dialog<>();
+            Dialog<ButtonType> dialog = new Dialog<>();
             dialog.setTitle(DIALOGS.TITLE_SUCCESS_CELEBRATION);
             dialog.setHeaderText(null);
             dialog.setResizable(false);
@@ -544,9 +544,9 @@ public class SpeleoDBModals {
                     content.getChildren().add(gifView);
                     
                     // Set dialog size with guaranteed button space
-                    dialogPane.setMinWidth(Math.max(300, fitWidth + 80)); // Minimum viable width
+                    dialogPane.setMinWidth(Math.max(560, fitWidth + 120)); // Wider baseline and extra side margin
                     dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
-                    dialogPane.setMaxWidth(fitWidth + 80); // Max based on content with padding
+                    dialogPane.setMaxWidth(fitWidth + 120); // Max based on content with padding
                     dialogPane.setMinHeight(Math.max(200, fitHeight + GUARANTEED_BUTTON_AREA_HEIGHT + 60)); // Guaranteed space
                     dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
                     dialogPane.setMaxHeight(fitHeight + GUARANTEED_BUTTON_AREA_HEIGHT + 100); // Extra space for safety
@@ -555,9 +555,9 @@ public class SpeleoDBModals {
                     logger.error("Failed to load celebration GIF", e);
                     addFallbackSuccessContent(content);
                     // Use dynamic sizing for fallback content with guaranteed button space
-                    dialogPane.setMinWidth(350);
+                    dialogPane.setMinWidth(560);
                     dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
-                    dialogPane.setMaxWidth(450); // Reasonable max for text-only success
+                    dialogPane.setMaxWidth(680); // More generous max for text-only success
                     dialogPane.setMinHeight(200 + GUARANTEED_BUTTON_AREA_HEIGHT);
                     dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
                     dialogPane.setMaxHeight(300 + GUARANTEED_BUTTON_AREA_HEIGHT);
@@ -565,9 +565,9 @@ public class SpeleoDBModals {
             } else {
                 addFallbackSuccessContent(content);
                 // Use dynamic sizing for fallback content with guaranteed button space
-                dialogPane.setMinWidth(350);
+                dialogPane.setMinWidth(560);
                 dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
-                dialogPane.setMaxWidth(450); // Reasonable max for text-only success
+                dialogPane.setMaxWidth(680); // More generous max for text-only success
                 dialogPane.setMinHeight(200 + GUARANTEED_BUTTON_AREA_HEIGHT);
                 dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
                 dialogPane.setMaxHeight(300 + GUARANTEED_BUTTON_AREA_HEIGHT);
@@ -589,17 +589,40 @@ public class SpeleoDBModals {
             
             dialogPane.setContent(content);
             
-            // Add close button using JavaFX's built-in system
+            // Add buttons using JavaFX's built-in system
             ButtonType closeButton = new ButtonType(DIALOGS.BUTTON_CLOSE, ButtonBar.ButtonData.OK_DONE);
-            dialog.getDialogPane().getButtonTypes().add(closeButton);
+            ButtonType dontShowAgainButton = new ButtonType("Do not show again", ButtonBar.ButtonData.LEFT);
+            dialog.getDialogPane().getButtonTypes().addAll(closeButton, dontShowAgainButton);
             
             // Apply proper button styling and centering
             Platform.runLater(() -> {
                 Button btn = (Button) dialog.getDialogPane().lookupButton(closeButton);
                 if (btn != null) {
-                    applyIdenticalButton(btn, MATERIAL_COLORS.SUCCESS, MATERIAL_COLORS.SUCCESS_DARK, 140);
+                    // styled below after we compute a shared width
                 }
+                Button suppressBtn = (Button) dialog.getDialogPane().lookupButton(dontShowAgainButton);
+                if (suppressBtn != null) {
+                    // styled below after we compute a shared width
+                }
+                // Compute a shared width based on the longer label text
+                String longerText = "Do not show again".length() > DIALOGS.BUTTON_CLOSE.length() ?
+                        "Do not show again" : DIALOGS.BUTTON_CLOSE;
+                int sharedWidth = Math.max(140, (int)(calculateTextWidth(longerText, true) + 40));
+
+                if (btn != null) {
+                    applySizedButton(btn, MATERIAL_COLORS.SUCCESS, MATERIAL_COLORS.SUCCESS_DARK, sharedWidth, 16, 10, 16);
+                }
+                if (suppressBtn != null) {
+                    applySizedButton(suppressBtn, MATERIAL_COLORS.ERROR, MATERIAL_COLORS.ERROR_DARK, sharedWidth, 16, 10, 16);
+                }
+
                 applyCenteredButtonBar(dialog.getDialogPane());
+
+                // Make the buttons slightly closer together for this dialog only
+                ButtonBar bar = (ButtonBar) dialog.getDialogPane().lookup(".button-bar");
+                if (bar != null) {
+                    bar.setStyle(bar.getStyle() + "-fx-spacing: 8; -fx-padding: 16 24 20 24;");
+                }
             });
             
             // Auto-close timer
@@ -616,9 +639,18 @@ public class SpeleoDBModals {
                 dialog.initOwner(owner);
             }
             
-            // Handle close
+            // Handle close and suppression
+            dialog.setResultConverter(buttonType -> buttonType);
             dialog.setOnHidden(e -> {
                 autoClose.stop();
+                ButtonType resultType = dialog.getResult();
+                if (resultType == dontShowAgainButton) {
+                    try {
+                        java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SpeleoDBController.class);
+                        prefs.putBoolean(SpeleoDBConstants.PREFERENCES.PREF_SUPPRESS_SUCCESS_GIF, true);
+                    } catch (Exception ignored) {
+                    }
+                }
                 if (onClose != null) {
                     onClose.run();
                 }
@@ -920,9 +952,9 @@ public class SpeleoDBModals {
     private static void applyCenteredButtonBar(DialogPane dialogPane) {
         // Apply CSS that centers the button bar across the full dialog width
         String buttonCenteringCSS = 
-            ".dialog-pane { -fx-padding: 0; } " +
+            ".dialog-pane { -fx-padding: 0 16 0 16; } " +
             ".dialog-pane .button-bar { " +
-            "   -fx-padding: 16 0 20 0; " +           // Remove side padding
+            "   -fx-padding: 16 24 20 24; " +         // Add left/right padding for nicer look
             "   -fx-alignment: center; " +            // Center the buttons
             "   -fx-spacing: 12; " +                  // Space between buttons
             "   -fx-background-color: #FAFAFA; " +
@@ -942,7 +974,7 @@ public class SpeleoDBModals {
                 ButtonBar buttonBar = (ButtonBar) dialogPane.lookup(".button-bar");
                 if (buttonBar != null) {
                     buttonBar.setStyle(
-                        "-fx-padding: 16 0 20 0; " +
+                        "-fx-padding: 16 24 20 24; " +
                         "-fx-alignment: center; " +
                         "-fx-spacing: 12; " +
                         "-fx-background-color: #FAFAFA; " +
@@ -962,6 +994,51 @@ public class SpeleoDBModals {
             "-fx-font-weight: bold;"
         );
         content.getChildren().add(successLabel);
+    }
+
+    /**
+     * Applies sizing and styling to buttons with custom font and padding.
+     */
+    private static void applySizedButton(Button button, String color, String colorDark, int width, int fontPx, int padV, int padH) {
+        if (button == null) return;
+
+        String baseStyle = String.format(
+            "-fx-background-color: %s; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-size: %dpx; " +
+            "-fx-font-weight: bold; " +
+            "-fx-padding: %d %d; " +
+            "-fx-background-radius: 6; " +
+            "-fx-cursor: hand; " +
+            "-fx-min-width: %dpx; " +
+            "-fx-pref-width: %dpx; " +
+            "-fx-max-width: %dpx; " +
+            "-fx-effect: dropshadow(three-pass-box, %s, 4, 0, 0, 2); " +
+            "-fx-alignment: center; " +
+            "-fx-text-alignment: center;",
+            color, fontPx, padV, padH, width, width, width, convertColorToRgba(color, 0.3)
+        );
+
+        String hoverStyle = String.format(
+            "-fx-background-color: %s; " +
+            "-fx-text-fill: white; " +
+            "-fx-font-size: %dpx; " +
+            "-fx-font-weight: bold; " +
+            "-fx-padding: %d %d; " +
+            "-fx-background-radius: 6; " +
+            "-fx-cursor: hand; " +
+            "-fx-min-width: %dpx; " +
+            "-fx-pref-width: %dpx; " +
+            "-fx-max-width: %dpx; " +
+            "-fx-effect: dropshadow(three-pass-box, %s, 6, 0, 0, 3); " +
+            "-fx-alignment: center; " +
+            "-fx-text-alignment: center;",
+            colorDark, fontPx, padV, padH, width, width, width, convertColorToRgba(colorDark, 0.4)
+        );
+
+        button.setStyle(baseStyle);
+        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
+        button.setOnMouseExited(e -> button.setStyle(baseStyle));
     }
 
     // Finds a suitable owner window for modality

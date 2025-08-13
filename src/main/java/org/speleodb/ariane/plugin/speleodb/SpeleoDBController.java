@@ -2522,10 +2522,24 @@ public class SpeleoDBController implements Initializable {
      * @param onCloseCallback callback to execute when the dialog closes (optional, can be null)
      */
     private void showSuccessCelebrationDialog(Runnable onCloseCallback) {
+        try {
+            Preferences prefs = getPreferencesNode();
+            boolean suppress = prefs.getBoolean(PREFERENCES.PREF_SUPPRESS_SUCCESS_GIF, false);
+            if (suppress) {
+                // Respect user choice: show a simple success tooltip and return
+                SpeleoDBTooltips.showSuccess("Upload successful");
+                if (onCloseCallback != null) {
+                    onCloseCallback.run();
+                }
+                return;
+            }
+        } catch (Exception ignored) {
+            // Fallback to showing dialog if preferences fail
+        }
+
         String randomGifPath = getRandomSuccessGif();
         Window owner = speleoDBAnchorPane.getScene() != null ? 
                       speleoDBAnchorPane.getScene().getWindow() : null;
-        
         SpeleoDBModals.showSuccessCelebration(randomGifPath, onCloseCallback, owner);
     }
     

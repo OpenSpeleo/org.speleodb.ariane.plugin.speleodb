@@ -127,6 +127,7 @@ public final class SpeleoDBConstants {
         public static final String PREF_OAUTH_TOKEN = "SDB_OAUTH_TOKEN";
         public static final String PREF_INSTANCE = "SDB_INSTANCE";
         public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
+        public static final String PREF_SUPPRESS_SUCCESS_GIF = "SDB_SUPPRESS_SUCCESS_GIF";
         public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
         
