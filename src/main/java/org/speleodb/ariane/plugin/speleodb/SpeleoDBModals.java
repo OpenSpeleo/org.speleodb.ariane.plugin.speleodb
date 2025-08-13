@@ -49,10 +49,25 @@ public class SpeleoDBModals {
      * Pre-warms modal system for instant display performance.
      * Should be called during application initialization.
      */
+    private static volatile boolean cssPreWarmed = false;
     public static void preWarmModalSystem() {
-        // No-op: Previously created and reused dialog instances, which could carry window state.
-        // Keeping as a stub for backward compatibility and potential future lightweight preloads.
-        logger.debug("Modal system pre-warm is a no-op (avoids dialog instance reuse)");
+        if (cssPreWarmed) return;
+        Platform.runLater(() -> {
+            try {
+                // Preload CSS once so subsequent dialogs don't pay parsing cost
+                Dialog<Void> d = new Dialog<>();
+                DialogPane pane = d.getDialogPane();
+                String css = SpeleoDBModals.class.getResource(STYLES.MAIN_CSS_PATH).toExternalForm();
+                if (pane.getStylesheets().stream().noneMatch(s -> s.equals(css))) {
+                    pane.getStylesheets().add(css);
+                }
+                applyMaterialDesignStyling(pane);
+                cssPreWarmed = true;
+                logger.debug("Modal CSS pre-warmed");
+            } catch (Exception e) {
+                logger.warn("Failed to pre-warm modal CSS: " + e.getMessage());
+            }
+        });
     }
     
     /**
@@ -951,37 +966,17 @@ public class SpeleoDBModals {
      */
     private static void applyCenteredButtonBar(DialogPane dialogPane) {
         // Apply CSS that centers the button bar across the full dialog width
-        String buttonCenteringCSS = 
-            ".dialog-pane { -fx-padding: 0 16 0 16; } " +
-            ".dialog-pane .button-bar { " +
-            "   -fx-padding: 16 24 20 24; " +         // Add left/right padding for nicer look
-            "   -fx-alignment: center; " +            // Center the buttons
-            "   -fx-spacing: 12; " +                  // Space between buttons
-            "   -fx-background-color: #FAFAFA; " +
-            "   -fx-border-color: #E0E0E0; " +
-            "   -fx-border-width: 1 0 0 0; " +        // Top border only
-            "} " +
-            ".dialog-pane .button-bar .button { " +
-            "   -fx-margin: 0 6 0 6; " +              // Equal margin around buttons
-            "}";
-        
         Platform.runLater(() -> {
-            try {
-                dialogPane.getStylesheets().add("data:text/css," + 
-                    java.net.URLEncoder.encode(buttonCenteringCSS, java.nio.charset.StandardCharsets.UTF_8));
-            } catch (Exception e) {
-                // Fallback to inline styling
-                ButtonBar buttonBar = (ButtonBar) dialogPane.lookup(".button-bar");
-                if (buttonBar != null) {
-                    buttonBar.setStyle(
-                        "-fx-padding: 16 24 20 24; " +
-                        "-fx-alignment: center; " +
-                        "-fx-spacing: 12; " +
-                        "-fx-background-color: #FAFAFA; " +
-                        "-fx-border-color: #E0E0E0; " +
-                        "-fx-border-width: 1 0 0 0;"
-                    );
-                }
+            ButtonBar buttonBar = (ButtonBar) dialogPane.lookup(".button-bar");
+            if (buttonBar != null) {
+                buttonBar.setStyle(
+                    "-fx-padding: 16 24 20 24; " +
+                    "-fx-alignment: center; " +
+                    "-fx-spacing: 12; " +
+                    "-fx-background-color: #FAFAFA; " +
+                    "-fx-border-color: #E0E0E0; " +
+                    "-fx-border-width: 1 0 0 0;"
+                );
             }
         });
     }
