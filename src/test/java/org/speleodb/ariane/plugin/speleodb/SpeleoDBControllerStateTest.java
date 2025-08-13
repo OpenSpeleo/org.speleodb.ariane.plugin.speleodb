@@ -301,25 +301,26 @@ public class SpeleoDBControllerStateTest {
         // Initial state - not authenticated
         assert !shouldShowProjects(isAuthenticated);
         assert !shouldEnableUpload(isAuthenticated, hasProject, hasLock);
-        assert !shouldEnableUnlock(isAuthenticated, hasProject, hasLock);
+        // Unlock button removed; unlock enablement irrelevant now
+        assert true;
         
         // Authenticated but no project
         isAuthenticated = true;
         assert shouldShowProjects(isAuthenticated);
         assert !shouldEnableUpload(isAuthenticated, hasProject, hasLock);
-        assert !shouldEnableUnlock(isAuthenticated, hasProject, hasLock);
+        assert true;
         
         // Authenticated with project but no lock
         hasProject = true;
         assert shouldShowProjects(isAuthenticated);
         assert !shouldEnableUpload(isAuthenticated, hasProject, hasLock);
-        assert !shouldEnableUnlock(isAuthenticated, hasProject, hasLock);
+        assert true;
         
         // Authenticated with project and lock
         hasLock = true;
         assert shouldShowProjects(isAuthenticated);
         assert shouldEnableUpload(isAuthenticated, hasProject, hasLock);
-        assert shouldEnableUnlock(isAuthenticated, hasProject, hasLock);
+        assert true;
         
         System.out.println("✓ UI state logic tests passed");
     }
@@ -333,7 +334,6 @@ public class SpeleoDBControllerStateTest {
         return isAuthenticated && hasProject && hasLock;
     }
     
-    private static boolean shouldEnableUnlock(boolean isAuthenticated, boolean hasProject, boolean hasLock) {
-        return isAuthenticated && hasProject && hasLock;
-    }
+    // Unlock enablement removed with unlock button; no-op
+    private static boolean shouldEnableUnlock(boolean isAuthenticated, boolean hasProject, boolean hasLock) { return true; }
 } 

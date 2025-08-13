@@ -12,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DEBUG;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SHUTDOWN;
 
 import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.ariane.plugin.api.DataServerPlugin;
@@ -96,19 +95,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
      * @return true if the user wants to release the lock, false otherwise
      */
     public boolean showShutdownConfirmation(String projectName) {
-        // Build message efficiently using StringBuilder with pre-allocated capacity
-        StringBuilder message = new StringBuilder(200);
-        message.append(SHUTDOWN.MESSAGE_PREFIX)
-               .append(projectName)
-               .append(SHUTDOWN.MESSAGE_SUFFIX)
-               .append(SHUTDOWN.MESSAGE_OPTIONS);
-        
-        return SpeleoDBModals.showConfirmation(
-            SHUTDOWN.DIALOG_TITLE,
-            message.toString(),
-            SHUTDOWN.BUTTON_YES_RELEASE_LOCK,
-            SHUTDOWN.BUTTON_NO_KEEP_LOCK
-        );
+        // Deprecated behavior: always release without prompting. Keep method for compatibility.
+        return true;
     }
 
     /**

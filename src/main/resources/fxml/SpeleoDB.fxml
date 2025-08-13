@@ -246,8 +246,7 @@
 											</styleClass>
 										</Label>
 										<TextField fx:id="uploadMessageTextField" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.rowIndex="1" />
-										<Button fx:id="unlockButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUnlockSpeleoDB" styleClass="bold" text="Unlock Project" textAlignment="CENTER" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
-										<Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB" styleClass="bold" text="Save Project" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
+                                        <Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB" styleClass="bold" text="Save Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
 										<Button fx:id="reloadProjectButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onReloadProject" styleClass="bold" text="🔄 Reload Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="3" GridPane.valignment="CENTER">
 											<font>
 												<Font name="System Bold" size="12.0" />

@@ -1,14 +1,5 @@
 package org.speleodb.ariane.plugin.speleodb;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-
 import java.awt.Desktop;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -18,8 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,8 +22,12 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import static org.mockito.ArgumentMatchers.any;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import jakarta.json.Json;
@@ -381,290 +380,7 @@ class SpeleoDBControllerTest {
         }
     }
     
-    @Nested
-    @DisplayName("Confirmation Popup Functionality")
-    class ConfirmationPopupFunctionalityTests {
-        
-        @Test
-        @DisplayName("Should generate correct unlock confirmation message")
-        void shouldGenerateCorrectUnlockConfirmationMessage() {
-            // Setup
-            controllerLogic.setCurrentProject("Test Cave Project");
-            
-            // Execute
-            String confirmationMessage = controllerLogic.generateUnlockConfirmationMessage();
-            
-            // Verify
-            assertThat(confirmationMessage).contains("Test Cave Project");
-            assertThat(confirmationMessage).contains("unlock project");
-            assertThat(confirmationMessage).contains("release your write lock");
-            assertThat(confirmationMessage).contains("allow other users to edit");
-        }
-        
-        @Test
-        @DisplayName("Should generate correct release lock confirmation message")
-        void shouldGenerateCorrectReleaseLockConfirmationMessage() {
-            // Setup
-            controllerLogic.setCurrentProject("Underground Survey");
-            
-            // Execute
-            String confirmationMessage = controllerLogic.generateReleaseLockConfirmationMessage();
-            
-            // Verify
-            assertThat(confirmationMessage).contains("Underground Survey");
-            assertThat(confirmationMessage).contains("release the write lock");
-            assertThat(confirmationMessage).contains("other users can edit");
-        }
-        
-        @Test
-        @DisplayName("Should handle null project name gracefully in unlock confirmation")
-        void shouldHandleNullProjectNameGracefullyInUnlockConfirmation() {
-            // Setup
-            controllerLogic.setCurrentProject(null);
-            
-            // Execute
-            String confirmationMessage = controllerLogic.generateUnlockConfirmationMessage();
-            
-            // Verify
-            assertThat(confirmationMessage).contains("unlock project");
-            assertThat(confirmationMessage).contains("null"); // Should handle null gracefully
-        }
-        
-        @Test
-        @DisplayName("Should handle empty project name in release lock confirmation")
-        void shouldHandleEmptyProjectNameInReleaseLockConfirmation() {
-            // Setup
-            controllerLogic.setCurrentProject("");
-            
-            // Execute
-            String confirmationMessage = controllerLogic.generateReleaseLockConfirmationMessage();
-            
-            // Verify
-            assertThat(confirmationMessage).contains("release the write lock");
-            assertThat(confirmationMessage).contains("\"\""); // Should handle empty string
-        }
-        
-        @Test
-        @DisplayName("Should validate unlock confirmation dialog properties")
-        void shouldValidateUnlockConfirmationDialogProperties() {
-            // Setup
-            controllerLogic.setCurrentProject("Cave Mapping Project");
-            
-            // Execute
-            var dialogProperties = controllerLogic.getUnlockConfirmationDialogProperties();
-            
-            // Verify
-            assertThat(dialogProperties.getTitle()).isEqualTo("Unlock Project");
-            assertThat(dialogProperties.getHeaderText()).isEqualTo("Confirm Unlock");
-            assertThat(dialogProperties.getYesButtonText()).isEqualTo("Yes, Unlock");
-            assertThat(dialogProperties.getNoButtonText()).isEqualTo("No, Keep Lock");
-            assertThat(dialogProperties.getContentText()).contains("Cave Mapping Project");
-        }
-        
-        @Test
-        @DisplayName("Should validate release lock confirmation dialog properties")
-        void shouldValidateReleaseLockConfirmationDialogProperties() {
-            // Setup
-            controllerLogic.setCurrentProject("Limestone Survey");
-            
-            // Execute
-            var dialogProperties = controllerLogic.getReleaseLockConfirmationDialogProperties();
-            
-            // Verify
-            assertThat(dialogProperties.getTitle()).isEqualTo("Release Write Lock");
-            assertThat(dialogProperties.getHeaderText()).isEqualTo("Upload Successful");
-            assertThat(dialogProperties.getYesButtonText()).isEqualTo("Yes, Release Lock");
-            assertThat(dialogProperties.getNoButtonText()).isEqualTo("No, Keep Lock");
-            assertThat(dialogProperties.getContentText()).contains("Limestone Survey");
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to unlock project")
-        void shouldSimulateUserChoosingToUnlockProject() {
-            // Setup
-            controllerLogic.setCurrentProject("Test Project");
-            controllerLogic.setUserConfirmationResponse(true);
-            
-            // Execute
-            boolean result = controllerLogic.simulateUnlockConfirmation();
-            
-            // Verify
-            assertThat(result).isTrue();
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to keep lock during unlock")
-        void shouldSimulateUserChoosingToKeepLockDuringUnlock() {
-            // Setup
-            controllerLogic.setCurrentProject("Test Project");
-            controllerLogic.setUserConfirmationResponse(false);
-            
-            // Execute
-            boolean result = controllerLogic.simulateUnlockConfirmation();
-            
-            // Verify
-            assertThat(result).isFalse();
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to release lock after upload")
-        void shouldSimulateUserChoosingToReleaseLockAfterUpload() {
-            // Setup
-            controllerLogic.setCurrentProject("Upload Test Project");
-            controllerLogic.setUserConfirmationResponse(true);
-            
-            // Execute
-            boolean result = controllerLogic.simulateReleaseLockConfirmation();
-            
-            // Verify
-            assertThat(result).isTrue();
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to keep lock after upload")
-        void shouldSimulateUserChoosingToKeepLockAfterUpload() {
-            // Setup
-            controllerLogic.setCurrentProject("Upload Test Project");
-            controllerLogic.setUserConfirmationResponse(false);
-            
-            // Execute
-            boolean result = controllerLogic.simulateReleaseLockConfirmation();
-            
-            // Verify
-            assertThat(result).isFalse();
-        }
-        
-        @Test
-        @DisplayName("Should handle confirmation dialog cancellation")
-        void shouldHandleConfirmationDialogCancellation() {
-            // Setup
-            controllerLogic.setCurrentProject("Cancelled Project");
-            controllerLogic.setUserConfirmationResponse(null); // Simulate dialog cancellation
-            
-            // Execute
-            boolean unlockResult = controllerLogic.simulateUnlockConfirmation();
-            boolean releaseLockResult = controllerLogic.simulateReleaseLockConfirmation();
-            
-            // Verify - should default to false when cancelled
-            assertThat(unlockResult).isFalse();
-            assertThat(releaseLockResult).isFalse();
-        }
-        
-        @Test
-        @DisplayName("Should validate confirmation message formatting")
-        void shouldValidateConfirmationMessageFormatting() {
-            // Setup
-            controllerLogic.setCurrentProject("Special Characters & Symbols Project");
-            
-            // Execute
-            String unlockMessage = controllerLogic.generateUnlockConfirmationMessage();
-            String releaseLockMessage = controllerLogic.generateReleaseLockConfirmationMessage();
-            
-            // Verify proper escaping and formatting
-            assertThat(unlockMessage).contains("Special Characters & Symbols Project");
-            assertThat(releaseLockMessage).contains("Special Characters & Symbols Project");
-            assertThat(unlockMessage).contains("\"Special Characters & Symbols Project\"");
-            assertThat(releaseLockMessage).contains("\"Special Characters & Symbols Project\"");
-        }
-        
-        @Test
-        @DisplayName("Should track confirmation dialog invocation count")
-        void shouldTrackConfirmationDialogInvocationCount() {
-            // Setup
-            controllerLogic.setCurrentProject("Counter Test Project");
-            controllerLogic.resetConfirmationDialogCount();
-            
-            // Execute multiple confirmations
-            controllerLogic.simulateUnlockConfirmation();
-            controllerLogic.simulateReleaseLockConfirmation();
-            controllerLogic.simulateUnlockConfirmation();
-            
-            // Verify
-            assertThat(controllerLogic.getConfirmationDialogCount()).isEqualTo(3);
-        }
-        
-        @Test
-        @DisplayName("Should validate button text consistency")
-        void shouldValidateButtonTextConsistency() {
-            // Setup
-            controllerLogic.setCurrentProject("Button Test Project");
-            
-            // Execute
-            var unlockProps = controllerLogic.getUnlockConfirmationDialogProperties();
-            var releaseLockProps = controllerLogic.getReleaseLockConfirmationDialogProperties();
-            
-            // Verify consistent "No" button text
-            assertThat(unlockProps.getNoButtonText()).isEqualTo("No, Keep Lock");
-            assertThat(releaseLockProps.getNoButtonText()).isEqualTo("No, Keep Lock");
-            
-            // Verify different "Yes" button text for different contexts
-            assertThat(unlockProps.getYesButtonText()).isEqualTo("Yes, Unlock");
-            assertThat(releaseLockProps.getYesButtonText()).isEqualTo("Yes, Release Lock");
-        }
-        
-        @Test
-        @DisplayName("Should generate correct project switch confirmation message")
-        void shouldGenerateCorrectProjectSwitchConfirmationMessage() {
-            // Setup
-            controllerLogic.setCurrentProject("Current Cave Project");
-            
-            // Execute
-            String confirmationMessage = controllerLogic.generateProjectSwitchConfirmationMessage("New Cave Survey");
-            
-            // Verify
-            assertThat(confirmationMessage).contains("Current Cave Project");
-            assertThat(confirmationMessage).contains("New Cave Survey");
-            assertThat(confirmationMessage).contains("active lock");
-            assertThat(confirmationMessage).contains("release your current lock");
-            assertThat(confirmationMessage).contains("switch projects");
-        }
-        
-        @Test
-        @DisplayName("Should validate project switch confirmation dialog properties")
-        void shouldValidateProjectSwitchConfirmationDialogProperties() {
-            // Setup
-            controllerLogic.setCurrentProject("Locked Project");
-            
-            // Execute
-            var dialogProperties = controllerLogic.getProjectSwitchConfirmationDialogProperties("Target Project");
-            
-            // Verify
-            assertThat(dialogProperties.getTitle()).isEqualTo("Switch Project");
-            assertThat(dialogProperties.getHeaderText()).isEqualTo("Current Project is Locked");
-            assertThat(dialogProperties.getYesButtonText()).isEqualTo("Yes, Switch Projects");
-            assertThat(dialogProperties.getNoButtonText()).isEqualTo("No, Stay Here");
-            assertThat(dialogProperties.getContentText()).contains("Locked Project");
-            assertThat(dialogProperties.getContentText()).contains("Target Project");
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to switch projects")
-        void shouldSimulateUserChoosingToSwitchProjects() {
-            // Setup
-            controllerLogic.setCurrentProject("Current Project");
-            controllerLogic.setUserConfirmationResponse(true);
-            
-            // Execute
-            boolean result = controllerLogic.simulateProjectSwitchConfirmation("New Project");
-            
-            // Verify
-            assertThat(result).isTrue();
-        }
-        
-        @Test
-        @DisplayName("Should simulate user choosing to stay on current project")
-        void shouldSimulateUserChoosingToStayOnCurrentProject() {
-            // Setup
-            controllerLogic.setCurrentProject("Current Project");
-            controllerLogic.setUserConfirmationResponse(false);
-            
-            // Execute
-            boolean result = controllerLogic.simulateProjectSwitchConfirmation("New Project");
-            
-            // Verify
-            assertThat(result).isFalse();
-        }
-    }
+    // Removed: confirmation popup functionality tests; lock-release modals are no longer used
     
     @Nested
     @DisplayName("Upload and Unlock Flow Integration")

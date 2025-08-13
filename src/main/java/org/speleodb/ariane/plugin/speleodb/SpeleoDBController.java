@@ -117,8 +117,7 @@ public class SpeleoDBController implements Initializable {
     AnchorPane speleoDBAnchorPane;
     @FXML
     private Button connectionButton;
-    @FXML
-    private Button unlockButton;
+    // Removed unlock button; save action is full width in UI
     @FXML
     private Button uploadButton;
     @FXML
@@ -205,9 +204,7 @@ public class SpeleoDBController implements Initializable {
      * @param negativeText text for the negative button (e.g., "No")
      * @return true if user clicked positive button, false otherwise
      */
-    private boolean showConfirmationModal(String title, String message, String positiveText, String negativeText) {
-        return SpeleoDBModals.showConfirmation(title, message, positiveText, negativeText);
-    }
+    // Removed: generic confirmation for lock flows
 
     /**
      * Private constructor for singleton pattern.
@@ -640,36 +637,20 @@ public class SpeleoDBController implements Initializable {
                         // Consume the event to prevent default close behavior
                         event.consume();
                         
-                        // Handle lock release confirmation immediately
                         Platform.runLater(() -> {
                             try {
-                                String projectName = getCurrentProjectName();
-                                boolean shouldReleaseLock = parentPlugin.showShutdownConfirmation(projectName);
-                                
-                                if (shouldReleaseLock) {
-                                    // User chose to release lock - do it now before shutdown
-                                    try {
-                                        releaseCurrentProjectLock();
-                                        logger.info("Project lock released before application shutdown.");
-                                    } catch (IOException | InterruptedException | URISyntaxException e) {
-                                        logger.info("Error releasing project lock during shutdown: " + e.getMessage());
-                                        // Continue with shutdown even if lock release fails
-                                    }
-                                }
-                                
-                                // Close the window directly instead of calling Platform.exit()
-                                // This prevents deadlock during JavaFX shutdown
-                                stage.close();
-                                
-                            } catch (Exception e) {
-                                System.err.println("Error during shutdown confirmation: " + e.getMessage());
-                                // On error, proceed with shutdown to avoid hanging
+                                // Always attempt to release lock without prompting
+                                releaseCurrentProjectLock();
+                                logger.info("Project lock released before application shutdown.");
+                            } catch (IOException | InterruptedException | URISyntaxException e) {
+                                logger.info("Error releasing project lock during shutdown: " + e.getMessage());
+                            } finally {
+                                // Close the window directly to avoid shutdown deadlocks
                                 stage.close();
                             }
                         });
                     } else {
                         // No active lock - proceed with normal shutdown
-                        // Let the default close behavior happen
                     }
                 });
                 
@@ -902,12 +883,12 @@ public class SpeleoDBController implements Initializable {
         // Project action controls (only disable if they're currently enabled)
         if (loading) {
             uploadButton.setDisable(true);
-            unlockButton.setDisable(true);
+            // unlock button removed
         } else {
             // Re-enable based on current project state
             boolean hasLock = hasActiveProjectLock();
             uploadButton.setDisable(!hasLock);
-            unlockButton.setDisable(!hasLock);
+            // unlock button removed
         }
         
         // Connection controls (only if not authenticated)
@@ -935,7 +916,7 @@ public class SpeleoDBController implements Initializable {
         }
         
         // Show confirmation dialog
-        boolean confirmed = showConfirmationModal(
+        boolean confirmed = SpeleoDBModals.showConfirmation(
             "Reset Connection Form",
             "This will clear all connection form fields and reset the instance to default.\n\nAre you sure you want to continue?",
             "Reset",
@@ -1520,14 +1501,14 @@ public class SpeleoDBController implements Initializable {
                 actionsTitlePane.setExpanded(true);
                 actionsTitlePane.setText("Actions on `" + projectName + "`.");
                 uploadButton.setDisable(false);
-                unlockButton.setDisable(false);
+                // unlock button removed
                 currentProject = project;
             } else {
                 // Hide actions pane for read-only projects
                 actionsTitlePane.setVisible(false);
                 actionsTitlePane.setExpanded(false);
                 uploadButton.setDisable(true);
-                unlockButton.setDisable(true);
+                // unlock button removed
                 currentProject = null; // Don't set current project for read-only
             }
         });
@@ -1614,23 +1595,8 @@ public class SpeleoDBController implements Initializable {
                     return;
                 }
                 
-                // Different project selected - show confirmation dialog
-                logger.info("Attempting to switch from locked project: " + getCurrentProjectName() + 
-                          " to: " + selectedProjectName);
-                
-                boolean shouldSwitch = showProjectSwitchConfirmation(selectedProjectName);
-                
-                if (!shouldSwitch) {
-                    logger.info("User cancelled project switch. Staying on: " + getCurrentProjectName());
-                    Platform.runLater(() -> {
-                        setUILoadingState(false);
-                        serverProgressIndicator.setVisible(false);
-                    });
-                    return;
-                }
-                
-                // User confirmed switch - release current lock first
-                logger.info("User confirmed project switch. Releasing lock on: " + getCurrentProjectName());
+                // Different project selected - always release current lock first (no modal)
+                logger.info("Switching project. Releasing lock on: " + getCurrentProjectName());
                 
                 // Use centralized lock release with UI integration
                 releaseProjectLockWithUI(currentProject, "project switch", 
@@ -1680,64 +1646,23 @@ public class SpeleoDBController implements Initializable {
     /**
      * Shows project switch confirmation - uses the ultra-fast modal.
      */
-    private boolean showProjectSwitchConfirmation(String newProjectName) {
-        String message = "You have a lock on project \"" + currentProject.getString("name") + "\".\n\n" +
-                        "To open \"" + newProjectName + "\", you need to release your current lock.\n\n" +
-                        "Do you want to continue?";
-        return showConfirmationModal("Switch Project", message, "Yes", "No");
-    }
+    // Removed: lock-related confirmation dialogs
 
     /**
      * Shows unlock confirmation - uses the ultra-fast modal.
      */
-    private boolean showUnlockConfirmation() {
-        String message = "Are you sure you want to unlock project \"" + currentProject.getString("name") + "\"?\n\n" +
-                        "This will allow other users to edit the project.";
-        return showConfirmationModal("Unlock Project", message, "Yes", "No");
-    }
+    // Removed: lock-related confirmation dialogs
     
     /**
      * Shows release lock confirmation - uses the ultra-fast modal.
      */
-    private boolean showReleaseLockConfirmation() {
-        String message = "Do you want to release the lock on project \"" + currentProject.getString("name") + "\"?\n\n" +
-                        "This will allow other users to edit the project.";
-        return showConfirmationModal("Release Lock", message, "Yes", "No");
-    }
+    // Removed: lock-related confirmation dialogs
 
     /**
      * Handles the "Unlock Project" button click event for SpeleoDB.
      */
     @FXML
-    public void onUnlockSpeleoDB(ActionEvent actionEvent) throws IOException, InterruptedException, URISyntaxException {
-        
-        // Show confirmation popup before unlocking
-        boolean shouldUnlock = showUnlockConfirmation();
-        
-        if (!shouldUnlock) {
-            logger.info("User cancelled unlock operation.");
-            return;
-        }
-
-        logger.info("Unlocking project " + currentProject.getString("name"));
-        serverProgressIndicator.setVisible(true);
-        uploadButton.setDisable(true);
-        unlockButton.setDisable(true);
-
-        // Use centralized lock release with UI integration
-        releaseProjectLockWithUI(currentProject, "manual unlock", 
-            null, // No additional success callback needed
-            null, // No additional failure callback needed  
-            true  // Show modal dialogs for unlock operation
-        );
-        
-        // Always re-enable UI controls after operation
-        Platform.runLater(() -> {
-            serverProgressIndicator.setVisible(false);
-            uploadButton.setDisable(false);
-            unlockButton.setDisable(false);
-        });
-    }
+    // Removed: unlock button handler
 
     // --------------------- Project Saving and Upload --------------------- //
 
@@ -1753,7 +1678,7 @@ public class SpeleoDBController implements Initializable {
         
         serverProgressIndicator.setVisible(true);
         uploadButton.setDisable(true);
-        unlockButton.setDisable(true);
+        // unlock button removed
 
         parentPlugin.executorService.execute(() -> {
             try {
@@ -1765,24 +1690,10 @@ public class SpeleoDBController implements Initializable {
                     uploadMessageTextField.clear();
                 });
                 
-                // Show success celebration dialog with random GIF, then handle lock release
+                // Show success celebration dialog with random GIF (no post-upload lock release)
                 Platform.runLater(() -> {
                     showSuccessCelebrationDialog(() -> {
-                        // This callback is executed after the celebration dialog closes
-                        boolean shouldReleaseLock = showReleaseLockConfirmation();
-                        
-                        if (shouldReleaseLock) {
-                            logger.info("User chose to release the write lock.");
-                            
-                            // Use centralized lock release with UI integration
-                            releaseProjectLockWithUI(currentProject, "post-upload", 
-                                null, // No additional success callback needed
-                                null, // No additional failure callback needed
-                                true  // Show modal dialogs for post-upload release
-                            );
-                        } else {
-                            logger.info("User chose to keep the write lock.");
-                        }
+                        // Intentionally do nothing regarding lock release after upload
                     });
                 });
                 
@@ -1845,7 +1756,7 @@ public class SpeleoDBController implements Initializable {
                         "• The project will be reloaded from disk\n" +
                         "• This action cannot be undone";
         
-        boolean shouldReload = showConfirmationModal("Reload Project", message, "Reload", "Cancel");
+        boolean shouldReload = SpeleoDBModals.showConfirmation("Reload Project", message, "Reload", "Cancel");
         
         if (!shouldReload) {
             logger.info("User cancelled reload operation for project: " + projectName);
@@ -1855,7 +1766,7 @@ public class SpeleoDBController implements Initializable {
         // Show progress indicator
         serverProgressIndicator.setVisible(true);
         uploadButton.setDisable(true);
-        unlockButton.setDisable(true);
+        // unlock button removed
         
         // Wait for spinner to actually be rendered before starting background work
         Platform.runLater(() -> {
@@ -1876,8 +1787,7 @@ public class SpeleoDBController implements Initializable {
                         
                         // Hide progress indicator on error
                         serverProgressIndicator.setVisible(false);
-                        uploadButton.setDisable(false);
-                        unlockButton.setDisable(false);
+            uploadButton.setDisable(false);
                     });
                     return;
                 }
@@ -1909,7 +1819,7 @@ public class SpeleoDBController implements Initializable {
                         // Hide progress indicator on error
                         serverProgressIndicator.setVisible(false);
                         uploadButton.setDisable(false);
-                        unlockButton.setDisable(false);
+                        // unlock button removed
                     });
                 }
                 
@@ -1923,14 +1833,14 @@ public class SpeleoDBController implements Initializable {
                     // Hide progress indicator on error
                     serverProgressIndicator.setVisible(false);
                     uploadButton.setDisable(false);
-                    unlockButton.setDisable(false);
+                    // unlock button removed
                 });
             } finally {
                 Platform.runLater(() -> {
                     // Re-enable UI controls
                     serverProgressIndicator.setVisible(false);
                     uploadButton.setDisable(false);
-                    unlockButton.setDisable(false);
+                    // unlock button removed
                 });
             }
                 });
@@ -2290,7 +2200,7 @@ public class SpeleoDBController implements Initializable {
                     actionsTitlePane.setExpanded(true);
                     actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
                     uploadButton.setDisable(false);
-                    unlockButton.setDisable(false);
+                    // unlock button removed
                     
                     // Show success animation
                     showSuccessAnimation("Lock Acquired");
@@ -2324,7 +2234,7 @@ public class SpeleoDBController implements Initializable {
                     
                     // Disable editing controls
                     uploadButton.setDisable(true);
-                    unlockButton.setDisable(true);
+                    // unlock button removed
                     
                     // Execute failure callback
                     if (onFailure != null) {
@@ -2343,7 +2253,7 @@ public class SpeleoDBController implements Initializable {
                     
                     // Disable editing controls for read-only or locked projects
                     uploadButton.setDisable(true);
-                    unlockButton.setDisable(true);
+                    // unlock button removed
                     
                     // Execute failure callback
                     if (onFailure != null) {
