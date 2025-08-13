@@ -30,6 +30,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -40,8 +41,7 @@ import javafx.util.Duration;
 public class SpeleoDBModals {
     
     // Pre-warmed modal instances for performance
-    private static Alert preWarmedConfirmationModal;
-    private static Dialog<String> preWarmedInputModal;
+    // Removed dialog instance reuse to avoid carrying window state between shows
     
     private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
     
@@ -50,24 +50,9 @@ public class SpeleoDBModals {
      * Should be called during application initialization.
      */
     public static void preWarmModalSystem() {
-        Platform.runLater(() -> {
-            try {
-                // Pre-warm confirmation modal
-                preWarmedConfirmationModal = new Alert(Alert.AlertType.CONFIRMATION);
-                preWarmedConfirmationModal.setTitle("");
-                preWarmedConfirmationModal.setHeaderText("");
-                preWarmedConfirmationModal.setContentText("");
-                
-                // Pre-warm input modal
-                preWarmedInputModal = new Dialog<>();
-                preWarmedInputModal.setTitle("");
-                preWarmedInputModal.setHeaderText("");
-                
-                logger.debug("Modal system pre-warmed successfully");
-            } catch (Exception e) {
-                logger.error("Failed to pre-warm modal system", e);
-            }
-        });
+        // No-op: Previously created and reused dialog instances, which could carry window state.
+        // Keeping as a stub for backward compatibility and potential future lightweight preloads.
+        logger.debug("Modal system pre-warm is a no-op (avoids dialog instance reuse)");
     }
     
     /**
@@ -84,8 +69,14 @@ public class SpeleoDBModals {
             throw new IllegalStateException("Must be called on JavaFX Application Thread");
         }
         
-        // Use pre-warmed modal for speed, fallback to new if needed
-        Alert alert = (preWarmedConfirmationModal != null) ? preWarmedConfirmationModal : new Alert(Alert.AlertType.CONFIRMATION);
+        // Always create a fresh Alert instance to avoid carrying over window state
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
         
         // Configure the modal
         alert.setTitle(title);
@@ -146,7 +137,7 @@ public class SpeleoDBModals {
             if (posBtn != null && negBtn != null) {
                 // Make buttons identical size - use the larger text width
                 String longerText = positiveText.length() > negativeText.length() ? positiveText : negativeText;
-                double maxTextWidth = calculateTextWidth(longerText, 14, true);
+                double maxTextWidth = calculateTextWidth(longerText, true);
                 int buttonWidth = Math.max(180, (int)(maxTextWidth + 80)); // Increased minimum to 180px and padding to 80px
                 
                 // Apply identical styling to both buttons
@@ -185,6 +176,12 @@ public class SpeleoDBModals {
         }
         
         Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
         alert.setTitle(title);
         alert.setHeaderText(null); // Clean Material Design look
         alert.setContentText(null); // We'll use custom content
@@ -258,6 +255,12 @@ public class SpeleoDBModals {
         }
         
         Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
         alert.setTitle(title);
         alert.setHeaderText(null); // Clean Material Design look
         alert.setContentText(null); // We'll use custom content
@@ -330,7 +333,14 @@ public class SpeleoDBModals {
      */
     public static void showInputDialog(String title, String header, String prompt, String defaultValue, 
                                      Consumer<String> onSave, Runnable onCancel) {
-        Dialog<String> dialog = (preWarmedInputModal != null) ? preWarmedInputModal : new Dialog<>();
+        // Always create a fresh Dialog instance to avoid carrying over window state
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            dialog.initOwner(owner);
+            dialog.initModality(Modality.WINDOW_MODAL);
+        }
         
         // CRITICAL: Clear any existing button types to prevent duplication
         dialog.getDialogPane().getButtonTypes().clear();
@@ -430,7 +440,7 @@ public class SpeleoDBModals {
             if (saveBtn != null && cancelBtn != null) {
                 // Make buttons identical size - use larger text width
                 String longerText = "Save".length() > "Cancel".length() ? "Save" : "Cancel";
-                double maxTextWidth = calculateTextWidth(longerText, 14, true);
+                double maxTextWidth = calculateTextWidth(longerText, true);
                 int buttonWidth = Math.max(140, (int)(maxTextWidth + 50));
                 
                 // Apply identical styling
@@ -498,7 +508,7 @@ public class SpeleoDBModals {
             Dialog<Void> dialog = new Dialog<>();
             dialog.setTitle(DIALOGS.TITLE_SUCCESS_CELEBRATION);
             dialog.setHeaderText(null);
-            dialog.setResizable(true);
+            dialog.setResizable(false);
             
             DialogPane dialogPane = dialog.getDialogPane();
             
@@ -643,7 +653,12 @@ public class SpeleoDBModals {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle(title);
         dialog.setHeaderText(null);
-        dialog.setResizable(true);
+        dialog.setResizable(false);
+        Window ownerWin = owner != null ? owner : findOwnerWindow();
+        if (ownerWin != null) {
+            dialog.initOwner(ownerWin);
+            dialog.initModality(Modality.WINDOW_MODAL);
+        }
         
         DialogPane dialogPane = dialog.getDialogPane();
         applyMaterialDesignStyling(dialogPane);
@@ -661,7 +676,7 @@ public class SpeleoDBModals {
             Platform.runLater(() -> {
                 Button btn = (Button) dialogPane.lookupButton(buttonType);
                 if (btn != null) {
-                    applyPerfectMaterialButton(btn, config.color, config.colorDark, config.isDefault);
+                    applyPerfectMaterialButton(btn, config.color, config.colorDark);
                     if (config.callback != null) {
                         btn.setOnAction(e -> {
                             config.callback.run();
@@ -716,9 +731,14 @@ public class SpeleoDBModals {
         }
         
         Alert alert = new Alert(type);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
         alert.setTitle(title);
         alert.setHeaderText(null);
-        alert.setResizable(true);
         
         DialogPane dialogPane = alert.getDialogPane();
         applyMaterialDesignStyling(dialogPane);
@@ -748,7 +768,7 @@ public class SpeleoDBModals {
         Platform.runLater(() -> {
             Button btn = (Button) alert.getDialogPane().lookupButton(okButton);
             if (btn != null) {
-                applyPerfectMaterialButton(btn, color, colorDark, true);
+                applyPerfectMaterialButton(btn, color, colorDark);
             }
         });
         
@@ -758,18 +778,20 @@ public class SpeleoDBModals {
     private static void applyMaterialDesignStyling(DialogPane dialogPane) {
         dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
         dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
+        dialogPane.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH + 100);
         dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
         dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+        dialogPane.setMaxHeight(600);
         dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
         
         // Note: No longer applying unified button styling since we use custom button containers
     }
     
-    private static void applyPerfectMaterialButton(Button button, String color, String colorDark, boolean isPrimary) {
+    private static void applyPerfectMaterialButton(Button button, String color, String colorDark) {
         if (button == null) return;
         
         // Calculate optimal button width based on text content
-        double textWidth = calculateTextWidth(button.getText(), 14, true); // 14px font, bold
+        double textWidth = calculateTextWidth(button.getText(), true); // approximate width for bold
         int optimalWidth = Math.max(120, (int)(textWidth + 60)); // Minimum 120px, add 60px padding
         
         String baseStyle = String.format(
@@ -820,7 +842,7 @@ public class SpeleoDBModals {
     /**
      * Calculate text width for optimal button sizing
      */
-    private static double calculateTextWidth(String text, int fontSize, boolean bold) {
+    private static double calculateTextWidth(String text, boolean bold) {
         if (text == null || text.isEmpty()) return 0;
         
         // Approximate character width calculation
@@ -836,11 +858,11 @@ public class SpeleoDBModals {
     private static String convertColorToRgba(String hexColor, double alpha) {
         if (hexColor.startsWith("#")) {
             try {
-                int r = Integer.valueOf(hexColor.substring(1, 3), 16);
-                int g = Integer.valueOf(hexColor.substring(3, 5), 16);
-                int b = Integer.valueOf(hexColor.substring(5, 7), 16);
+                int r = Integer.parseInt(hexColor.substring(1, 3), 16);
+                int g = Integer.parseInt(hexColor.substring(3, 5), 16);
+                int b = Integer.parseInt(hexColor.substring(5, 7), 16);
                 return String.format("rgba(%d,%d,%d,%.1f)", r, g, b, alpha);
-            } catch (Exception e) {
+            } catch (NumberFormatException | IndexOutOfBoundsException e) {
                 return "rgba(0,0,0," + alpha + ")";
             }
         }
@@ -940,5 +962,19 @@ public class SpeleoDBModals {
             "-fx-font-weight: bold;"
         );
         content.getChildren().add(successLabel);
+    }
+
+    // Finds a suitable owner window for modality
+    private static Window findOwnerWindow() {
+        try {
+            for (Window w : Window.getWindows()) {
+                if (w.isFocused()) return w;
+            }
+            for (Window w : Window.getWindows()) {
+                if (w.isShowing()) return w;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 } 

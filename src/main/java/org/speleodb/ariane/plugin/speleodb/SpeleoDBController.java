@@ -73,6 +73,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.web.WebView;
+import javafx.stage.Modality;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
@@ -2834,6 +2835,7 @@ public class SpeleoDBController implements Initializable {
             Dialog<Void> infoDialog = new Dialog<>();
             infoDialog.setTitle(title);
             infoDialog.setHeaderText(null); // No header for cleaner Material Design look
+            infoDialog.setResizable(false);
             
             // Set dialog properties to ensure all content is visible
             DialogPane dialogPane = infoDialog.getDialogPane();
@@ -2908,6 +2910,7 @@ public class SpeleoDBController implements Initializable {
             // Set owner for proper modal behavior
             if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
                 infoDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+                infoDialog.initModality(Modality.WINDOW_MODAL);
             }
             
             // Add fade-in animation for smooth appearance
@@ -3217,6 +3220,7 @@ public class SpeleoDBController implements Initializable {
             Dialog<Void> updateDialog = new Dialog<>();
             updateDialog.setTitle(MESSAGES.UPDATE_DIALOG_TITLE);
             updateDialog.setHeaderText(null);
+            updateDialog.setResizable(false);
             
             DialogPane dialogPane = updateDialog.getDialogPane();
             dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
@@ -3265,6 +3269,7 @@ public class SpeleoDBController implements Initializable {
             
             if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
                 updateDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
+                updateDialog.initModality(Modality.WINDOW_MODAL);
             }
             
             updateDialog.show();

@@ -31,6 +31,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -132,12 +133,19 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private void setupDialog() {
         setTitle(DIALOGS.TITLE_CREATE_NEW_PROJECT);
         setHeaderText(DIALOGS.HEADER_ENTER_PROJECT_DETAILS);
-        setResizable(true);
+        setResizable(false);
 
         // Set button types
         ButtonType saveButtonType = new ButtonType(DIALOGS.BUTTON_SAVE_CHANGES, ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelButtonType = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonBar.ButtonData.CANCEL_CLOSE);
         getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
+        // Ensure dialog sizing is capped to avoid accidental fullscreen
+        getDialogPane().setMinWidth(DIMENSIONS.DIALOG_MIN_WIDTH);
+        getDialogPane().setPrefWidth(DIMENSIONS.DIALOG_PREF_WIDTH);
+        getDialogPane().setMaxWidth(DIMENSIONS.DIALOG_PREF_WIDTH + 100);
+        getDialogPane().setMinHeight(200);
+        getDialogPane().setPrefHeight(Region.USE_COMPUTED_SIZE);
+        getDialogPane().setMaxHeight(600);
         
         // Apply CSS stylesheet to the dialog
         getDialogPane().getStylesheets().add(getClass().getResource(STYLES.MAIN_CSS_PATH).toExternalForm());
