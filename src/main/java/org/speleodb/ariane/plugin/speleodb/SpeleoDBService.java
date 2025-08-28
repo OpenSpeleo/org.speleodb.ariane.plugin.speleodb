@@ -23,7 +23,6 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.HEADERS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.HTTP_STATUS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.VALIDATION;
@@ -41,8 +40,8 @@ import jakarta.json.JsonReader;
 public class SpeleoDBService {
     public final static String ARIANE_ROOT_DIR = PATHS.ARIANE_ROOT_DIR;
     private final SpeleoDBController controller;
-    private String authToken = MISC.EMPTY_STRING;
-    private String SDB_instance = MISC.EMPTY_STRING;
+    private String authToken = "";
+    private String SDB_instance = "";
     private HttpClient http_client = null;
     
     // Centralized logger instance - used directly without wrapper methods
@@ -212,8 +211,8 @@ public class SpeleoDBService {
      * Logs the user out by clearing the authentication token and the SDB_instance
      */
     public void logout() {
-        authToken = MISC.EMPTY_STRING;
-        SDB_instance = MISC.EMPTY_STRING;
+        authToken = "";
+        SDB_instance = "";
         http_client = null;  // Clear cached HTTP client on logout
     }
 

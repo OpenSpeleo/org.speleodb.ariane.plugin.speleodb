@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.UUID;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MULTIPART;
 
 /**
@@ -91,7 +90,7 @@ public class HTTPRequestMultipartBody {
          * Generates a unique boundary string for this multipart request
          */
         private String generateBoundary() {
-            return MULTIPART.BOUNDARY_PREFIX + UUID.randomUUID().toString().replace(MULTIPART.DASH, MISC.EMPTY_STRING);
+            return MULTIPART.BOUNDARY_PREFIX + UUID.randomUUID().toString().replace(MULTIPART.DASH, "");
         }
         
         /**
