@@ -257,6 +257,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_LIST_FAILED_STATUS = "Failed to list projects with status code: ";
         public static final String PROJECT_DOWNLOAD_FAILED_STATUS = "Failed to download project with status code: ";
         public static final String PROJECT_UPLOAD_FAILED_STATUS = "Failed to upload project with status code: ";
+        public static final String PROJECT_UPLOAD_REJECTED_EMPTY = "Cannot upload an empty project. Please add some survey data before uploading.";
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "HTTP 422: Project exists but is empty - create empty TML file.";
         public static final String FILE_NOT_FOUND = "Downloaded file not found: ";

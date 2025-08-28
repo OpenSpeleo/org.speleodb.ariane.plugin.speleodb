@@ -1501,14 +1501,12 @@ public class SpeleoDBController implements Initializable {
                 actionsTitlePane.setExpanded(true);
                 actionsTitlePane.setText("Actions on `" + projectName + "`.");
                 uploadButton.setDisable(false);
-                // unlock button removed
                 currentProject = project;
             } else {
                 // Hide actions pane for read-only projects
                 actionsTitlePane.setVisible(false);
                 actionsTitlePane.setExpanded(false);
                 uploadButton.setDisable(true);
-                // unlock button removed
                 currentProject = null; // Don't set current project for read-only
             }
         });

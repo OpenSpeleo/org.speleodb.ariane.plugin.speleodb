@@ -13,6 +13,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.regex.Pattern;
 
@@ -347,13 +349,28 @@ public class SpeleoDBService {
         // TODO: Ensure MUTEX is owned before upload - either statically but maybe preferably by calling API.
 
         String SDB_projectId = project.getString(JSON_FIELDS.ID);
+        Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
+
+        // Check if the TML file is the same as the empty project template
+        if (Files.exists(tmp_filepath)) {
+            try {
+                byte[] fileData = Files.readAllBytes(tmp_filepath);
+                String fileHash = calculateSHA256(fileData);
+                
+                String emptyTemplateHash = getEmptyTemplateSHA256();
+                if (emptyTemplateHash != null && emptyTemplateHash.equals(fileHash)) {
+                    throw new IllegalArgumentException(MESSAGES.PROJECT_UPLOAD_REJECTED_EMPTY);
+                }
+            } catch (IOException e) {
+                logger.warn("Warning: Could not verify project file hash: " + e.getMessage());
+                // Continue with upload if file reading fails - let server handle validation
+            }
+        }
 
         URI uri = new URI(
             SDB_instance + API.PROJECTS_ENDPOINT +
             SDB_projectId + API.UPLOAD_ARIANE_TML_PATH
         );
-
-        Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
 
         HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
                 .addPart(JSON_FIELDS.MESSAGE, message)
@@ -686,6 +703,54 @@ public class SpeleoDBService {
                                 throw new UnsupportedOperationException("Parallel processing not supported");
                             })
                     .build();
+        }
+    }
+
+    /**
+     * Calculates the SHA256 hash of the given file data.
+     * 
+     * @param fileData the file data to hash
+     * @return the SHA256 hash as a lowercase hex string
+     * @throws RuntimeException if SHA-256 algorithm is not available
+     */
+    private String calculateSHA256(byte[] fileData) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(fileData);
+            
+            // Convert to hex string
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not available", e);
+        }
+    }
+
+    /**
+     * Gets the SHA256 hash of the empty project template from resources.
+     * 
+     * @return the SHA256 hash of the empty template, or null if it cannot be calculated
+     */
+    private String getEmptyTemplateSHA256() {
+        try (var templateStream = getClass().getResourceAsStream(PATHS.EMPTY_TML)) {
+            if (templateStream == null) {
+                logger.warn("Empty template file not found in resources: " + PATHS.EMPTY_TML);
+                return null;
+            }
+            
+            byte[] templateData = templateStream.readAllBytes();
+            return calculateSHA256(templateData);
+        } catch (IOException e) {
+            logger.warn("Error reading empty template file for hash calculation: " + e.getMessage());
+            return null;
         }
     }
 }
