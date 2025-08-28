@@ -1,5 +1,18 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_DATE_FORMAT;
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_DIR;
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_ERROR_CREATING_DIR;
@@ -17,19 +30,6 @@ import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_LEVEL_WARN;
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_SHUTDOWN_MESSAGE;
 import static org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.LOGGING.LOG_STARTUP_MESSAGE;
-
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javafx.application.Platform;
 
@@ -438,4 +438,4 @@ public final class SpeleoDBLogger {
             lock.writeLock().unlock();
         }
     }
-} 
+}

@@ -191,27 +191,16 @@ public final class SpeleoDBConstants {
         public static final String UPLOAD_MESSAGE_EMPTY = "Upload message cannot be empty.";
         public static final String USER_NOT_AUTHENTICATED = "User is not authenticated. Please log in.";
         public static final String USER_NOT_AUTHENTICATED_SHORT = "User is not authenticated.";
-        public static final String PROJECT_LOCK_RELEASED = "Project lock released before application shutdown.";
         public static final String ERROR_LOADING_COUNTRIES = "Error loading countries: ";
         public static final String ERROR_PRE_LOADING_COUNTRIES = "Error pre-loading countries data: ";
         public static final String COUNTRIES_NOT_FOUND = "countries.json not found in resources at: ";
-        public static final String INCOHERENT_FILE_ID = "Incoherent File ID detected.";
-        public static final String PREVIOUS_VALUE = "\t- Previous Value: ";
-        public static final String NEW_VALUE = "\t- New Value: ";
-        public static final String SPELEODB_ID_UPDATED = "SpeleoDB ID updated successfully.";
-        public static final String ERROR_CHECKING_SPELEODB_ID = "Error checking/updating SpeleoDB ID: ";
-        public static final String UNKNOWN_ERROR = "Unknown error";
         
         // Success Messages
         public static final String SUCCESS_DEFAULT = "Success";
         public static final String ERROR_DEFAULT = "Error";
-        public static final String PROJECT_LOADED_SUCCESS = "Project loaded successfully: ";
-        public static final String PROJECT_LOADED_READONLY_SUCCESS = "Read-only project loaded successfully: ";
         public static final String COUNTRIES_CACHED_SUCCESS = "Successfully cached %d countries from JSON";
         public static final String OAUTH_TOKEN_SAVED = "OAuth token saved to preferences (format validated)";
         public static final String PASSWORD_SAVED = "Password saved to preferences";
-        public static final String OAUTH_TOKEN_FORMAT_PASSED = "OAuth token format validation: PASSED";
-        public static final String ADDING_SPELEODB_ID = "Adding SpeleoDB ID: ";
         
         // Update Messages
         public static final String UPDATE_CHECK_STARTING = "Checking for SpeleoDB plugin updates ...";
@@ -227,29 +216,10 @@ public final class SpeleoDBConstants {
         public static final String UPDATE_DIALOG_HEADER = "Plugin Update Successful";
         public static final String UPDATE_RESTART_WARNING = "Please restart Ariane now for the new plugin to take effect";
         
-        // Loading Messages
-        public static final String LOADING_PROJECT = "Loading project file ...";
-        public static final String LOADING_READONLY_PROJECT = "Loading read-only project file ...";
-        
         // Validation Messages
-        public static final String OAUTH_TOKEN_FORMAT_FAILED = "OAuth token format validation: FAILED - Expected 40 hex characters, got: %d characters";
         public static final String OAUTH_TOKEN_INVALID_NOT_SAVED = "Warning: Invalid OAuth token format not saved to preferences";
         
         // Connection Error Messages
-        public static final String NETWORK_ERROR_ADVICE = 
-                """
-                Can't reach server - Please check:
-                \u2022 Server is online and accessible
-                \u2022 Network connection is working
-                \u2022 Server URL is correct
-                \u2022 Firewall isn't blocking the connection""";
-        public static final String TIMEOUT_ERROR_ADVICE = 
-                """
-                Request timed out - Server may be:
-                \u2022 Overloaded or slow to respond
-                \u2022 Experiencing network issues
-                \u2022 Temporarily unavailable
-                Try again in a few moments""";
         
         // Auth Error Messages
         public static final String AUTH_FAILED_STATUS = "Authentication failed with status code: ";
@@ -260,20 +230,12 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_UPLOAD_REJECTED_EMPTY = "Cannot upload an empty project. Please add some survey data before uploading.";
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "HTTP 422: Project exists but is empty - create empty TML file.";
-        public static final String FILE_NOT_FOUND = "Downloaded file not found: ";
         public static final String DOWNLOAD_FAILED = "Failed to download project file";
-        public static final String DOWNLOAD_PROJECT_FAILED = "Failed to download project: ";
-        
-        // Generic failure formats
-        public static final String OPERATION_FAILED_FORMAT = "%s failed: %s";
         
         // Multipart body building errors
         public static final String ERROR_BUILDING_MULTIPART_BODY = "Error building HTTP request multipart body";
         public static final String ERROR_WRITING_MULTIPART_PART = "Error writing multipart part: ";
         public static final String ERROR_COPYING_FILE_CONTENT = "Error copying file content: ";
-        
-        // FXML loading errors
-        public static final String ERROR_LOADING_FXML = "Error loading FXML for SpeleoDB UI: ";
     }
     
     // ==================== UI DIALOG CONSTANTS ====================
@@ -289,7 +251,6 @@ public final class SpeleoDBConstants {
         public static final String BUTTON_GOT_IT = "Got it!";
         
         // Dialog Titles
-        public static final String TITLE_SAVE_PROJECT = "Save Project on SpeleoDB";
         public static final String TITLE_CREATE_NEW_PROJECT = "Create New Project";
         public static final String TITLE_UPLOAD_MESSAGE_REQUIRED = "Upload Message Required";
         public static final String TITLE_SUCCESS_CELEBRATION = "Upload Successful!";
@@ -307,7 +268,6 @@ public final class SpeleoDBConstants {
         public static final String LABEL_COUNTRY = "Country:";
         public static final String LABEL_LATITUDE = "Latitude:";
         public static final String LABEL_LONGITUDE = "Longitude:";
-        public static final String LABEL_UPLOAD_MESSAGE = "What did you change?";
         public static final String ASTERISK_REQUIRED = " *";
         
         // Prompt Text
@@ -340,28 +300,11 @@ public final class SpeleoDBConstants {
         
         // Colors
         public static final String COLOR_SUCCESS_BG = "#9CCC65";  // Green 400
-        public static final String COLOR_SUCCESS_BORDER = "#43A047";  // Green 600
         public static final String COLOR_ERROR_BG = "#EF5350";  // Red 400
-        public static final String COLOR_ERROR_BORDER = "#E53935";  // Red 600
         public static final String COLOR_MATERIAL_PRIMARY = "#1976D2";
         public static final String COLOR_MATERIAL_SURFACE = "#FFFFFF";
         public static final String COLOR_MATERIAL_ON_SURFACE = "#212121";
         public static final String COLOR_MATERIAL_SHADOW = "rgba(0,0,0,0.2)";
-        
-        // Success Animation Style
-        public static final String SUCCESS_STYLE = "-fx-background-color:" + STYLES.COLOR_SUCCESS_BG + "; -fx-text-fill: white; " +
-                "-fx-padding: 15 20; -fx-background-radius: 8; -fx-font-size: 16px; " +
-                "-fx-font-weight: bold; -fx-border-radius: 8; " +
-                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 2); " +
-                "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
-        
-        // Error Animation Style
-        public static final String ERROR_STYLE = "-fx-background-color: " + STYLES.COLOR_ERROR_BG + "; -fx-text-fill: white; " +
-                "-fx-padding: 15 25; -fx-background-radius: 10; -fx-font-size: 18px; " +
-                "-fx-font-weight: bold; -fx-border-radius: 10; " +
-                "-fx-border-color: " + STYLES.COLOR_ERROR_BG + "; -fx-border-width: 2; " +
-                "-fx-effect: dropshadow(three-pass-box, rgba(220,20,60,0.5), 15, 0, 0, 3); " +
-                "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
         
         // Debug Animation Style (highly visible for testing)
         public static final String DEBUG_ANIMATION_STYLE = "-fx-background-color: #FF6600; -fx-text-fill: white; " +
@@ -447,10 +390,6 @@ public final class SpeleoDBConstants {
         public static final int DIALOG_MIN_WIDTH = 500;
         public static final int DIALOG_PREF_WIDTH = 500;
         public static final int NEW_PROJECT_DIALOG_PREF_WIDTH = 400;
-        public static final int SUCCESS_DIALOG_MIN_WIDTH = 400;
-        public static final int SUCCESS_DIALOG_MIN_HEIGHT = 300;
-        public static final int SUCCESS_DIALOG_MAX_WIDTH = 800;
-        public static final int SUCCESS_DIALOG_MAX_HEIGHT = 600;
         public static final int INFO_DIALOG_MIN_WIDTH = 520;
         public static final int INFO_DIALOG_PREF_WIDTH = 520;
         public static final int INFO_DIALOG_MIN_HEIGHT = 380;
@@ -463,57 +402,35 @@ public final class SpeleoDBConstants {
         public static final int DIALOG_CONTENT_SPACING = 15;
         public static final int SECTION_SPACING = 5;
         public static final int COORDINATES_SECTION_SPACING = 10;
-        public static final int GRID_HGAP = 10;
-        public static final int GRID_VGAP = 10;
         
         // Padding
         public static final int DIALOG_PADDING = 20;
-        public static final int GRID_PADDING_TOP = 20;
-        public static final int GRID_PADDING_RIGHT = 20;
-        public static final int GRID_PADDING_BOTTOM = 10;
-        public static final int GRID_PADDING_LEFT = 20;
         
         // Animation Label Dimensions
         public static final int SUCCESS_LABEL_MIN_WIDTH = 150;
         public static final int SUCCESS_LABEL_MAX_WIDTH = 800;
         public static final int ERROR_LABEL_MIN_WIDTH = 200;
         public static final int ERROR_LABEL_MAX_WIDTH = 900;
-        public static final int ANIMATION_TOP_MARGIN = 20;
-        public static final int ANIMATION_SIDE_MARGIN = 10;
         
         // Font Sizes
         public static final int LABEL_FONT_SIZE = 12;
-        public static final int SUCCESS_FONT_SIZE = 16;
-        public static final int ERROR_FONT_SIZE = 18;
     }
     
     // ==================== ANIMATION TIMING ====================
     public static final class ANIMATIONS {
         public static final int FADE_IN_DURATION_MILLIS = 400;
-        public static final int FADE_OUT_DURATION_MILLIS = 400;
-        public static final int SUCCESS_ANIMATION_FADE_IN_MILLIS = 400;
-        public static final int ERROR_ANIMATION_FADE_IN_MILLIS = 300;
-        public static final int SUCCESS_AUTO_HIDE_SECONDS = 4;
-        public static final int ERROR_AUTO_HIDE_SECONDS = 5;
         public static final int SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS = 5;
         public static final int INFO_POPUP_DELAY_SECONDS = 3;
-        public static final double FADE_FROM_VALUE = 0.0;
-        public static final double FADE_TO_VALUE = 1.0;
     }
     
     // ==================== DEBUG & SYSTEM PROPERTIES ====================
     public static final class DEBUG {
-        public static final String DEBUG_MODE_PROPERTY = "debug.mode";
-        public static final String DEBUG_MODE_SYSTEM_PROPERTY = "speleodb.debug.mode";
-        public static final String DEBUG_MODE_ENV_VAR = "SPELEODB_DEBUG_MODE";
-        public static final String DEBUG_MODE_DEFAULT = "false";
         public static final String COUNTRIES_LOADER_THREAD_NAME = "CountriesLoader";
         public static final String SPELEODB_WORKER_THREAD_NAME = "SpeleoDB-Worker";
     }
     
     // ==================== JSON FIELD NAMES ====================
     public static final class JSON_FIELDS {
-        public static final String TOKEN = "token";
         public static final String EMAIL = "email";
         public static final String PASSWORD = "password";
         public static final String NAME = "name";
@@ -543,31 +460,6 @@ public final class SpeleoDBConstants {
         public static final String CHANGELOG = "changelog";
     }
     
-    // ==================== NETWORK ERROR PATTERNS ====================
-    public static final class ERROR_PATTERNS {
-        // Connection Error Patterns
-        public static final String CONNECTION_REFUSED = "connection refused";
-        public static final String NO_ROUTE_TO_HOST = "no route to host";
-        public static final String HOST_UNREACHABLE = "host unreachable";
-        public static final String NETWORK_UNREACHABLE = "network is unreachable";
-        public static final String CONNECTION_RESET = "connection reset";
-        public static final String UNKNOWN_HOST = "unknown host";
-        public static final String NAME_RESOLUTION_FAILED = "name resolution failed";
-        public static final String CONNECT_EXCEPTION = "connectexception";
-        public static final String UNKNOWN_HOST_EXCEPTION = "unknownhostexception";
-        public static final String NO_ROUTE_TO_HOST_EXCEPTION = "noroutetohostexception";
-        
-        // Timeout Error Patterns
-        public static final String TIMED_OUT = "timed out";
-        public static final String TIMEOUT = "timeout";
-        public static final String READ_TIMEOUT = "read timeout";
-        public static final String CONNECT_TIMEOUT = "connect timeout";
-        public static final String OPERATION_TIMEOUT = "operation timeout";
-        public static final String SOCKET_TIMEOUT_EXCEPTION = "sockettimeoutexception";
-        public static final String HTTP_TIMEOUT_EXCEPTION = "httptimeoutexception";
-        public static final String INTERRUPTED_EXCEPTION = "interruptedexception";
-    }
-    
     // ==================== UI ICONS & SYMBOLS ====================
     public static final class ICONS {
         public static final String SUCCESS_CHECKMARK = "✅ ";
@@ -576,41 +468,11 @@ public final class SpeleoDBConstants {
     
     // ==================== DEFAULT BUTTON TYPES ====================
     public static final class BUTTON_TYPES {
-        public static final ButtonType FAST_YES = new ButtonType(DIALOGS.BUTTON_YES);
-        public static final ButtonType FAST_NO = new ButtonType(DIALOGS.BUTTON_NO);
-        public static final ButtonType FAST_SAVE = new ButtonType(DIALOGS.BUTTON_SAVE_PROJECT, ButtonType.OK.getButtonData());
-        public static final ButtonType FAST_CANCEL = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonType.CANCEL.getButtonData());
         public static final ButtonType FAST_GOT_IT = new ButtonType(DIALOGS.BUTTON_GOT_IT, ButtonType.OK.getButtonData());
     }
     
     // ==================== MISC CONSTANTS ====================
     public static final class MISC {
-        public static final String EMPTY_STRING = "";
-        public static final String LINE_SEPARATOR = System.lineSeparator();
-        public static final String MESSAGE_INDEX_SEPARATOR = "-";
-        public static final int MESSAGE_INDEX_START = 0;
-        public static final int STRING_BUILDER_INITIAL_CAPACITY = 200;
         public static final String PROJECT_DATA_FORMAT = "ProjectData{name='%s', description='%s', countryCode='%s', latitude='%s', longitude='%s'}";
     }
-    
-    // ==================== PLUGIN CONSTANTS ====================
-    public static final class PLUGIN {
-        public static final String NAME = "SpeleoDB";
-        public static final String TITLE = "SpeleoDB";
-    }
-    
-    // ==================== SHUTDOWN DIALOG CONSTANTS ====================
-    public static final class SHUTDOWN {
-        public static final String DIALOG_TITLE = "Application Shutdown";
-        public static final String DIALOG_HEADER = "Project Lock Active";
-        public static final String BUTTON_YES_RELEASE_LOCK = "Yes, Release Lock";
-        public static final String BUTTON_NO_KEEP_LOCK = "No, Keep Lock";
-        public static final String MESSAGE_PREFIX = "You have an active lock on project \"";
-        public static final String MESSAGE_SUFFIX = "\".\n\nDo you want to release the lock before closing the application?\n\n";
-        public static final String MESSAGE_OPTIONS = "- Yes: Release lock (other users can edit)\n- No: Keep lock (will be released when connection times out)";
-        public static final String LOG_SHUTTING_DOWN_WITH_LOCK = "Application shutting down with active lock on: ";
-        public static final String LOG_LOCK_TIMEOUT_RELEASE = "Lock will be released automatically when connection times out.";
-        public static final String LOG_ERROR_RELEASING_LOCK = "Error releasing lock during shutdown: ";
-        public static final String LOG_EXECUTOR_NOT_TERMINATED = "SpeleoDB executor did not terminate cleanly";
-    }
-} 
+}

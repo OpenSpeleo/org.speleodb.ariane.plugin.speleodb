@@ -227,5 +227,4 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     public void showSettings() {
 
     }
-
 }

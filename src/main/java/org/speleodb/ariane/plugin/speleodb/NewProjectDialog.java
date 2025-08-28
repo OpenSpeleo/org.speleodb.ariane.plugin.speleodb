@@ -113,7 +113,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             Map<String, String> countryMap = new TreeMap<>();
             for (Map.Entry<String, jakarta.json.JsonValue> entry : countriesObj.entrySet()) {
                 String countryCode = entry.getKey();
-                String countryName = entry.getValue().toString().replace("\"", MISC.EMPTY_STRING);
+                String countryName = entry.getValue().toString().replace("\"", "");
                 String displayName = countryName + " (" + countryCode + ")";
                 countryMap.put(displayName, countryCode);
             }

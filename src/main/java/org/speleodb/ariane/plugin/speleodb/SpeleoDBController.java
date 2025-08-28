@@ -31,7 +31,6 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.HTTP_STATUS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MISC;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
@@ -460,9 +459,9 @@ public class SpeleoDBController implements Initializable {
 
     private void loadPreferences() {
         Preferences prefs = getPreferencesNode();
-        emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, MISC.EMPTY_STRING));
-        passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, MISC.EMPTY_STRING));
-        oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, MISC.EMPTY_STRING));
+        emailTextField.setText(prefs.get(PREFERENCES.PREF_EMAIL, ""));
+        passwordPasswordField.setText(prefs.get(PREFERENCES.PREF_PASSWORD, ""));
+        oauthtokenPasswordField.setText(prefs.get(PREFERENCES.PREF_OAUTH_TOKEN, ""));
         instanceTextField.setText(prefs.get(PREFERENCES.PREF_INSTANCE, PREFERENCES.DEFAULT_INSTANCE));
     }
 
@@ -3232,7 +3231,4 @@ public class SpeleoDBController implements Initializable {
             logger.warn("Failed to fetch announcements, error: " + e.getMessage());
         }
     }
-
-
-
 }
