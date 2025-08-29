@@ -6,6 +6,9 @@ repositories {
     mavenCentral()
 }
 
+// Store the CalVer version as a project property (available during configuration)
+ext.calVerVersion = new Date().format('yyyy.MM.dd')
+
 // Target Java 21 exclusively - Same as Ariane
 java {
     toolchain {
@@ -101,8 +104,12 @@ tasks.register('generateReleaseVersion') {
     group = 'build'
     description = 'Generates version string based on current date in CalVer format (YYYY.MM.DD)'
     
+    // Capture required project data at configuration time to avoid accessing
+    // Task.project during task execution (deprecated since Gradle 8, removed in 10)
+    inputs.property('calVerVersion', calVerVersion)
+
     doFirst {
-        def versionString = project.calVerVersion
+        def versionString = inputs.properties['calVerVersion']
         def versionDisplay = "v${versionString}"
         
         println "Generating version: ${versionString} (display: ${versionDisplay})"
@@ -232,9 +239,6 @@ compileJava {
 compileTestJava {
     mustRunAfter enableTestMode
 }
-
-// Store the CalVer version as a project property
-ext.calVerVersion = new Date().format('yyyy.MM.dd')
 
 // Configure jar task to use CalVer version in filename with ZIP compression
 jar {
