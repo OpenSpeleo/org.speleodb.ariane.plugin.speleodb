@@ -179,6 +179,17 @@ public class SpeleoDBModals {
     }
     
     /**
+     * Shows an optimized lock failure dialog with wider layout for long content.
+     * Uses the same styling as showInfo but with performance optimizations and wider layout.
+     * 
+     * @param title the dialog title
+     * @param message the lock failure message (can contain long user emails)
+     */
+    public static void showLockFailure(String title, String message) {
+        showWideStyledAlert(Alert.AlertType.INFORMATION, title, message, MATERIAL_COLORS.INFO, MATERIAL_COLORS.INFO_DARK);
+    }
+    
+    /**
      * Shows a Material Design styled error dialog.
      * 
      * @param title the dialog title
@@ -769,6 +780,70 @@ public class SpeleoDBModals {
     }
     
     // ==================== Helper Methods ====================
+    
+    /**
+     * Shows a wide styled alert optimized for long content like user emails.
+     * Same styling as showStyledAlert but with wider dimensions and reduced Platform.runLater calls.
+     */
+    private static void showWideStyledAlert(Alert.AlertType type, String title, String message, 
+                                          String color, String colorDark) {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> showWideStyledAlert(type, title, message, color, colorDark));
+            return;
+        }
+        
+        Alert alert = new Alert(type);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        
+        DialogPane dialogPane = alert.getDialogPane();
+        
+        // Apply standard Material Design styling first (same as original)
+        applyMaterialDesignStyling(dialogPane);
+        
+        // Then override just the width dimensions for long content
+        dialogPane.setMinWidth(600);
+        dialogPane.setPrefWidth(650); 
+        dialogPane.setMaxWidth(750); // Allow expansion for very long emails
+        
+        // Create content with Material Design styling (identical to original)
+        VBox content = new VBox();
+        content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
+        
+        Label titleLabel = new Label(title);
+        titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
+        
+        Label messageLabel = new Label(message);
+        messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
+        messageLabel.setWrapText(true);
+        // Use wider dimensions to accommodate long user emails, but maintain same ratio as original
+        messageLabel.setMinWidth(600 - 48); // Same padding as original (48px)
+        messageLabel.setPrefWidth(650 - 48);
+        messageLabel.setMaxWidth(750 - 48);
+        
+        content.getChildren().addAll(titleLabel, messageLabel);
+        dialogPane.setContent(content);
+        
+        // Add default button
+        ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        alert.getButtonTypes().setAll(okButton);
+        
+        // Style button with same approach as original, but slightly optimized
+        Platform.runLater(() -> {
+            Button btn = (Button) alert.getDialogPane().lookupButton(okButton);
+            if (btn != null) {
+                applyPerfectMaterialButton(btn, color, colorDark);
+            }
+        });
+        
+        alert.showAndWait();
+    }
     
     private static void showStyledAlert(Alert.AlertType type, String title, String message, 
                                        String color, String colorDark) {

@@ -1375,7 +1375,7 @@ public class SpeleoDBController implements Initializable {
                 });
             }
   
-            downloadAndLoadProject(project, true);
+            downloadAndLoadProject(project, hasWriteAccess);
         });
     }
     
@@ -1414,15 +1414,14 @@ public class SpeleoDBController implements Initializable {
      * @param project the project that was opened in read-only mode
      */
     private void showReadOnlyPermissionPopup(JsonObject project) {
-        Platform.runLater(() -> {
-            String projectName = project.getString("name");
-            String title = "Read-Only Access";
-            String message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
-                           "You do not have permission to modify this project.\n\n" +
-                           "To get write access, please contact the project administrator.";
-            
-            SpeleoDBModals.showInfo(title, message);
-        });
+        String projectName = project.getString("name");
+        String title = "Read-Only Access";
+        String message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                       "You do not have permission to modify this project.\n\n" +
+                       "To get write access, please contact the project administrator.";
+        
+        // Use optimized lock failure modal - handles Platform.runLater internally and has wider layout
+        SpeleoDBModals.showLockFailure(title, message);
     }
     
     /**
@@ -1432,32 +1431,31 @@ public class SpeleoDBController implements Initializable {
      * @param project the project that was opened in read-only mode
      */
     private void showLockFailurePopup(JsonObject project) {
-        Platform.runLater(() -> {
-            String projectName = project.getString("name");
-            String title = "Read-Only Access";
-            String message;
+        String projectName = project.getString("name");
+        String title = "Read-Only Access";
+        String message;
+        
+        // Check if the project has lock information
+        JsonValue mutex = project.get("active_mutex");
+        
+        if (mutex != null && mutex.getValueType() != JsonValue.ValueType.NULL) {
+            JsonObject mutexObj = mutex.asJsonObject();
+            String lockOwner = mutexObj.getString("user", "unknown user");
+            String lockDate = mutexObj.getString("creation_date", "unknown time");
             
-            // Check if the project has lock information
-            JsonValue mutex = project.get("active_mutex");
-            
-            if (mutex != null && mutex.getValueType() != JsonValue.ValueType.NULL) {
-                JsonObject mutexObj = mutex.asJsonObject();
-                String lockOwner = mutexObj.getString("user", "unknown user");
-                String lockDate = mutexObj.getString("creation_date", "unknown time");
-                
-                message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
-                         "The project is currently locked by: " + lockOwner + "\n" +
-                         "Lock acquired: " + formatLockDate(lockDate) + "\n\n" +
-                         "To modify this project, please contact `" + lockOwner + "` to release the lock.";
-            } else {
-                // Generic lock failure message
-                message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
-                         "Unable to acquire project lock at this time.\n\n" +
-                         "Please try again later or contact the project administrator.";
-            }
-            
-            SpeleoDBModals.showInfo(title, message);
-        });
+            message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                     "The project is currently locked by: " + lockOwner + "\n" +
+                     "Lock acquired: " + formatLockDate(lockDate) + "\n\n" +
+                     "To modify this project, please contact `" + lockOwner + "` to release the lock.";
+        } else {
+            // Generic lock failure message
+            message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
+                     "Unable to acquire project lock at this time.\n\n" +
+                     "Please try again later or contact the project administrator.";
+        }
+        
+        // Use optimized lock failure modal - handles Platform.runLater internally and has wider layout
+        SpeleoDBModals.showLockFailure(title, message);
     }
     
     /**
@@ -1480,49 +1478,117 @@ public class SpeleoDBController implements Initializable {
 
     private void loadProject(JsonObject project, Path tml_filepath, String projectName, boolean hasWriteAccess) {
         if (Files.exists(tml_filepath)) {
-            // Load the project
+            // Load the project asynchronously to keep UI responsive
             String loadingMessage = hasWriteAccess ? "Loading project file ..." : "Loading read-only project file...";
             logger.info(loadingMessage);
             
-            try {
-                parentPlugin.loadSurvey(tml_filepath.toFile());
+            // Load survey asynchronously in background without blocking UI
+            loadSurveyAsync(tml_filepath.toFile(), 
+                // Success callback
+                () -> {
+                    Platform.runLater(() -> {
+                        String successMessage = hasWriteAccess ? 
+                            "Project loaded successfully: " + projectName :
+                            "Read-only project loaded successfully: " + projectName;
+                        logger.info(successMessage);
 
-                Platform.runLater(() -> {
-                    String successMessage = hasWriteAccess ? 
-                        "Project loaded successfully: " + projectName :
-                        "Read-only project loaded successfully: " + projectName;
-                    logger.info(successMessage);
+                        // Update UI first, then do background tasks
+                        setUILoadingState(false);
 
-                    parentPlugin.executorService.execute(() -> {
-
-                        if (parentPlugin.getSurvey() != null) {
-                            checkAndUpdateSpeleoDBId(project);
-                        }
-                        
-                        // Refresh project listing
-                        listProjects();
+                        // Run background tasks asynchronously
+                        parentPlugin.executorService.execute(() -> {
+                            if (parentPlugin.getSurvey() != null) {
+                                checkAndUpdateSpeleoDBId(project);
+                            }
+                            
+                            // Refresh project listing
+                            listProjects();
+                        });
                     });
-
-                    setUILoadingState(false);
+                },
+                // Error callback
+                (Exception e) -> {
+                    String errorMessage = hasWriteAccess ? 
+                        "Failed to load project: " + getSafeErrorMessage(e) :
+                        "Failed to load read-only project: " + getSafeErrorMessage(e);
+                    logger.error(errorMessage);
+                    Platform.runLater(() -> {
+                        showErrorAnimation(errorMessage);
+                        setUILoadingState(false);
+                    });
                 });
-            } catch (Exception e) {
-                String errorMessage = hasWriteAccess ? 
-                    "Failed to load project: " + getSafeErrorMessage(e) :
-                    "Failed to load read-only project: " + getSafeErrorMessage(e);
-                logger.error(errorMessage);
-                Platform.runLater(() -> {
-                    showErrorAnimation(errorMessage);
-                });
-                setUILoadingState(false);
-            }
         } else {
             logger.info("Downloaded file not found: " + tml_filepath);
             Platform.runLater(() -> {
                 showErrorAnimation("Failed to download project file");
+                setUILoadingState(false);
             });
-            setUILoadingState(false);
         }
-
+    }
+    
+    /**
+     * Loads a survey file asynchronously without blocking the UI thread.
+     * Uses callbacks to handle completion instead of blocking polling loops.
+     * Mimics the original loadSurvey logic but with callbacks for better UI responsiveness.
+     * 
+     * @param surveyFile the survey file to load
+     * @param onSuccess callback executed when loading succeeds
+     * @param onError callback executed when loading fails
+     */
+    private void loadSurveyAsync(File surveyFile, Runnable onSuccess, java.util.function.Consumer<Exception> onError) {
+        // Execute entirely in background to avoid blocking UI
+        parentPlugin.executorService.execute(() -> {
+            try {
+                // Set up survey loading on JavaFX thread (same as original loadSurvey)
+                final java.util.concurrent.atomic.AtomicBoolean loadingLock = new java.util.concurrent.atomic.AtomicBoolean(false);
+                
+                Platform.runLater(() -> {
+                    loadingLock.set(true);  // Set lock before starting (matches original)
+                    parentPlugin.setSurvey(null); // Clear existing survey
+                    parentPlugin.setSurveyFile(surveyFile); // Set the file
+                    parentPlugin.getCommandProperty().set("LOAD"); // Trigger load command
+                });
+                
+                // Wait for the survey to be loaded (polling with timeout) - same logic as original
+                var start = java.time.LocalDateTime.now();
+                final int TIMEOUT = 10000; // 10 seconds timeout
+                
+                while (loadingLock.get() && java.time.Duration.between(start, java.time.LocalDateTime.now()).toMillis() < TIMEOUT) {
+                    try {
+                        Thread.sleep(50); // Same 50ms interval as original
+                        
+                        // Check if survey was set (this clears the lock in original setSurvey method)
+                        if (parentPlugin.getSurvey() != null) {
+                            loadingLock.set(false); // Survey loaded successfully
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        logger.warn("Survey loading interrupted");
+                        onError.accept(new Exception("Survey loading was interrupted"));
+                        return;
+                    }
+                }
+                
+                // Check results (same as original)
+                if (loadingLock.get()) {
+                    logger.error("Timeout while loading survey: " + surveyFile.getName());
+                    loadingLock.set(false); // Reset lock on timeout
+                    onError.accept(new Exception("Timeout while loading survey file"));
+                } else {
+                    logger.info("Survey loaded successfully: " + surveyFile.getName());
+                    // Success - set command to DONE and call success callback
+                    Platform.runLater(() -> {
+                        parentPlugin.getCommandProperty().set("DONE");
+                    });
+                    onSuccess.run();
+                }
+                
+            } catch (Exception e) {
+                // Unexpected error during setup
+                logger.error("Error setting up survey loading: " + e.getMessage());
+                onError.accept(e);
+            }
+        });
     }
     
     /**
