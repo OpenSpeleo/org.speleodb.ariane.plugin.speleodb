@@ -132,7 +132,6 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
 
     private void setupDialog() {
         setTitle(DIALOGS.TITLE_CREATE_NEW_PROJECT);
-        setHeaderText(DIALOGS.HEADER_ENTER_PROJECT_DETAILS);
         setResizable(false);
 
         // Set button types
@@ -220,7 +219,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         
         countryComboBox = new ComboBox<>();
         countryComboBox.setPromptText(DIALOGS.PROMPT_COUNTRY);
-        countryComboBox.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
+        countryComboBox.setMaxWidth(Double.MAX_VALUE);
 
         // Load countries asynchronously
         loadCountriesIntoComboBox();

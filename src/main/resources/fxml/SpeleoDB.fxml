@@ -22,6 +22,8 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 <?import javafx.scene.web.WebView?>
+<?import javafx.scene.Group?>
+<?import javafx.scene.shape.SVGPath?>
 <AnchorPane fx:id="speleoDBAnchorPane" prefHeight="600.0" prefWidth="320.0" styleClass="aggregator"
 	xmlns="http://javafx.com/javafx/23.0.1"
 	xmlns:fx="http://javafx.com/fxml/1">
@@ -237,6 +239,8 @@
 										<RowConstraints minHeight="10.0" prefHeight="20.0" vgrow="SOMETIMES" />
 										<RowConstraints minHeight="50.0" prefHeight="30.0" vgrow="SOMETIMES" />
 										<RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+										<RowConstraints minHeight="10.0" prefHeight="20.0" vgrow="SOMETIMES" />
+										<RowConstraints minHeight="50.0" prefHeight="30.0" vgrow="SOMETIMES" />
 										<RowConstraints minHeight="50.0" prefHeight="30.0" vgrow="SOMETIMES" />
 									</rowConstraints>
 									<children>
@@ -246,8 +250,29 @@
 											</styleClass>
 										</Label>
 										<TextField fx:id="uploadMessageTextField" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.rowIndex="1" />
-                                        <Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB" styleClass="bold" text="Save Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
-										<Button fx:id="reloadProjectButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onReloadProject" styleClass="bold" text="🔄 Reload Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="3" GridPane.valignment="CENTER">
+										<Button fx:id="uploadButton" alignment="CENTER" contentDisplay="BOTTOM" maxWidth="Infinity" mnemonicParsing="false" onAction="#onUploadSpeleoDB" styleClass="bold" text="Save Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="2" GridPane.valignment="CENTER" />
+										<Separator GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.rowIndex="3">
+											<GridPane.margin>
+												<Insets top="25.0" bottom="10.0" />
+											</GridPane.margin>
+										</Separator>
+										<Button fx:id="importFromDiskButton" alignment="CENTER" contentDisplay="LEFT" graphicTextGap="6.0" maxWidth="Infinity" mnemonicParsing="false" onAction="#onImportProjectFromDisk" styleClass="bold" text="Import local file" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="4" GridPane.valignment="CENTER">
+											<graphic>
+												<javafx.scene.layout.StackPane minHeight="12.0" prefHeight="12.0" maxHeight="12.0" minWidth="14.0" prefWidth="14.0" maxWidth="14.0">
+													<Group scaleX="0.4" scaleY="0.4">
+														<SVGPath content="M0 26c0 2.209 1.791 4 4 4h24c2.209 0 4-1.791 4-4V12c0-2.209-1.791-4-4-4h-9c-3.562 0-3-5-8.438-5H4C1.791 3 0 4.791 0 7v19z" style="-fx-fill:#269;" />
+														<SVGPath content="M30 10h-6.562C18 10 18.562 15 15 15H6c-2.209 0-4 1.791-4 4v10a1 1 0 1 1-2 0c0 2.209 1.791 4 4 4h26c2.209 0 4-1.791 4-4V14c0-2.209-1.791-4-4-4z" style="-fx-fill:#55ACEE;" />
+													</Group>
+												</javafx.scene.layout.StackPane>
+											</graphic>
+											<font>
+												<Font name="System Bold" size="12.0" />
+											</font>
+											<GridPane.margin>
+												<Insets top="8.0" />
+											</GridPane.margin>
+										</Button>
+										<Button fx:id="reloadProjectButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onReloadProject" styleClass="bold" text="🔄 Reload Project" textAlignment="CENTER" GridPane.columnSpan="3" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="5" GridPane.valignment="CENTER">
 											<font>
 												<Font name="System Bold" size="12.0" />
 											</font>

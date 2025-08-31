@@ -1,13 +1,14 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -191,10 +192,18 @@ class SpeleoDBPluginTest {
         
         @Test
         @DisplayName("Should execute load survey operation")
-        void shouldExecuteLoadSurveyOperation() {
+        void shouldExecuteLoadSurveyOperation() throws Exception {
             StringProperty commandProperty = plugin.getCommandProperty();
             
             plugin.loadSurvey(testSurveyFile);
+            
+            // Wait for async loadSurvey to complete (it uses Platform.runLater and background threads)
+            int maxWait = 2000; // 2 seconds max
+            int waitTime = 0;
+            while (!"DONE".equals(commandProperty.get()) && waitTime < maxWait) {
+                Thread.sleep(50);
+                waitTime += 50;
+            }
             
             assertThat(plugin.getSurveyFile()).isEqualTo(testSurveyFile);
             assertThat(commandProperty.get()).isEqualTo("DONE");

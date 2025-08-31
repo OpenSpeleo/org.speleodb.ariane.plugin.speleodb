@@ -1,5 +1,7 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import java.util.Locale;
+
 import com.arianesline.ariane.plugin.api.Plugin;
 
 import javafx.scene.control.ButtonType;
@@ -51,7 +53,18 @@ public final class SpeleoDBConstants {
     public static enum AccessLevel {
         ADMIN, 
         READ_AND_WRITE, 
-        READ_ONLY
+        READ_ONLY;
+    
+        public static AccessLevel fromString(String value) {
+            if (value == null) {
+                return READ_ONLY;
+            }
+            try {
+                return AccessLevel.valueOf(value.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException ex) {
+                return READ_ONLY;
+            }
+        }
     }
     // ==================== URL CONSTANTS ====================
     public static final class URLS {
@@ -229,13 +242,16 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_UPLOAD_FAILED_STATUS = "Failed to upload project with status code: ";
         public static final String PROJECT_UPLOAD_REJECTED_EMPTY = "Cannot upload an empty project. Please add some survey data before uploading.";
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
-        public static final String PROJECT_DOWNLOAD_404_EMPTY = "HTTP 422: Project exists but is empty - create empty TML file.";
+        public static final String PROJECT_DOWNLOAD_404_EMPTY = "Project exists but is empty - create empty TML file.";
         public static final String DOWNLOAD_FAILED = "Failed to download project file";
         
         // Multipart body building errors
         public static final String ERROR_BUILDING_MULTIPART_BODY = "Error building HTTP request multipart body";
         public static final String ERROR_WRITING_MULTIPART_PART = "Error writing multipart part: ";
         public static final String ERROR_COPYING_FILE_CONTENT = "Error copying file content: ";
+
+        // Informational Messages
+        public static final String INFO_UPLOAD_IN_PROGRESS = "Uploading project… This may take ~10–15 seconds. Please wait.";
     }
     
     // ==================== UI DIALOG CONSTANTS ====================
@@ -259,9 +275,6 @@ public final class SpeleoDBConstants {
         public static final String DEFAULT_ANNOUNCEMENT_TITLE = "SpeleoDB";
         public static final String DEFAULT_ANNOUNCEMENT_HEADER = "";
         
-        // Dialog Headers
-        public static final String HEADER_ENTER_PROJECT_DETAILS = "Enter project details";
-        
         // Input Labels and Prompts
         public static final String LABEL_PROJECT_NAME = "Project Name:";
         public static final String LABEL_DESCRIPTION = "Description:";
@@ -277,6 +290,7 @@ public final class SpeleoDBConstants {
         public static final String PROMPT_LATITUDE = "[Optional]";
         public static final String PROMPT_LONGITUDE = "[Optional]";
         public static final String PROMPT_UPLOAD_MESSAGE = "What did you modify and with whom ?";
+        public static final String PROMPT_LOAD_FROM_DISK_MESSAGE = "Describe your changes - who was involved ?";
     }
     
     // ==================== UI STYLING ====================

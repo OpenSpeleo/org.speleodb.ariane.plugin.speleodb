@@ -278,7 +278,7 @@
     -fx-text-fill: white;
     -fx-padding: 12 20;
     -fx-font-size: 14px;
-    -fx-font-weight: 500;
+    -fx-font-weight: 600;
     -fx-background-radius: 4;
     -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 2);
     -fx-alignment: center;
@@ -297,6 +297,8 @@
 /* Info tooltip (Blue) */
 .tooltip-info {
     -fx-background-color: #2196F3;
+    -fx-border-color: rgba(0,0,0,0.15);
+    -fx-border-width: 1;
 }
 
 /* Warning tooltip (Orange) */

@@ -3,8 +3,6 @@ package org.speleodb.ariane.plugin.speleodb;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,6 +17,7 @@ import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
@@ -191,21 +190,41 @@ public class SpeleoDBPlugin implements DataServerPlugin {
     }
 
     public void loadSurvey(File file) {
-        lock.set(true);
-        survey = null;
-        surveyFile = file;
-        commandProperty.set(DataServerCommands.LOAD.name());
-        var start = LocalDateTime.now();
-        while (lock.get() && Duration.between(start, LocalDateTime.now()).toMillis() < TIMEOUT) {
-            try {
-                Thread.sleep(10); // Yield CPU to prevent 100% CPU usage
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
+        // Use the executor service to avoid blocking the calling thread
+        executorService.execute(() -> {
+            // Set up for loading on JavaFX thread
+            Platform.runLater(() -> {
+                lock.set(true);  // Set lock before starting
+                survey = null;
+                surveyFile = file;
+                commandProperty.set(DataServerCommands.LOAD.name());
+            });
+
+            // Wait for the survey to be loaded (polling with timeout)
+            var start = java.time.LocalDateTime.now();
+            while (lock.get() && java.time.Duration.between(start, java.time.LocalDateTime.now()).toMillis() < TIMEOUT) {
+                try {
+                    Thread.sleep(50); // Check every 50ms instead of 10ms to reduce CPU usage
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    logger.warn("Survey loading interrupted");
+                    break;
+                }
             }
-        }
-        lock.set(false);
-        commandProperty.set(DataServerCommands.DONE.name());
+            
+            // Check if we timed out
+            if (lock.get()) {
+                logger.error("Timeout while loading survey: " + file.getName());
+                lock.set(false); // Reset lock on timeout
+            } else {
+                logger.info("Survey loaded successfully: " + file.getName());
+            }
+            
+            // Clean up on JavaFX thread
+            Platform.runLater(() -> {
+                commandProperty.set(DataServerCommands.DONE.name());
+            });
+        });
     }
 
     @Override

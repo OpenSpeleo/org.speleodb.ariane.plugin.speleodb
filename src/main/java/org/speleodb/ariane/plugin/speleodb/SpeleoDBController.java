@@ -38,6 +38,8 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.URLS;
 
+import com.arianesline.cavelib.api.CaveSurveyInterface;
+
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonValue;
@@ -276,22 +278,26 @@ public class SpeleoDBController implements Initializable {
             try {
 
                 String SDB_projectId = project.getString("id");
-                String SDB_mainCaveFileId = parentPlugin.getSurvey().getExtraData();
+
+                CaveSurveyInterface survey = parentPlugin.getSurvey();
+                if (survey != null) {
+                    String SDB_mainCaveFileId = survey.getExtraData();
 
 
-                if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
-                    logger.info("Adding SpeleoDB ID: " + SDB_projectId);
-                    speleoDBService.updateFileSpeleoDBId(SDB_projectId);
-                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
-                    return;
-                }
+                    if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
+                        logger.debug("Adding SpeleoDB ID: " + SDB_projectId);
+                        speleoDBService.updateFileSpeleoDBId(SDB_projectId);
+                        survey.setExtraData(SDB_projectId);
+                        return;
+                    }
 
-                if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
-                    logger.info("Incoherent File ID detected.");
-                    logger.info("\t- Previous Value: " + SDB_mainCaveFileId);
-                    logger.info("\t- New Value: " + SDB_projectId);
-                    parentPlugin.getSurvey().setExtraData(SDB_projectId);
-                    logger.info("SpeleoDB ID updated successfully.");
+                    if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
+                        logger.info("Incoherent File ID detected.");
+                        logger.info("\t- Previous Value: " + SDB_mainCaveFileId);
+                        logger.info("\t- New Value: " + SDB_projectId);
+                        survey.setExtraData(SDB_projectId);
+                        logger.info("SpeleoDB ID updated successfully.");
+                    }
                 }
 
 
@@ -486,7 +492,7 @@ public class SpeleoDBController implements Initializable {
             
             if (validateOAuthToken(oauthToken)) {
                 prefs.put(PREFERENCES.PREF_OAUTH_TOKEN, oauthToken);
-                logger.info(MESSAGES.OAUTH_TOKEN_SAVED);
+                logger.debug(MESSAGES.OAUTH_TOKEN_SAVED);
             } else {
                 oauthtokenPasswordField.setText("");
                 prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
@@ -676,29 +682,29 @@ public class SpeleoDBController implements Initializable {
         // Initialize logging
         logger.debug("SpeleoDBController initializing");
         logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
-        
-        setupUI();
-        setupKeyboardShortcuts();
-        setupVersionDisplay();
-        setupShutdownHook();
-        loadPreferences();
-        
-        logger.debug("SpeleoDBController initialization complete");
-        
-        // Initialize sorting button styles (default to sort by name)
-        updateSortButtonStyles();
-        
-        // Pre-warm modal system for instant display
-        SpeleoDBModals.preWarmModalSystem();
-        
-        // Schedule information popup
-        scheduleInformationPopup();
-        
-        // Initialize tooltip system when scene is available
-        Platform.runLater(() -> {
+
+        Platform.runLater(() -> { 
+            setupUI();
+            setupKeyboardShortcuts();
+            setupVersionDisplay();
+            setupShutdownHook();
+            loadPreferences();
+            
+            // Initialize sorting button styles (default to sort by name)
+            updateSortButtonStyles();
+            
+            // Pre-warm modal system for instant display
+            SpeleoDBModals.preWarmModalSystem();
+            
+            // Schedule information popup
+            scheduleInformationPopup();
+            
+            // Initialize tooltip system when scene is available
             if (speleoDBAnchorPane != null && speleoDBAnchorPane.getScene() != null) {
                 SpeleoDBTooltips.initialize(speleoDBAnchorPane.getScene());
             }
+            
+            logger.debug("SpeleoDBController initialization complete");
         });
     }
 
@@ -755,9 +761,10 @@ public class SpeleoDBController implements Initializable {
         }
 
         logger.info("Connecting to " + sdb_instance);
-        serverProgressIndicator.setVisible(true);
 
         parentPlugin.executorService.execute(() -> {
+                    
+            setUILoadingState(true);
             try {
                 speleoDBService = new SpeleoDBService(this);
                 speleoDBService.authenticate(email, password, oauthToken, sdb_instance);
@@ -774,22 +781,18 @@ public class SpeleoDBController implements Initializable {
                     
                     // Update UI state for connected mode
                     connectionButton.setText("DISCONNECT");
-                    javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3); // Span all 3 columns (100%)
+                    javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3);
                     signupButton.setVisible(false);
-                    
-                    // Actions pane will be shown only when a project is loaded (handled in downloadAndLoadProject)
                     
                     // Disable connection form fields while connected
                     setConnectionFormEnabled(false);
-                    
-                    serverProgressIndicator.setVisible(false);
                 });
 
                 listProjects();
 
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Connection");
-                logger.info("Connection failed: " + getSafeErrorMessage(e));
+                logger.error("Connection failed: " + getSafeErrorMessage(e));
                 
                 Platform.runLater(() -> {
                     if (isServerOfflineError(e)) {
@@ -801,10 +804,11 @@ public class SpeleoDBController implements Initializable {
                     } else {
                         showErrorAnimation("Connection Failed: " + getSafeErrorMessage(e));
                     }
-                    
-                    serverProgressIndicator.setVisible(false);
                 });
+            } finally {
+                setUILoadingState(false);
             }
+
         });
     }
 
@@ -872,33 +876,69 @@ public class SpeleoDBController implements Initializable {
      * @param loading true to disable UI elements (loading state), false to enable them
      */
     private void setUILoadingState(boolean loading) {
-        // Project-related controls
-        projectListView.setDisable(loading);
-        createNewProjectButton.setDisable(loading);
-        refreshProjectsButton.setDisable(loading);
-        sortByNameButton.setDisable(loading);
-        sortByDateButton.setDisable(loading);
-        
-        // Project action controls (only disable if they're currently enabled)
-        if (loading) {
-            uploadButton.setDisable(true);
-            // unlock button removed
-        } else {
-            // Re-enable based on current project state
-            boolean hasLock = hasActiveProjectLock();
-            uploadButton.setDisable(!hasLock);
-            // unlock button removed
+        Platform.runLater(() -> {
+            // Project-related controls
+            projectListView.setDisable(loading);
+            createNewProjectButton.setDisable(loading);
+            refreshProjectsButton.setDisable(loading);
+            sortByNameButton.setDisable(loading);
+            sortByDateButton.setDisable(loading);
+
+            serverProgressIndicator.setVisible(loading);
+            
+            // Project action controls (only disable if they're currently enabled)
+            if (loading) {
+                uploadButton.setDisable(true);
+            } else {
+                // Re-enable based on current project state
+                boolean hasLock = hasActiveProjectLock();
+                uploadButton.setDisable(!hasLock);
+            }
+
+            // Connection controls (only if not authenticated)
+            if (speleoDBService == null || !speleoDBService.isAuthenticated()) {
+                setConnectionFormEnabled(!loading);
+            }
+            
+            // Titled panes for visual feedback
+            projectsTitlePane.setDisable(loading);
+            actionsTitlePane.setDisable(loading);
+        });
+    }
+
+    /**
+     * Performs the import: copy selected file into Ariane project path, upload first,
+     * and only after a successful upload load the project and adjust the SpeleoDB ID.
+     */
+    private void performImportUploadAndLoad(java.io.File selectedFile, String message) throws Exception {
+        String projectId = currentProject.getString("id");
+        java.nio.file.Path target = java.nio.file.Paths.get(
+                SpeleoDBService.ARIANE_ROOT_DIR + java.io.File.separator + projectId + SpeleoDBConstants.PATHS.TML_FILE_EXTENSION);
+        java.nio.file.Files.createDirectories(target.getParent());
+        java.nio.file.Files.copy(selectedFile.toPath(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+   
+        setUILoadingState(true);
+
+        try {
+            logger.info("Uploading project: " + message);
+            speleoDBService.uploadProject(message, currentProject);
+            parentPlugin.executorService.execute(() -> {
+                loadProject(currentProject, target, currentProject.getString("name"), true);
+                Platform.runLater(() -> {
+                    showSuccessCelebrationDialog(() -> {});
+                    setUILoadingState(false);
+                });
+            });
+        } catch (Exception ex) {
+            logger.error("Post-upload load failed: " + getSafeErrorMessage(ex));
+            Platform.runLater(() -> {
+                showErrorAnimation("Load failed");
+                SpeleoDBModals.showError(
+                    "Load Failed", "The file was uploaded but could not be loaded.\n\nError: " + getSafeErrorMessage(ex)
+                );
+                setUILoadingState(false);
+            });
         }
-        
-        // Connection controls (only if not authenticated)
-        if (speleoDBService == null || !speleoDBService.isAuthenticated()) {
-            connectionButton.setDisable(loading);
-            setConnectionFormEnabled(!loading);
-        }
-        
-        // Titled panes for visual feedback
-        projectsTitlePane.setDisable(loading);
-        actionsTitlePane.setDisable(loading);
     }
     
     /**
@@ -1069,11 +1109,11 @@ public class SpeleoDBController implements Initializable {
             if (currentSortMode == SortMode.BY_NAME) {
                 projects.sort(Comparator.comparing(project -> 
                     project.getString("name", "").toLowerCase()));
-                logger.info("Projects sorted by name (A-Z)");
+                logger.debug("Projects sorted by name (A-Z)");
             } else { // BY_DATE
                 projects.sort(Comparator.comparing((JsonObject project) -> 
                     project.getString("modified_date", "")).reversed()); // Most recent first
-                logger.info("Projects sorted by modified_date (newest first)");
+                logger.debug("Projects sorted by modified_date (newest first)");
             }
             
             // Create UI elements for sorted projects
@@ -1086,18 +1126,12 @@ public class SpeleoDBController implements Initializable {
             // Update button styles to reflect current sort mode
             updateSortButtonStyles();
             
-            logger.info("Project list rebuilt with " + projects.size() + " projects");
+            logger.debug("Project list rebuilt with " + projects.size() + " projects");
         });
     }
 
-    private void listProjects() {
+    private void listProjects(Boolean resetUILoadingState) {
         logger.info("Listing Projects on " + speleoDBService.getSDBInstance());
-        
-        // Show projects loading indicator and disable UI
-        Platform.runLater(() -> {
-            serverProgressIndicator.setVisible(true);
-            setUILoadingState(true);
-        });
 
         parentPlugin.executorService.execute(() -> {
             try {
@@ -1105,24 +1139,29 @@ public class SpeleoDBController implements Initializable {
                 handleProjectListResponse(projectList);
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Project listing");
-                logger.info("Failed to list projects: " + getSafeErrorMessage(e));
+                logger.error("Failed to list projects: " + getSafeErrorMessage(e));
                 
-                if (isServerOfflineError(e)) {
-                    showErrorAnimation("Can't reach server");
-                    SpeleoDBModals.showError("Server Offline", errorMessage);
-                } else if (isTimeoutError(e)) {
-                    showErrorAnimation("Request timed out");
-                    SpeleoDBModals.showError("Request Timeout", errorMessage);
-                } else {
-                    showErrorAnimation("Failed to Load Projects");
-                }
-            } finally {
                 Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                    setUILoadingState(false);
+                    if (isServerOfflineError(e)) {
+                        showErrorAnimation("Can't reach server");
+                        SpeleoDBModals.showError("Server Offline", errorMessage);
+                    } else if (isTimeoutError(e)) {
+                        showErrorAnimation("Request timed out");
+                        SpeleoDBModals.showError("Request Timeout", errorMessage);
+                    } else {
+                        showErrorAnimation("Failed to Load Projects");
+                    }
                 });
+            } finally {
+                if (resetUILoadingState) {
+                    setUILoadingState(false);
+                }
             }
         });
+    }
+
+    private void listProjects() {
+        listProjects(false);
     }
     
     /**
@@ -1137,39 +1176,11 @@ public class SpeleoDBController implements Initializable {
         }
         
         logger.info("User requested project list refresh");
-        
-        // Provide visual feedback and disable UI
-        refreshProjectsButton.setDisable(true);
-        refreshProjectsButton.setText("Refreshing ...");
-        serverProgressIndicator.setVisible(true);
+
         setUILoadingState(true);
-        
+
         parentPlugin.executorService.execute(() -> {
-            try {
-                JsonArray projectList = speleoDBService.listProjects();
-                handleProjectListResponse(projectList);
-                Platform.runLater(() -> logger.info("Project list refreshed successfully"));
-            } catch (Exception e) {
-                String errorMessage = getNetworkErrorMessage(e, "Project refresh");
-                logger.info("Failed to refresh projects: " + e.getMessage());
-                
-                if (isServerOfflineError(e)) {
-                    showErrorAnimation("Can't reach server");
-                    SpeleoDBModals.showError("Server Offline", errorMessage);
-                } else if (isTimeoutError(e)) {
-                    showErrorAnimation("Request timed out");
-                    SpeleoDBModals.showError("Request Timeout", errorMessage);
-                } else {
-                    showErrorAnimation("Failed to Refresh Projects");
-                }
-            } finally {
-                Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                    setUILoadingState(false);
-                    refreshProjectsButton.setDisable(false);
-                    refreshProjectsButton.setText("Refresh Projects");
-                });
-            }
+            listProjects(true);
         });
     }
     
@@ -1240,13 +1251,9 @@ public class SpeleoDBController implements Initializable {
         if (result.isPresent()) {
             NewProjectDialog.ProjectData projectData = result.get();
             logger.info("Creating new project: " + projectData.getName());
-            
-            // Disable the button while creating project and show loading state
-            createNewProjectButton.setDisable(true);
-            createNewProjectButton.setText("Creating ...");
-            serverProgressIndicator.setVisible(true);
+
             setUILoadingState(true);
-            
+ 
             parentPlugin.executorService.execute(() -> {
                 try {
                     // Create the project via API
@@ -1262,49 +1269,40 @@ public class SpeleoDBController implements Initializable {
                     logger.info("Project ID: " + createdProject.getString("id"));
                     
                     // Use centralized lock acquisition with UI integration
-                    acquireProjectLockWithUI(createdProject, "project creation",
-                        () -> {
-                            // Success callback: Set up project files and load survey
-                            parentPlugin.executorService.execute(() -> {
-                                try {
-                                    logger.info("Setting up new project files ...");
-                                    
-                                    // Create an empty TML file for the new project using shared service method
-                                    String projectId = createdProject.getString("id");
-                                    Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.getName());
-                                    
-                                    // Load the survey file and update SpeleoDB ID through normal flow
-                                    parentPlugin.loadSurvey(emptyTmlFile.toFile());
-                                    checkAndUpdateSpeleoDBId(createdProject);
-                                    
-                                    Platform.runLater(() -> {
-                                        showSuccessAnimation("Project created and locked for editing!");
-                                        listProjects();
-                                    });
-                                    
-                                } catch (IOException e) {
-                                    logger.info("Error setting up new project: " + getSafeErrorMessage(e));
-                                    Platform.runLater(() -> {
-                                        showErrorAnimation("Project created but setup failed");
-                                        listProjects();
-                                    });
-                                }
-                            });
-                        },
-                        () -> {
-                            // Failure callback: Project created but lock failed
+                    Boolean lockResult = acquireProjectLockWithUI(createdProject, "project creation", true);
+
+                    if (lockResult){
+                        // Success callback: Set up project files and load survey
+                        try {
+                            logger.info("Setting up new project files ...");
+                            
+                            // Create an empty TML file for the new project using shared service method
+                            String projectId = createdProject.getString("id");
+                            Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.getName());
+
+                            loadProject(createdProject, emptyTmlFile, projectData.getName(), true);
+                            
                             Platform.runLater(() -> {
+                                showSuccessAnimation("Project created and locked for editing!");
                                 listProjects();
                             });
-                        },
-                        true // Show modal dialogs for project creation
-                    );
+                            
+                        } catch (IOException e) {
+                            logger.error("Error setting up new project: " + getSafeErrorMessage(e));
+                            Platform.runLater(() -> {
+                                showErrorAnimation("Project created but setup failed");
+                                listProjects();
+                            });
+                        }
+                    } else {
+                        listProjects();
+                    }
                     
                 } catch (Exception e) {
+                    String errorMessage = getNetworkErrorMessage(e, "Project creation");
+                    logger.error("Failed to create project: " + e.getMessage());
+                    
                     Platform.runLater(() -> {
-                        String errorMessage = getNetworkErrorMessage(e, "Project creation");
-                        logger.info("Failed to create project: " + e.getMessage());
-                        
                         if (isServerOfflineError(e)) {
                             showErrorAnimation("Can't reach server");
                             SpeleoDBModals.showError("Server Offline", errorMessage);
@@ -1315,14 +1313,10 @@ public class SpeleoDBController implements Initializable {
                             showErrorAnimation("Project Creation Failed");
                         }
                     });
+
                 } finally {
-                    Platform.runLater(() -> {
-                        serverProgressIndicator.setVisible(false);
-                        setUILoadingState(false);
-                        createNewProjectButton.setDisable(false);
-                        createNewProjectButton.setText("Create New Project");
-                    });
-                }
+                    setUILoadingState(false);
+                }         
             });
         } else {
             logger.info("New project creation cancelled");
@@ -1334,51 +1328,55 @@ public class SpeleoDBController implements Initializable {
     // -------------------------- Project Opening -------------------------- //
 
     private void clickSpeleoDBProject(ActionEvent e) throws URISyntaxException, IOException, InterruptedException {
-        var project = (JsonObject) ((Button) e.getSource()).getUserData();
-        String projectName = project.getString("name");
-        String permissionString = project.getString("permission", "READ_ONLY");
-        
-        // Convert string permission to enum
-        AccessLevel permission;
-        try {
-            permission = AccessLevel.valueOf(permissionString);
-        } catch (IllegalArgumentException ex) {
-            // Default to READ_ONLY if permission string is invalid
-            permission = AccessLevel.READ_ONLY;
-            logger.info("Invalid permission '" + permissionString + "' for project " + projectName + ", defaulting to READ-only");
-        }
-        
-        logger.info("Opening project: " + projectName + " (Permission: " + permission + ")");
-        
-        // Check if this is a project that can be locked (ADMIN or READ_AND_WRITE)
-        if (canAcquireLock(permission)) {
-            // Attempt to acquire lock first for writable projects
-            logger.info("Attempting to acquire lock for project: " + projectName);
+        parentPlugin.executorService.execute(() -> {
+            var project = (JsonObject) ((Button) e.getSource()).getUserData();
+            String projectName = project.getString("name");
+            String permissionString = project.getString("permission", "READ_ONLY");
+
+            logger.info("Clicking SpeleoDB project: " + projectName);
             
-            Platform.runLater(() -> {
-                acquireProjectLockWithUI(project, "project opening",
-                    () -> {
-                        // Success callback: Lock acquired, download and load with write access
-                        logger.info("Lock acquired successfully. Opening with write access.");
-                        downloadAndLoadProject(project, true);
-                    },
-                    () -> {
-                        // Failure callback: Lock acquisition failed, show red tooltip and open read-only
-                        logger.info("Failed to acquire lock for project - opening as read-only");
+            // Convert string permission to enum
+            // AccessLevel permission;
+            final AccessLevel permission = AccessLevel.fromString(permissionString);
+            
+            logger.info("Opening project: " + projectName + " (Permission: " + permission + ")");
+                
+            Boolean hasWriteAccess = false;
+                
+            // Check if this is a project that can be locked (ADMIN or READ_AND_WRITE)
+            if (canAcquireLock(permission)) {
+                // Attempt to acquire lock first for writable projects
+                logger.debug("Attempting to acquire lock for project: " + projectName);
+                Boolean lockResult = acquireProjectLockWithUI(project, "project opening", true);
+
+                if (lockResult) {
+                    // Success callback: Lock acquired, download and load with write access
+                    logger.debug("Lock acquired successfully. Opening with write access.");
+
+                    Platform.runLater(() -> {
+                        showSuccessAnimation("Opening (write-mode)");
+                    });
+                    hasWriteAccess = true;
+                } else {
+                    // Failure callback: Lock acquisition failed, show red tooltip and open read-only
+                    logger.debug("Failed to acquire lock for project - opening as read-only");
+                    Platform.runLater(() -> {
                         showErrorAnimation("Lock not available - opening read-only");
                         showLockFailurePopup(project);
-                        downloadAndLoadProject(project, false);
-                    },
-                    true // Show modal dialogs for project opening
-                );
-            });
-        } else {
-            // READ_ONLY permission - skip lock acquisition and proceed directly
-            logger.info("Opening read-only project: " + projectName);
-            showSuccessAnimation("Opening (read-only)");
-            showReadOnlyPermissionPopup(project);
-            downloadAndLoadProject(project, false);
-        }
+                    });
+                }
+            } else {
+                // READ_ONLY permission - skip lock acquisition and proceed directly
+                logger.info("Opening read-only project: " + projectName);
+
+                Platform.runLater(() -> {
+                    showSuccessAnimation("Opening (read-only)");
+                    showReadOnlyPermissionPopup(project);
+                });
+            }
+  
+            downloadAndLoadProject(project, true);
+        });
     }
     
     /**
@@ -1479,6 +1477,53 @@ public class SpeleoDBController implements Initializable {
             return lockDate;
         }
     }
+
+    private void loadProject(JsonObject project, Path tml_filepath, String projectName, boolean hasWriteAccess) {
+        if (Files.exists(tml_filepath)) {
+            // Load the project
+            String loadingMessage = hasWriteAccess ? "Loading project file ..." : "Loading read-only project file...";
+            logger.info(loadingMessage);
+            
+            try {
+                parentPlugin.loadSurvey(tml_filepath.toFile());
+
+                Platform.runLater(() -> {
+                    String successMessage = hasWriteAccess ? 
+                        "Project loaded successfully: " + projectName :
+                        "Read-only project loaded successfully: " + projectName;
+                    logger.info(successMessage);
+
+                    parentPlugin.executorService.execute(() -> {
+
+                        if (parentPlugin.getSurvey() != null) {
+                            checkAndUpdateSpeleoDBId(project);
+                        }
+                        
+                        // Refresh project listing
+                        listProjects();
+                    });
+
+                    setUILoadingState(false);
+                });
+            } catch (Exception e) {
+                String errorMessage = hasWriteAccess ? 
+                    "Failed to load project: " + getSafeErrorMessage(e) :
+                    "Failed to load read-only project: " + getSafeErrorMessage(e);
+                logger.error(errorMessage);
+                Platform.runLater(() -> {
+                    showErrorAnimation(errorMessage);
+                });
+                setUILoadingState(false);
+            }
+        } else {
+            logger.info("Downloaded file not found: " + tml_filepath);
+            Platform.runLater(() -> {
+                showErrorAnimation("Failed to download project file");
+            });
+            setUILoadingState(false);
+        }
+
+    }
     
     /**
      * Downloads and loads a project with unified logic for both read-only and writable projects.
@@ -1491,6 +1536,7 @@ public class SpeleoDBController implements Initializable {
         
         // Update UI based on write access
         Platform.runLater(() -> {
+
             // Clear upload message when project is opened
             uploadMessageTextField.clear();
 
@@ -1511,59 +1557,24 @@ public class SpeleoDBController implements Initializable {
         });
         
         // Download and load project (same logic for both read-only and writable)
-        parentPlugin.executorService.execute(() -> {
-            try {
-                // Download project
-                logger.info("Downloading project: " + projectName);
-                Path tml_filepath = speleoDBService.downloadProject(project);
-
-                if (Files.exists(tml_filepath)) {
-                    // Load the project
-                    String loadingMessage = hasWriteAccess ? "Loading project file ..." : "Loading read-only project file...";
-                    Platform.runLater(() ->logger.info(loadingMessage));
-                    
-                    try {
-                        parentPlugin.loadSurvey(tml_filepath.toFile());
-                        Platform.runLater(() -> {
-                            String successMessage = hasWriteAccess ? 
-                                "Project loaded successfully: " + projectName :
-                                "Read-only project loaded successfully: " + projectName;
-                            logger.info(successMessage);
-                            checkAndUpdateSpeleoDBId(project);
-                            
-                            // Refresh project listing
-                            listProjects();
-                        });
-                    } catch (Exception e) {
-                        Platform.runLater(() -> {
-                            String errorMessage = hasWriteAccess ? 
-                                "Failed to load project: " + getSafeErrorMessage(e) :
-                                "Failed to load read-only project: " + getSafeErrorMessage(e);
-                            logger.info(errorMessage);
-
-                            showErrorAnimation(errorMessage);
-                        });
-                    }
-                } else {
-                    Platform.runLater(() -> {
-                        logger.info("Downloaded file not found: " + tml_filepath);
-                        showErrorAnimation("Failed to download project file");
-                    });
-                }
-            } catch (IOException | InterruptedException | URISyntaxException e) {
-                Platform.runLater(() -> {
-                    String errorMessage = "Failed to download project: " + getSafeErrorMessage(e);
-                    logger.info(errorMessage);
-                    showErrorAnimation(errorMessage);
-                });
-            }
+        try {
+            // Download project
+            logger.info("Downloading project: " + projectName);
+            Path tml_filepath = speleoDBService.downloadProject(project);
 
             Platform.runLater(() -> {
-                // Once everything is done, hide the progress indicator and set the UI to not loading
-                serverProgressIndicator.setVisible(false);
+                loadProject(project, tml_filepath, projectName, hasWriteAccess);
                 setUILoadingState(false);
             });
-        });
+
+        } catch (IOException | InterruptedException | URISyntaxException e) {
+            Platform.runLater(() -> {
+                String errorMessage = "Failed to download project: " + getSafeErrorMessage(e);
+                logger.error(errorMessage);
+                showErrorAnimation(errorMessage);
+                setUILoadingState(false);
+            });
+        }
     }
 
     /**
@@ -1573,69 +1584,50 @@ public class SpeleoDBController implements Initializable {
      * @param projectItem The JsonObject containing project metadata.
      */
     private void handleProjectCardClickAction(ActionEvent event, JsonObject projectItem) {
-        // Prevent double click and show loading
         setUILoadingState(true);
-        serverProgressIndicator.setVisible(true);
 
-        try {
-            String selectedProjectName = projectItem.getString("name");
-            String selectedProjectId = projectItem.getString("id");
-            
-            // Check if user is trying to switch to a different project while having an active lock
-            if (hasActiveProjectLock()) {
-                String currentProjectId = currentProject.getString("id");
+        parentPlugin.executorService.execute(() -> {
+
+            try {
+                final String selectedProjectName = projectItem.getString("name");
+                final String selectedProjectId = projectItem.getString("id");
+
+                logger.info("Selected project: " + selectedProjectName);
                 
-                // If clicking on the same project, proceed normally
-                if (currentProjectId.equals(selectedProjectId)) {
-                    logger.info("Selected project: " + selectedProjectName);
-                    clickSpeleoDBProject(event);
-                    return;
-                }
-                
-                // Different project selected - always release current lock first (no modal)
-                logger.info("Switching project. Releasing lock on: " + getCurrentProjectName());
-                
-                // Use centralized lock release with UI integration
-                releaseProjectLockWithUI(currentProject, "project switch", 
-                    () -> {
-                        // Success callback: proceed with new project selection
-                        try {
-                            logger.info("Proceeding with new project selection: " + selectedProjectName);
-                            clickSpeleoDBProject(event);
-                        } catch (IOException | InterruptedException | URISyntaxException e) {
-                            logger.info("Error switching to new project: " + getSafeErrorMessage(e));
-                            Platform.runLater(() -> {
-                                setUILoadingState(false);
-                                serverProgressIndicator.setVisible(false);
-                            });
-                        }
-                    },
-                    () -> {
-                        // Failure callback: re-enable project list
-                        logger.info("Cannot switch projects - failed to release current lock");
-                        Platform.runLater(() -> {
+                // Check if user is trying to switch to a different project while having an active lock
+                if (hasActiveProjectLock()) {
+                    String currentProjectId = currentProject.getString("id");
+                    
+                    // If clicking on the same project, proceed normally
+                    if (!currentProjectId.equals(selectedProjectId)) {
+                        // Different project selected - always release current lock first (no modal)
+                        logger.debug("Switching project. Releasing lock on: " + getCurrentProjectName());
+                        
+                        // Use centralized lock release with UI integration
+                        LockReleaseResult result = releaseProjectLockWithUI(currentProject, "project switch"); 
+
+                        if (result.isReleased()) {
+                            logger.debug("Lock released successfully. Proceeding with new project selection: " + selectedProjectName);
+                        } else {
+                            logger.error("Failed to release current lock: " + result.getError());
                             setUILoadingState(false);
-                            serverProgressIndicator.setVisible(false);
-                        });
-                    },
-                    false // Don't show modal dialogs for project switch
-                );
-                
-                return;
-            }
-            
-            // No active lock - proceed normally
-            logger.info("Selected project: " + selectedProjectName);
-            clickSpeleoDBProject(event);
+                            return;
+                        }             
+                    }
+                }
 
-        } catch (IOException | InterruptedException | URISyntaxException e) {
-            logger.info("Error handling project action: " + e.getMessage());
-            Platform.runLater(() -> {
+                try {
+                    logger.debug("Proceeding with project selection: " + selectedProjectName);
+                    clickSpeleoDBProject(event);
+                } catch (IOException | URISyntaxException e) {
+                    logger.error("Error opening project: " + getSafeErrorMessage(e));
+                }
+
+            } catch (InterruptedException e) {
+                logger.error("Error handling project action: " + e.getMessage());
                 setUILoadingState(false);
-                serverProgressIndicator.setVisible(false);
-            });
-        }
-
+            }
+        });
     }
 
     // ---------------------- Project Mutex Management --------------------- //
@@ -1670,47 +1662,38 @@ public class SpeleoDBController implements Initializable {
      */
     private void uploadProjectWithMessage(String commitMessage) {
         parentPlugin.saveSurvey();
-
         logger.info("Uploading project " + currentProject.getString("name") + "  ...");
         
-        serverProgressIndicator.setVisible(true);
-        uploadButton.setDisable(true);
-        // unlock button removed
-
         parentPlugin.executorService.execute(() -> {
+            setUILoadingState(true);
+
             try {
                 speleoDBService.uploadProject(commitMessage, currentProject);
                 logger.info("Upload successful.");
                 
-                // Clear the upload message text field after successful upload
                 Platform.runLater(() -> {
+                    // Clear the upload message text field after successful upload
                     uploadMessageTextField.clear();
-                });
-                
-                // Show success celebration dialog with random GIF (no post-upload lock release)
-                Platform.runLater(() -> {
-                    showSuccessCelebrationDialog(() -> {
-                        // Intentionally do nothing regarding lock release after upload
-                    });
+                    showSuccessCelebrationDialog(() -> {});
+                    setUILoadingState(false);
                 });
                 
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Upload");
                 logger.info("Upload failed: " + getSafeErrorMessage(e));
                 
-                if (isServerOfflineError(e)) {
-                    showErrorAnimation("Can't reach server");
-                    SpeleoDBModals.showError("Server Offline", errorMessage);
-                } else if (isTimeoutError(e)) {
-                    showErrorAnimation("Upload timed out");
-                    SpeleoDBModals.showError("Upload Timeout", errorMessage);
-                } else {
-                    showErrorAnimation("Upload Failed: " + getSafeErrorMessage(e));
-                }
-            } finally {
+
                 Platform.runLater(() -> {
-                    serverProgressIndicator.setVisible(false);
-                    uploadButton.setDisable(false);
+                    if (isServerOfflineError(e)) {
+                        showErrorAnimation("Can't reach server");
+                        SpeleoDBModals.showError("Server Offline", errorMessage);
+                    } else if (isTimeoutError(e)) {
+                        showErrorAnimation("Upload timed out");
+                        SpeleoDBModals.showError("Upload Timeout", errorMessage);
+                    } else {
+                        showErrorAnimation("Upload Failed: " + getSafeErrorMessage(e));
+                    }
+                    setUILoadingState(false);
                 });
             }
         });
@@ -1759,88 +1742,144 @@ public class SpeleoDBController implements Initializable {
             logger.info("User cancelled reload operation for project: " + projectName);
             return;
         }
+
+        String projectId = currentProject.getString("id");
+        Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
         
-        // Show progress indicator
-        serverProgressIndicator.setVisible(true);
-        uploadButton.setDisable(true);
-        // unlock button removed
-        
-        // Wait for spinner to actually be rendered before starting background work
-        Platform.runLater(() -> {
-            // Double-ensure the spinner has time to render by using another Platform.runLater
+        if (!Files.exists(tmlFilePath)) {
             Platform.runLater(() -> {
-                
-                // Execute reload in background thread after UI has had time to render
-                parentPlugin.executorService.execute(() -> {
+                logger.error("Project file not found on disk: " + tmlFilePath);
+                showErrorAnimation("Project file not found");
+                SpeleoDBModals.showError("Reload Failed", "The project file could not be found on disk.\n\nPath: " + tmlFilePath);
+            });
+            return;
+        }
+
+        setUILoadingState(true);
+        
+        parentPlugin.executorService.execute(() -> {
             try {
-                String projectId = currentProject.getString("id");
-                Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
-                
-                if (!Files.exists(tmlFilePath)) {
-                    Platform.runLater(() -> {
-                        logger.info("Project file not found on disk: " + tmlFilePath);
-                        showErrorAnimation("Project file not found");
-                        SpeleoDBModals.showError("Reload Failed", "The project file could not be found on disk.\n\nPath: " + tmlFilePath);
-                        
-                        // Hide progress indicator on error
-                        serverProgressIndicator.setVisible(false);
-            uploadButton.setDisable(false);
-                    });
-                    return;
-                }
-                
                 logger.info("Reloading project from disk: " + projectName);
+
+                loadProject(currentProject, tmlFilePath, projectName, true);     
                 
-                // Load the project using the existing loadSurvey method
-                try {
-                    parentPlugin.loadSurvey(tmlFilePath.toFile());
-                    
-                    Platform.runLater(() -> {
-                        logger.info("Project reloaded successfully: " + projectName);
-                        showSuccessAnimation("Project Reloaded!");
-                        
-                        // Update SpeleoDB ID if needed
-                        checkAndUpdateSpeleoDBId(currentProject);
-                        
-                        // Clear upload message field as we've reloaded
-                        uploadMessageTextField.clear();
-                    });
-                    
-                } catch (Exception e) {
-                    Platform.runLater(() -> {
-                        String errorMessage = "Failed to reload project: " + getSafeErrorMessage(e);
-                        logger.info(errorMessage);
-                        showErrorAnimation("Reload failed");
-                        SpeleoDBModals.showError("Reload Failed", "Failed to reload the project from disk.\n\nError: " + getSafeErrorMessage(e));
-                        
-                        // Hide progress indicator on error
-                        serverProgressIndicator.setVisible(false);
-                        uploadButton.setDisable(false);
-                        // unlock button removed
-                    });
-                }
-                
-            } catch (Exception e) {
                 Platform.runLater(() -> {
-                    String errorMessage = "Error during project reload: " + getSafeErrorMessage(e);
-                    logger.info(errorMessage);
+                    uploadMessageTextField.clear();
+                });
+                logger.info("Project reloaded successfully: " + projectName);
+
+            } catch (Exception e) {
+                String errorMessage = "Error during project reload: " + getSafeErrorMessage(e);
+                logger.error(errorMessage);
+                Platform.runLater(() -> {
                     showErrorAnimation("Reload error");
                     SpeleoDBModals.showError("Reload Error", "An unexpected error occurred during reload.\n\nError: " + getSafeErrorMessage(e));
-                    
-                    // Hide progress indicator on error
-                    serverProgressIndicator.setVisible(false);
-                    uploadButton.setDisable(false);
-                    // unlock button removed
                 });
             } finally {
-                Platform.runLater(() -> {
-                    // Re-enable UI controls
-                    serverProgressIndicator.setVisible(false);
-                    uploadButton.setDisable(false);
-                    // unlock button removed
-                });
+                setUILoadingState(false);
             }
-                });
+        });
+    }
+
+    /**
+     * Handles the "Import from Local Disk" button click event.
+     * This is initially a stub that will orchestrate the full import flow.
+     */
+    @FXML
+    public void onImportProjectFromDisk(ActionEvent actionEvent) {
+        setUILoadingState(true);
+        
+        parentPlugin.executorService.execute(() -> {
+
+            // Step 1: Acquire the lock on the current project; if fails, show error and abort
+            if (currentProject == null) {
+                showErrorAnimation("No project selected");
+                SpeleoDBModals.showError("Import Unavailable", "No active project. Please open a project first.");
+                return;
+            }
+
+            Boolean lockResult = acquireProjectLockWithUI(currentProject, "local import", true);
+
+            Platform.runLater(() -> {
+
+                if (lockResult){
+                    // Success: proceed to dangerous confirmation and file chooser on FX thread
+                    String projectName = currentProject.getString("name", "Selected Project");
+                    String warningMessage = "You are about to import a local .tml file into the current project: \"" + projectName + "\".\n\n" +
+                            "⚠️ WARNING: This may overwrite existing project data.\n\n" +
+                            "• Existing unsaved changes may be lost\n" +
+                            "• The imported file will become the current project content\n" +
+                            "• This action cannot be undone\n\n" +
+                            "Do you want to proceed?";
+                
+                    boolean proceed = SpeleoDBModals.showConfirmation(
+                        "Import Local File",
+                        warningMessage,
+                        "Proceed",
+                        "Cancel"
+                    );
+
+                    if (!proceed) {
+                        logger.info("User cancelled local import warning");
+                        return;
+                    }
+
+                    // File chooser for .tml
+                    javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+                    chooser.setTitle("Select .tml file to import");
+                    chooser.getExtensionFilters().add(
+                        new javafx.stage.FileChooser.ExtensionFilter("Ariane Project (*.tml)", "*.tml")
+                    );
+                    javafx.stage.Window owner = (speleoDBAnchorPane != null && speleoDBAnchorPane.getScene() != null)
+                            ? speleoDBAnchorPane.getScene().getWindow() : null;
+                    java.io.File selectedFile = chooser.showOpenDialog(owner);
+
+                    if (selectedFile == null) {
+                        logger.info("User cancelled file selection for local import");
+                        return;
+                    }
+
+                    // Prompt for save message (reuse save UX)
+                    SpeleoDBModals.showInputDialog(
+                        "Save Project on SpeleoDB",
+                        "Save Current Project: `" + projectName + "`",
+                        SpeleoDBConstants.DIALOGS.PROMPT_LOAD_FROM_DISK_MESSAGE,
+                        "",
+                        (entered) -> {
+                            String message = entered == null ? "" : entered.trim();
+                            if (message.isEmpty()) {
+                                logger.info(SpeleoDBConstants.MESSAGES.UPLOAD_MESSAGE_EMPTY);
+                                SpeleoDBModals.showError(SpeleoDBConstants.DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, SpeleoDBConstants.MESSAGES.UPLOAD_MESSAGE_EMPTY);
+                                return;
+                            }
+
+                            // Show info banner BEFORE toggling heavy UI updates
+                            SpeleoDBTooltips.showSuccess("Uploading project… This may take ~10-15 seconds. Please wait.");
+                            
+                            parentPlugin.executorService.execute(() -> {
+                                // Run copy, then upload, and only after success load & adjust ID
+                                try {
+                                    performImportUploadAndLoad(selectedFile, message);
+                                } catch (Exception ex) {
+                                    logger.info("Import failed: " + getSafeErrorMessage(ex));
+
+                                    Platform.runLater(() -> {
+                                        showErrorAnimation("Import failed");
+                                        SpeleoDBModals.showError("Import Failed", "Could not import the selected file.\n\nError: " + getSafeErrorMessage(ex));
+                                        setUILoadingState(false);
+                                    });
+                                }
+                            });
+                        },
+                        () -> {
+                            logger.debug("User cancelled save message for local import");
+                            setUILoadingState(false);
+                        }
+                    );
+                } else {
+                    setUILoadingState(false);
+                }
+
             });
         });
     }
@@ -2046,77 +2085,53 @@ public class SpeleoDBController implements Initializable {
      * @param onFailure callback to execute on failed lock release (optional)
      * @param showModals whether to show error modals for network issues
      */
-    private void releaseProjectLockWithUI(JsonObject project, String context, 
-                                        Runnable onSuccess, Runnable onFailure, boolean showModals) {
+    private LockReleaseResult releaseProjectLockWithUI(JsonObject project, String context) throws InterruptedException {
+
+        final String selectedProjectName = project.getString("name");
         
-        parentPlugin.executorService.execute(() -> {
-            LockReleaseResult result = releaseProjectLock(project, context);
+        LockReleaseResult result = releaseProjectLock(project, context);
+        
+        if (result.isReleased()) {
+            // Success: Clear current project and update UI
+            currentProject = null;
+            
+            // Update UI state
+            actionsTitlePane.setVisible(false);
+            actionsTitlePane.setExpanded(false);
+            projectsTitlePane.setExpanded(true);
+            
+            // Show success animation
+            showSuccessAnimation("Lock Released");
+
+            return LockReleaseResult.success(project, "Lock Released");
+            
+        } else if (result.hasError()) {
+            // Network/Exception error: Handle with appropriate animations and modals
+            Exception error = result.getError();
             
             Platform.runLater(() -> {
-                if (result.isReleased()) {
-                    // Success: Clear current project and update UI
-                    currentProject = null;
-                    
-                    // Update UI state
-                    actionsTitlePane.setVisible(false);
-                    actionsTitlePane.setExpanded(false);
-                    projectsTitlePane.setExpanded(true);
-                    
-                    // Show success animation
-                    showSuccessAnimation("Lock Released");
-                    
-                    // Execute success callback
-                    if (onSuccess != null) {
-                        onSuccess.run();
-                    }
-                    
-                    // Refresh project list
-                    parentPlugin.executorService.execute(() -> {
-                        try {
-                            listProjects();
-                        } catch (Exception e) {
-                            logger.info("Error refreshing project list after lock release: " + getSafeErrorMessage(e));
-                        }
-                    });
-                    
-                } else if (result.hasError()) {
-                    // Network/Exception error: Handle with appropriate animations and modals
-                    Exception error = result.getError();
-                    String networkErrorMessage = getNetworkErrorMessage(error, "Lock release");
-                    
-                    if (isServerOfflineError(error)) {
-                        showErrorAnimation("Can't reach server");
-                        if (showModals) {
-                            SpeleoDBModals.showError("Server Offline", networkErrorMessage);
-                        }
-                    } else if (isTimeoutError(error)) {
-                        showErrorAnimation("Lock release timed out");
-                        if (showModals) {
-                            SpeleoDBModals.showError("Lock Release Timeout", networkErrorMessage);
-                        }
-                    } else {
-                        showErrorAnimation("Failed to Release Lock");
-                        if (showModals) {
-                            SpeleoDBModals.showError("Lock Release Error", result.getMessage());
-                        }
-                    }
-                    
-                    // Execute failure callback
-                    if (onFailure != null) {
-                        onFailure.run();
-                    }
-                    
+                if (isServerOfflineError(error)) {
+                    showErrorAnimation("Can't reach server");
+                } else if (isTimeoutError(error)) {
+                    showErrorAnimation("Lock release timed out");
                 } else {
-                    // Service-level failure (returned false)
                     showErrorAnimation("Failed to Release Lock");
-                    
-                    // Execute failure callback
-                    if (onFailure != null) {
-                        onFailure.run();
-                    }
                 }
             });
-        });
+            
+            logger.error("Failed to release current lock");
+
+            return LockReleaseResult.failure(project, "Failure to release lock. Error: " + error);
+            
+        } else {
+            logger.error("Failed to release current lock");
+            // Service-level failure (returned false)
+            Platform.runLater(() -> {
+                showErrorAnimation("Failed to Release Lock");
+            });
+
+            return LockReleaseResult.failure(project, "Failed to Release Lock");
+        }
     }
     
     /**
@@ -2151,7 +2166,7 @@ public class SpeleoDBController implements Initializable {
                 return LockResult.failure(project, message);
             }
             
-            logger.info("🔄 Acquiring lock for " + context + ": " + projectName);
+            logger.debug("🔄 Acquiring lock for " + context + ": " + projectName);
         
             boolean lockAcquired = speleoDBService.acquireOrRefreshProjectMutex(project);
             
@@ -2161,7 +2176,7 @@ public class SpeleoDBController implements Initializable {
                 return LockResult.success(project, successMessage);
             } else {
                 String failureMessage = "⚠️ Failed to acquire lock for " + context + ": " + projectName;
-                logger.info(failureMessage);
+                logger.error(failureMessage);
                 return LockResult.failure(project, failureMessage);
             }
             
@@ -2182,36 +2197,33 @@ public class SpeleoDBController implements Initializable {
      * @param onFailure callback to execute on failed lock acquisition (optional)
      * @param showModals whether to show error modals for network issues
      */
-    private void acquireProjectLockWithUI(JsonObject project, String context, 
-                                         Runnable onSuccess, Runnable onFailure, boolean showModals) {
-        parentPlugin.executorService.execute(() -> {
-            LockResult result = acquireProjectLock(project, context);
+    private Boolean acquireProjectLockWithUI(JsonObject project, String context, boolean showModals) {
+        LockResult result = acquireProjectLock(project, context);
+        
+        if (result.isAcquired()) {
+            // Success: Set as current project and enable UI controls
+            currentProject = project;
             
+            // // Update UI state for editing
+            // actionsTitlePane.setVisible(true);
+            // actionsTitlePane.setExpanded(true);
+            // actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
+            // uploadButton.setDisable(false);
+            // unlock button removed
+            
+            // Show success animation
             Platform.runLater(() -> {
-                if (result.isAcquired()) {
-                    // Success: Set as current project and enable UI controls
-                    currentProject = project;
-                    
-                    // Update UI state for editing
-                    actionsTitlePane.setVisible(true);
-                    actionsTitlePane.setExpanded(true);
-                    actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
-                    uploadButton.setDisable(false);
-                    // unlock button removed
-                    
-                    // Show success animation
-                    showSuccessAnimation("Lock Acquired");
-                    
-                    // Execute success callback
-                    if (onSuccess != null) {
-                        onSuccess.run();
-                    }
-                    
-                } else if (result.hasError()) {
-                    // Network/Exception error: Handle with appropriate animations and modals
-                    Exception error = result.getError();
-                    String networkErrorMessage = getNetworkErrorMessage(error, "Lock acquisition");
-                    
+                showSuccessAnimation("Lock Acquired");
+            });
+            return true;
+
+        } else {
+            if (result.hasError()) {
+                // Network/Exception error: Handle with appropriate animations and modals
+                Exception error = result.getError();
+                String networkErrorMessage = getNetworkErrorMessage(error, "Lock acquisition");
+                
+                Platform.runLater(() -> {
                     if (isServerOfflineError(error)) {
                         showErrorAnimation("Can't reach server");
                         if (showModals) {
@@ -2228,37 +2240,23 @@ public class SpeleoDBController implements Initializable {
                             SpeleoDBModals.showError("Lock Acquisition Error", result.getMessage());
                         }
                     }
-                    
-                    // Disable editing controls
-                    uploadButton.setDisable(true);
-                    // unlock button removed
-                    
-                    // Execute failure callback
-                    if (onFailure != null) {
-                        onFailure.run();
-                    }
-                    
-                } else {
-                    // Service-level failure (returned false) - e.g., read-only project, already locked
-                    String failureReason = result.getMessage();
-                    
+                });
+            } else {
+                // Service-level failure (returned false) - e.g., read-only project, already locked
+                String failureReason = result.getMessage();
+                
+                Platform.runLater(() -> {
                     if (failureReason.contains("read-only")) {
                         showSuccessAnimation("Project opened (read-only)");
                     } else {
                         showErrorAnimation("Lock not available");
                     }
-                    
-                    // Disable editing controls for read-only or locked projects
-                    uploadButton.setDisable(true);
-                    // unlock button removed
-                    
-                    // Execute failure callback
-                    if (onFailure != null) {
-                        onFailure.run();
-                    }
-                }
-            });
-        });
+                });
+            }
+
+            return false;
+            
+        } 
     }
 
     /**
@@ -2516,7 +2514,7 @@ public class SpeleoDBController implements Initializable {
             // Sort the paths to ensure consistent ordering for rotation
             java.util.Collections.sort(gifPaths);
             
-            logger.info("Found " + gifPaths.size() + " success GIFs in directory (sorted for consistent rotation)");
+            logger.debug("Found " + gifPaths.size() + " success GIFs in directory (sorted for consistent rotation)");
             
         } catch (Exception e) {
             logger.error("Error scanning for success GIFs", e);

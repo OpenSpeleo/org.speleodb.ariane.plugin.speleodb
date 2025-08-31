@@ -1,7 +1,6 @@
 package org.speleodb.ariane.plugin.speleodb;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,10 +26,8 @@ class NewProjectDialogTest {
             // In a real JavaFX environment, you would test the actual dialog creation
             
             String expectedTitle = "Create New Project";
-            String expectedHeader = "Enter project details";
             
             assertThat(expectedTitle).isEqualTo("Create New Project");
-            assertThat(expectedHeader).isEqualTo("Enter project details");
         }
         
         @Test
