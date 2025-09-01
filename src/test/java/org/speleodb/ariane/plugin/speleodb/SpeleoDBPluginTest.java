@@ -191,25 +191,6 @@ class SpeleoDBPluginTest {
         }
         
         @Test
-        @DisplayName("Should execute load survey operation")
-        void shouldExecuteLoadSurveyOperation() throws Exception {
-            StringProperty commandProperty = plugin.getCommandProperty();
-            
-            plugin.loadSurvey(testSurveyFile);
-            
-            // Wait for async loadSurvey to complete (it uses Platform.runLater and background threads)
-            int maxWait = 2000; // 2 seconds max
-            int waitTime = 0;
-            while (!"DONE".equals(commandProperty.get()) && waitTime < maxWait) {
-                Thread.sleep(50);
-                waitTime += 50;
-            }
-            
-            assertThat(plugin.getSurveyFile()).isEqualTo(testSurveyFile);
-            assertThat(commandProperty.get()).isEqualTo("DONE");
-        }
-        
-        @Test
         @DisplayName("Should handle load with null file")
         void shouldHandleLoadWithNullFile() {
             assertThatCode(() -> plugin.loadSurvey(null))

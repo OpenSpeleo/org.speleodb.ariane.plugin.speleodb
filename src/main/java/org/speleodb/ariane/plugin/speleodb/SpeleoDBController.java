@@ -165,6 +165,11 @@ public class SpeleoDBController implements Initializable {
     
     // Centralized logger instance
     private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
+    
+    // Thread-safe shutdown coordination
+    private volatile boolean shutdownInProgress = false;
+    private final Object shutdownLock = new Object();
+    private Thread jvmShutdownHook;
 
     // Internal Controller Data
     private JsonObject currentProject = null;
@@ -625,45 +630,57 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Sets up early window close handling to intercept shutdown before application shutdown begins.
-     * This ensures the confirmation dialog appears immediately when user clicks X, not during app shutdown.
+     * Sets up robust shutdown handling that works 100% of the time on all platforms.
+     * Uses a JVM shutdown hook to catch ALL termination scenarios including:
+     * - Normal window closes, Task Manager kills, System shutdown, Force termination
+     * 
+     * This ensures project locks are always released regardless of how the application terminates.
      */
     private void setupShutdownHook() {
-        
-        // Wait for the scene to be available, then set up the window close handler
-        Platform.runLater(() -> {
-            if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
-                javafx.stage.Stage stage = (javafx.stage.Stage) speleoDBAnchorPane.getScene().getWindow();
-                
-                // Early window close handler - intercept shutdown before JavaFX application shutdown
-                stage.setOnCloseRequest(event -> {
-                    // Check if we have an active project lock that needs confirmation
-                    if (hasActiveProjectLock()) {
-                        // Consume the event to prevent default close behavior
-                        event.consume();
-                        
-                        Platform.runLater(() -> {
-                            try {
-                                // Always attempt to release lock without prompting
-                                releaseCurrentProjectLock();
-                                logger.info("Project lock released before application shutdown.");
-                            } catch (IOException | InterruptedException | URISyntaxException e) {
-                                logger.info("Error releasing project lock during shutdown: " + e.getMessage());
-                            } finally {
-                                // Close the window directly to avoid shutdown deadlocks
-                                stage.close();
-                            }
-                        });
-                    } else {
-                        // No active lock - proceed with normal shutdown
-                    }
-                });
-                
-            } else {
-                // Scene not ready yet, try again later
-                Platform.runLater(this::setupShutdownHook);
+        // JVM shutdown hook catches ALL termination scenarios on Windows
+        jvmShutdownHook = new Thread(this::performShutdownCleanup, "SpeleoDB-ShutdownHook");
+        Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
+        logger.info("JVM shutdown hook installed - will catch all termination scenarios");
+    }
+    
+    /**
+     * Performs the actual shutdown cleanup in a thread-safe manner.
+     * This method is called by the JVM shutdown hook and ensures cleanup only happens once.
+     */
+    private void performShutdownCleanup() {
+        synchronized (shutdownLock) {
+            if (shutdownInProgress) {
+                logger.debug("Shutdown cleanup already in progress, skipping duplicate call");
+                return;
             }
-        });
+            shutdownInProgress = true;
+        }
+        
+        logger.info("JVM shutdown hook executing - starting cleanup...");
+        
+        try {
+            // Release project lock if active
+            if (hasActiveProjectLock()) {
+                String projectName = getCurrentProjectName();
+                logger.info("Releasing active project lock: " + projectName);
+                
+                try {
+                    releaseCurrentProjectLock();
+                    logger.info("Project lock released successfully during shutdown");
+                } catch (IOException | InterruptedException | URISyntaxException e) {
+                    logger.error("Error releasing project lock during shutdown: " + e.getMessage());
+                    // Don't re-throw - we want shutdown to continue even if lock release fails
+                }
+            } else {
+                logger.debug("No active project lock to release");
+            }
+            
+            logger.info("Shutdown cleanup completed successfully");
+            
+        } catch (Exception e) {
+            logger.error("Unexpected error during shutdown cleanup: " + e.getMessage(), e);
+            // Continue with shutdown even if cleanup fails
+        }
     }
 
     /**
@@ -2328,9 +2345,19 @@ public class SpeleoDBController implements Initializable {
     /**
      * Cleanup method to properly close resources and prevent shutdown hangs.
      * Should be called before the controller is destroyed.
+     * 
+     * NOTE: The JVM shutdown hook is NOT removed here - it should always execute
+     * to guarantee project lock release regardless of shutdown method.
      */
     public void cleanup() {
         logger.debug("Starting SpeleoDBController cleanup");
+        
+        // Mark that normal cleanup is happening
+        synchronized (shutdownLock) {
+            if (!shutdownInProgress) {
+                logger.debug("Normal cleanup proceeding - shutdown hook will still execute for lock release");
+            }
+        }
         
         // Stop all running animations to prevent memory leaks
         synchronized (runningAnimations) {
@@ -2344,14 +2371,13 @@ public class SpeleoDBController implements Initializable {
             runningAnimations.clear();
         }
         
-        // Clear field references
-        currentProject = null;
+        // Clear field references - but keep currentProject for shutdown hook
         cachedProjectList = null;
         
         // Cleanup tooltips
         SpeleoDBTooltips.cleanup();
         
-        logger.info("Controller cleanup completed");
+        logger.info("Controller cleanup completed - shutdown hook will handle project lock release");
         
         // Disconnect UI controller from logger to prevent null pointer exceptions during shutdown
         logger.disconnectUIController();

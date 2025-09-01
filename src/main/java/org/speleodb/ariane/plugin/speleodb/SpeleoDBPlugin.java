@@ -154,7 +154,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         if (controller.hasActiveProjectLock()) {
             String projectName = controller.getCurrentProjectName();
             logger.info("Application shutting down with active lock on: " + projectName);
-            logger.info("Lock will be released automatically when connection times out.");
+            logger.info("JVM shutdown hook will release the project lock.");
         }
         
         // Cleanup resources to prevent shutdown hangs
