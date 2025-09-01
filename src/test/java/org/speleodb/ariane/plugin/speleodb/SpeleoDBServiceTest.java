@@ -123,8 +123,8 @@ public class SpeleoDBServiceTest {
         
         // Test project file path generation
         String projectId = "test-project-123";
-        Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
-        Path actualPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
+        Path expectedPath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+        Path actualPath = Paths.get(PATHS.SDB_PROJECT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
         assert expectedPath.equals(actualPath) : "Generated path should match expected path";
         
         // Create a test file
@@ -283,8 +283,8 @@ public class SpeleoDBServiceTest {
             assert createdFile.getFileName().toString().equals(testProjectId + PATHS.TML_FILE_EXTENSION) : "File should have correct name";
             
             // Verify it's in the correct directory
-            String expectedDir = SpeleoDBService.ARIANE_ROOT_DIR;
-            assert createdFile.getParent().toString().equals(expectedDir) : "File should be in ARIANE_ROOT_DIR";
+            String expectedDir = PATHS.SDB_PROJECT_DIR;
+            assert createdFile.getParent().toString().equals(expectedDir) : "File should be in SDB_PROJECT_DIR";
             
             // Clean up
             Files.deleteIfExists(createdFile);

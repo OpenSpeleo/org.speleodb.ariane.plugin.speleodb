@@ -136,7 +136,7 @@ public class TestFixtures {
     public static Path copyTestTmlFile(String projectId) throws IOException {
         Path sourceTml = getTestTmlFile();
         
-        String arianeRootDir = SpeleoDBService.ARIANE_ROOT_DIR;
+        String arianeRootDir = PATHS.SDB_PROJECT_DIR;
         Path arianeDir = Path.of(arianeRootDir);
         
         // Ensure directory exists
@@ -345,7 +345,7 @@ public class TestFixtures {
          * Generate synthetic TML content for testing (legacy method)
          */
         private Path generateSyntheticTmlFile(String projectId) throws IOException {
-            String arianeRootDir = SpeleoDBService.ARIANE_ROOT_DIR;
+            String arianeRootDir = PATHS.SDB_PROJECT_DIR;
             Path arianeDir = Path.of(arianeRootDir);
             
             // Ensure directory exists

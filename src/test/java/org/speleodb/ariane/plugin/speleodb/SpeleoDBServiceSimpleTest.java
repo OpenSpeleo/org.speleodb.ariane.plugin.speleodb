@@ -1,15 +1,15 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.regex.Pattern;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 /**
  * Simple unit tests for SpeleoDBService covering basic functionality and edge cases.
@@ -26,13 +26,13 @@ class SpeleoDBServiceSimpleTest {
         @DisplayName("Should have correct ARIANE_ROOT_DIR constant")
         void shouldHaveCorrectArianeRootDirConstant() {
             String expected = System.getProperty("user.home") + java.io.File.separator + ".ariane";
-            assertThat(SpeleoDBService.ARIANE_ROOT_DIR).isEqualTo(expected);
+            assertThat(PATHS.ARIANE_ROOT_DIR).isEqualTo(expected);
         }
         
         @Test
         @DisplayName("ARIANE_ROOT_DIR should be a valid path")
         void arianeRootDirShouldBeValidPath() {
-            Path arianeDir = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR);
+            Path arianeDir = Paths.get(PATHS.ARIANE_ROOT_DIR);
             assertThat(arianeDir).isNotNull();
             assertThat(arianeDir.isAbsolute()).isTrue();
         }
@@ -84,12 +84,12 @@ class SpeleoDBServiceSimpleTest {
             };
             
             for (String projectId : projectIds) {
-                Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
+                Path expectedPath = Paths.get(PATHS.SDB_PROJECT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
                 
                 assertThat(expectedPath).isNotNull();
                 assertThat(expectedPath.toString()).contains(projectId);
                 assertThat(expectedPath.toString()).endsWith(PATHS.TML_FILE_EXTENSION);
-                assertThat(expectedPath.toString()).contains(SpeleoDBService.ARIANE_ROOT_DIR);
+                assertThat(expectedPath.toString()).contains(PATHS.SDB_PROJECT_DIR);
             }
         }
         
@@ -98,12 +98,12 @@ class SpeleoDBServiceSimpleTest {
         void shouldHandleExtremeProjectIdLengths() {
             // Very short ID
             String shortId = "a";
-            Path shortPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, shortId + PATHS.TML_FILE_EXTENSION);
+            Path shortPath = Paths.get(PATHS.SDB_PROJECT_DIR, shortId + PATHS.TML_FILE_EXTENSION);
             assertThat(shortPath.toString()).contains("a.tml");
             
             // Very long ID
             String longId = "very-long-project-id-" + "x".repeat(200);
-            Path longPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, longId + PATHS.TML_FILE_EXTENSION);
+            Path longPath = Paths.get(PATHS.SDB_PROJECT_DIR, longId + PATHS.TML_FILE_EXTENSION);
             assertThat(longPath.toString()).contains(longId);
             assertThat(longPath.toString()).endsWith(PATHS.TML_FILE_EXTENSION);
         }
@@ -121,7 +121,7 @@ class SpeleoDBServiceSimpleTest {
             
             for (String specialId : specialIds) {
                 assertThatCode(() -> {
-                    Path path = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, specialId + PATHS.TML_FILE_EXTENSION);
+                    Path path = Paths.get(PATHS.SDB_PROJECT_DIR, specialId + PATHS.TML_FILE_EXTENSION);
                     // Just test that path creation doesn't throw exceptions
                     assertThat(path).isNotNull();
                 }).doesNotThrowAnyException();
@@ -206,16 +206,16 @@ class SpeleoDBServiceSimpleTest {
             String fileSeparator = java.io.File.separator;
             assertThat(fileSeparator).isNotNull().isNotEmpty();
             
-            // Test that ARIANE_ROOT_DIR is constructed correctly
+            // Test that SDB_PROJECT_DIR is constructed correctly
             String expectedRoot = userHome + fileSeparator + ".ariane";
-            assertThat(SpeleoDBService.ARIANE_ROOT_DIR).isEqualTo(expectedRoot);
+            assertThat(PATHS.ARIANE_ROOT_DIR).isEqualTo(expectedRoot);
         }
         
         @Test
         @DisplayName("Should handle path construction edge cases")
         void shouldHandlePathConstructionEdgeCases() {
             // Test various path construction scenarios
-            String baseDir = SpeleoDBService.ARIANE_ROOT_DIR;
+            String baseDir = PATHS.SDB_PROJECT_DIR;
             
             // Normal case
             Path normalPath = Paths.get(baseDir, "project.tml");

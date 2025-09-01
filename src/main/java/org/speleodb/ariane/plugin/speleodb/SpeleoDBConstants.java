@@ -153,7 +153,9 @@ public final class SpeleoDBConstants {
     // ==================== FILE PATHS & DIRECTORIES ====================
     public static final class PATHS {
         public static final String ARIANE_ROOT_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane";
-        public static final String PLUGINS_DIR = ARIANE_ROOT_DIR + System.getProperty("file.separator") + "Plugins";
+        public static final String ARIANE_SDB_DIR = ARIANE_ROOT_DIR + System.getProperty("file.separator") + "speleodb";
+        public static final String ARIANE_PLUGINS_DIR = ARIANE_ROOT_DIR + System.getProperty("file.separator") + "Plugins";
+        public static final String SDB_PROJECT_DIR = ARIANE_SDB_DIR + System.getProperty("file.separator") + "projects";
         public static final String COUNTRIES_RESOURCE = "countries.json";
         public static final String DEBUG_PROPERTIES = "/debug.properties";
         public static final String TML_FILE_EXTENSION = ".tml";
@@ -167,9 +169,7 @@ public final class SpeleoDBConstants {
     
     // ==================== LOGGING CONFIGURATION ====================
     public static final class LOGGING {
-        public static final String ARIANE_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane";
-        public static final String SDB_DIR = ARIANE_DIR + System.getProperty("file.separator") + "speleodb";
-        public static final String LOG_DIR = SDB_DIR + System.getProperty("file.separator") + "logs";
+        public static final String LOG_DIR = PATHS.ARIANE_SDB_DIR + System.getProperty("file.separator") + "logs";
         public static final String LOG_FILE_NAME = "speleodb-plugin.log";
         public static final String LOG_FILE_PATH = LOG_DIR + System.getProperty("file.separator") + LOG_FILE_NAME;
         public static final String LOG_ARCHIVE_PATTERN = "speleodb-plugin-%d{yyyy-MM-dd}.log";

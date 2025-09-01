@@ -38,21 +38,15 @@ class SpeleoDBServiceAdvancedTest {
     @DisplayName("Constants and File Operations")
     class ConstantsAndFileOperationsTests {
         
-        @Test
-        @DisplayName("Should verify ARIANE_ROOT_DIR constant")
-        void shouldVerifyArianeRootDirConstant() {
-            String expectedPath = System.getProperty("user.home") + java.io.File.separator + ".ariane";
-            assertThat(SpeleoDBService.ARIANE_ROOT_DIR).isEqualTo(expectedPath);
-        }
         
         @Test
         @DisplayName("Should generate correct file paths")
         void shouldGenerateCorrectFilePaths() {
             String projectId = "test-123";
-            Path expectedPath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
+            Path expectedPath = Paths.get(PATHS.SDB_PROJECT_DIR, projectId + PATHS.TML_FILE_EXTENSION);
             
             // This tests the internal path generation logic
-            assertThat(expectedPath.toString()).endsWith(".ariane" + java.io.File.separator + "test-123.tml");
+            assertThat(expectedPath.toString()).endsWith(".ariane" + java.io.File.separator + "speleodb" + java.io.File.separator + "projects" + java.io.File.separator + "test-123.tml");
         }
         
         @Test

@@ -700,6 +700,9 @@ public class SpeleoDBController implements Initializable {
         logger.debug("SpeleoDBController initializing");
         logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
 
+        // Create SDB projects directory if it doesn't exist
+        createSDBProjectsDirectory();
+
         Platform.runLater(() -> { 
             setupUI();
             setupKeyboardShortcuts();
@@ -723,6 +726,21 @@ public class SpeleoDBController implements Initializable {
             
             logger.debug("SpeleoDBController initialization complete");
         });
+    }
+    
+    /**
+     * Creates the log directory if it doesn't exist
+     */
+    private void createSDBProjectsDirectory() {
+        try {
+            java.nio.file.Path sdbProjects = java.nio.file.Paths.get(PATHS.SDB_PROJECT_DIR);
+            if (!Files.exists(sdbProjects)) {
+                Files.createDirectories(sdbProjects);
+            }
+        } catch (IOException e) {
+            System.err.println("Impossible to create SDB projects directory: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
 
@@ -930,7 +948,7 @@ public class SpeleoDBController implements Initializable {
     private void performImportUploadAndLoad(java.io.File selectedFile, String message) throws Exception {
         String projectId = currentProject.getString("id");
         java.nio.file.Path target = java.nio.file.Paths.get(
-                SpeleoDBService.ARIANE_ROOT_DIR + java.io.File.separator + projectId + SpeleoDBConstants.PATHS.TML_FILE_EXTENSION);
+                PATHS.SDB_PROJECT_DIR + java.io.File.separator + projectId + SpeleoDBConstants.PATHS.TML_FILE_EXTENSION);
         java.nio.file.Files.createDirectories(target.getParent());
         java.nio.file.Files.copy(selectedFile.toPath(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
    
@@ -1827,7 +1845,7 @@ public class SpeleoDBController implements Initializable {
         }
 
         String projectId = currentProject.getString("id");
-        Path tmlFilePath = Paths.get(SpeleoDBService.ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+        Path tmlFilePath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
         
         if (!Files.exists(tmlFilePath)) {
             Platform.runLater(() -> {
@@ -3036,7 +3054,7 @@ public class SpeleoDBController implements Initializable {
             }
             
             // Create plugins directory if it doesn't exist
-            Path pluginsDir = Paths.get(PATHS.PLUGINS_DIR);
+            Path pluginsDir = Paths.get(PATHS.ARIANE_PLUGINS_DIR);
             Files.createDirectories(pluginsDir);
             
             // Extract filename from download URL to preserve the exact filename
@@ -3131,7 +3149,7 @@ public class SpeleoDBController implements Initializable {
      */
     private int deletePluginFiles(String... patterns) {
         int deletedCount = 0;
-        Path pluginsDir = Paths.get(PATHS.PLUGINS_DIR);
+        Path pluginsDir = Paths.get(PATHS.ARIANE_PLUGINS_DIR);
         
         if (!Files.exists(pluginsDir)) {
             logger.debug("Plugins directory does not exist: " + pluginsDir);

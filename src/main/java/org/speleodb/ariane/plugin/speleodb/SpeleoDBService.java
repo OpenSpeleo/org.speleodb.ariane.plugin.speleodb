@@ -38,7 +38,6 @@ import jakarta.json.JsonReader;
  * Uses the centralized SpeleoDBLogger directly.
  */
 public class SpeleoDBService {
-    public final static String ARIANE_ROOT_DIR = PATHS.ARIANE_ROOT_DIR;
     private final SpeleoDBController controller;
     private String authToken = "";
     private String SDB_instance = "";
@@ -346,9 +345,8 @@ public class SpeleoDBService {
         }
 
         // TODO: Ensure MUTEX is owned before upload - either statically but maybe preferably by calling API.
-
         String SDB_projectId = project.getString(JSON_FIELDS.ID);
-        Path tmp_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
+        Path tmp_filepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
 
         // Check if the TML file is the same as the empty project template
         if (Files.exists(tmp_filepath)) {
@@ -423,7 +421,7 @@ public class SpeleoDBService {
 
         HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
-        Path tml_filepath = Paths.get(ARIANE_ROOT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
+        Path tml_filepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
 
         switch (response.statusCode()) {
             case HTTP_STATUS.OK -> {
@@ -458,7 +456,7 @@ public class SpeleoDBService {
      * @throws IOException if file creation fails
      */
     public Path createEmptyTmlFileFromTemplate(String projectId, String projectName) throws IOException {
-        Path tmlFilePath = Paths.get(ARIANE_ROOT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+        Path tmlFilePath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
 
         // Copy template from resources to target location
         try (var templateStream = getClass().getResourceAsStream(PATHS.EMPTY_TML)) {
