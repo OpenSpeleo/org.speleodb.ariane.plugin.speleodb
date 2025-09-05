@@ -1774,11 +1774,12 @@ public class SpeleoDBController implements Initializable {
      * @param commitMessage the commit message for the upload
      */
     private void uploadProjectWithMessage(String commitMessage) {
-        parentPlugin.saveSurvey();
         logger.info("Uploading project " + currentProject.getString("name") + "  ...");
         
         parentPlugin.executorService.execute(() -> {
             setUILoadingState(true);
+            
+            parentPlugin.saveSurvey();
 
             try {
                 speleoDBService.uploadProject(commitMessage, currentProject);

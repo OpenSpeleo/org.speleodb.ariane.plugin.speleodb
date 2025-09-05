@@ -254,9 +254,11 @@ public final class SpeleoDBConstants {
 
         // Informational Messages
         public static final String INFO_UPLOAD_IN_PROGRESS = "Uploading project… This may take ~10–15 seconds. Please wait.";
-        public static final String PROJECT_NOT_MODIFIED_WITH_HINT =
-                "The project was not saved because no changes were detected.\n\n" +
-                "If you did modify the project, press CTRL+S/CMD+S in Ariane to save your local changes, then try uploading again.";
+        public static final String PROJECT_NOT_MODIFIED_WITH_HINT = """
+                The project was not saved because no changes were detected.
+
+                If you did modify the project, press the save icon in Ariane
+                to save your local changes, then try uploading again.""";
     }
     
     // ==================== UI DIALOG CONSTANTS ====================
