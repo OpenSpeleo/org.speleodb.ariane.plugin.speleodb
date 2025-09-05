@@ -383,8 +383,13 @@ public class SpeleoDBService {
 
         HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
-        if (response.statusCode() != HTTP_STATUS.OK) {
-            throw new Exception(MESSAGES.PROJECT_UPLOAD_FAILED_STATUS + response.statusCode());
+        int status = response.statusCode();
+        if (status == HTTP_STATUS.OK) {
+            return;
+        } else if (status == HTTP_STATUS.NOT_MODIFIED) {
+            throw new NotModifiedException(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
+        } else {
+            throw new Exception(MESSAGES.PROJECT_UPLOAD_FAILED_STATUS + status);
         }
         // TODO: Improve error management
     }

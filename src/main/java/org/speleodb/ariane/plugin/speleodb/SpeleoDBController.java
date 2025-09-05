@@ -965,6 +965,18 @@ public class SpeleoDBController implements Initializable {
                 });
             });
         } catch (Exception ex) {
+            if (ex instanceof NotModifiedException) {
+                Platform.runLater(() -> {
+                    showErrorAnimation("Not saved");
+                    SpeleoDBModals.showError(
+                        DIALOGS.TITLE_PROJECT_NOT_SAVED,
+                        MESSAGES.PROJECT_NOT_MODIFIED_WITH_HINT
+                    );
+                    SpeleoDBTooltips.showError(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
+                    setUILoadingState(false);
+                });
+                return;
+            }
             logger.error("Post-upload load failed: " + getSafeErrorMessage(ex));
             Platform.runLater(() -> {
                 showErrorAnimation("Load failed");
@@ -1785,7 +1797,14 @@ public class SpeleoDBController implements Initializable {
                 
 
                 Platform.runLater(() -> {
-                    if (isServerOfflineError(e)) {
+                    if (e instanceof NotModifiedException) {
+                        showErrorAnimation("Not saved");
+                        SpeleoDBModals.showError(
+                            DIALOGS.TITLE_PROJECT_NOT_SAVED,
+                            MESSAGES.PROJECT_NOT_MODIFIED_WITH_HINT
+                        );
+                        SpeleoDBTooltips.showError(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
+                    } else if (isServerOfflineError(e)) {
                         showErrorAnimation("Can't reach server");
                         SpeleoDBModals.showError("Server Offline", errorMessage);
                     } else if (isTimeoutError(e)) {

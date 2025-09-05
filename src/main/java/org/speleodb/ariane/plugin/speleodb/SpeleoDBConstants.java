@@ -89,6 +89,7 @@ public final class SpeleoDBConstants {
     public static final class HTTP_STATUS {
         public static final int OK = 200;
         public static final int CREATED = 201;
+        public static final int NOT_MODIFIED = 304;
         public static final int UNPROCESSABLE_ENTITY = 422;
     }
     
@@ -240,6 +241,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_LIST_FAILED_STATUS = "Failed to list projects with status code: ";
         public static final String PROJECT_DOWNLOAD_FAILED_STATUS = "Failed to download project with status code: ";
         public static final String PROJECT_UPLOAD_FAILED_STATUS = "Failed to upload project with status code: ";
+        public static final String PROJECT_UPLOAD_NOT_MODIFIED = "Project not saved: no changes detected.";
         public static final String PROJECT_UPLOAD_REJECTED_EMPTY = "Cannot upload an empty project. Please add some survey data before uploading.";
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "Project exists but is empty - create empty TML file.";
@@ -252,6 +254,9 @@ public final class SpeleoDBConstants {
 
         // Informational Messages
         public static final String INFO_UPLOAD_IN_PROGRESS = "Uploading project… This may take ~10–15 seconds. Please wait.";
+        public static final String PROJECT_NOT_MODIFIED_WITH_HINT =
+                "The project was not saved because no changes were detected.\n\n" +
+                "If you did modify the project, press CTRL+S/CMD+S in Ariane to save your local changes, then try uploading again.";
     }
     
     // ==================== UI DIALOG CONSTANTS ====================
@@ -270,6 +275,7 @@ public final class SpeleoDBConstants {
         public static final String TITLE_CREATE_NEW_PROJECT = "Create New Project";
         public static final String TITLE_UPLOAD_MESSAGE_REQUIRED = "Upload Message Required";
         public static final String TITLE_SUCCESS_CELEBRATION = "Upload Successful!";
+        public static final String TITLE_PROJECT_NOT_SAVED = "Project Not Saved";
 
         // Announcement DefaultValues
         public static final String DEFAULT_ANNOUNCEMENT_TITLE = "SpeleoDB";
