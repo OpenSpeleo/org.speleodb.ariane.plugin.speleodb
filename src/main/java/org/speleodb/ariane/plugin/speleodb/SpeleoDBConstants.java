@@ -449,6 +449,8 @@ public final class SpeleoDBConstants {
     public static final class DEBUG {
         public static final String COUNTRIES_LOADER_THREAD_NAME = "CountriesLoader";
         public static final String SPELEODB_WORKER_THREAD_NAME = "SpeleoDB-Worker";
+        // Toggle for verbose JavaFX event logging across scenes (disabled by default)
+        public static final boolean ENABLE_FX_EVENT_LOGGER = false;
     }
     
     // ==================== JSON FIELD NAMES ====================

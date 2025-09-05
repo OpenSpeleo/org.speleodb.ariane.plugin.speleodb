@@ -20,7 +20,10 @@ import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ANIMATIONS;
@@ -85,6 +88,9 @@ import javafx.util.Duration;
 public class SpeleoDBController implements Initializable {
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
+    // Track scenes that already have the global event logger attached
+    private final java.util.Set<javafx.scene.Scene> eventLoggedScenes =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
     
     /**
      * Gets the singleton instance of SpeleoDBController.
@@ -116,6 +122,10 @@ public class SpeleoDBController implements Initializable {
     // UI Components (Injected by FXML)
     @FXML
     AnchorPane speleoDBAnchorPane;
+
+    public AnchorPane getSpeleoDBAnchorPane() {
+        return speleoDBAnchorPane;
+    }
     @FXML
     private Button connectionButton;
     // Removed unlock button; save action is full width in UI
@@ -719,9 +729,26 @@ public class SpeleoDBController implements Initializable {
             // Schedule information popup
             scheduleInformationPopup();
             
-            // Initialize tooltip system when scene is available
-            if (speleoDBAnchorPane != null && speleoDBAnchorPane.getScene() != null) {
-                SpeleoDBTooltips.initialize(speleoDBAnchorPane.getScene());
+            // Initialize tooltip system when scene is available and attach FX event logger
+            if (speleoDBAnchorPane != null) {
+                if (speleoDBAnchorPane.getScene() != null) {
+                    SpeleoDBTooltips.initialize(speleoDBAnchorPane.getScene());
+                    if (SpeleoDBConstants.DEBUG.ENABLE_FX_EVENT_LOGGER) {
+                        attachGlobalEventLogger(speleoDBAnchorPane.getScene());
+                    }
+                }
+                // Also attach when Scene becomes available later
+                speleoDBAnchorPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+                    try {
+                        if (newScene != null) {
+                            SpeleoDBTooltips.initialize(newScene);
+                            if (SpeleoDBConstants.DEBUG.ENABLE_FX_EVENT_LOGGER) {
+                                attachGlobalEventLogger(newScene);
+                            }
+                        }
+                    } catch (Exception ignored) {
+                    }
+                });
             }
             
             logger.debug("SpeleoDBController initialization complete");
@@ -741,6 +768,34 @@ public class SpeleoDBController implements Initializable {
             System.err.println("Impossible to create SDB projects directory: " + e.getMessage());
             throw new RuntimeException(e);
         }
+    }
+
+    private void attachGlobalEventLogger(javafx.scene.Scene scene) {
+        if (scene == null) return;
+        if (eventLoggedScenes.contains(scene)) return;
+        eventLoggedScenes.add(scene);
+        scene.addEventFilter(javafx.event.Event.ANY, evt -> {
+            try {
+                Object tgt = evt.getTarget();
+                Object src = evt.getSource();
+                String target = (tgt != null) ? tgt.getClass().getName() : "unknown";
+                String source = (src != null) ? src.getClass().getName() : "unknown";
+                String type = (evt.getEventType() != null) ? evt.getEventType().getName() : "unknown";
+                String nodeId = (tgt instanceof javafx.scene.Node) ? ((javafx.scene.Node) tgt).getId() : null;
+                String text = null;
+                if (tgt instanceof javafx.scene.control.Labeled) {
+                    text = ((javafx.scene.control.Labeled) tgt).getText();
+                } else if (tgt instanceof javafx.scene.control.TextInputControl) {
+                    text = ((javafx.scene.control.TextInputControl) tgt).getText();
+                }
+                logger.info("FX EVENT: type=" + type +
+                            ", target=" + target +
+                            (nodeId != null ? ", id=" + nodeId : "") +
+                            (text != null ? ", text=\"" + text + "\"" : "") +
+                            ", source=" + source);
+            } catch (Exception ignored) {
+            }
+        });
     }
 
 
@@ -1639,6 +1694,39 @@ public class SpeleoDBController implements Initializable {
     }
     
     /**
+     * Attempts to invoke Ariane's Save accelerator by running the Scene accelerator Runnable
+     * for Cmd/Ctrl+S directly (no OS-level synthetic input), to avoid macOS security prompts.
+     */
+    private void triggerHostSaveAcceleratorBlocking(int waitMillis) {
+        try {
+            if (speleoDBAnchorPane == null || speleoDBAnchorPane.getScene() == null) {
+                return;
+            }
+            final CountDownLatch latch = new CountDownLatch(1);
+            Platform.runLater(() -> {
+                try {
+                    boolean isMac = System.getProperty("os.name").toLowerCase().contains("mac");
+                    KeyCombination combo = new KeyCodeCombination(
+                        KeyCode.S,
+                        isMac ? KeyCombination.META_DOWN : KeyCombination.CONTROL_DOWN
+                    );
+                    Map<KeyCombination, Runnable> accels = speleoDBAnchorPane.getScene().getAccelerators();
+                    Runnable action = accels.get(combo);
+                    if (action != null) {
+                        action.run();
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    latch.countDown();
+                }
+            });
+            latch.await(Math.max(1, waitMillis), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+    
+    /**
      * Downloads and loads a project with unified logic for both read-only and writable projects.
      * 
      * @param project the project to download and load
@@ -1779,9 +1867,44 @@ public class SpeleoDBController implements Initializable {
         parentPlugin.executorService.execute(() -> {
             setUILoadingState(true);
             
+            // Attempt to invoke host's Save accelerator without synthetic key events
+            triggerHostSaveAcceleratorBlocking(300);
+            
             parentPlugin.saveSurvey();
 
             try {
+                // Ensure latest survey file is present and copy to SDB working path before upload
+                java.io.File sourceFile = parentPlugin.getSurveyFile();
+                if (sourceFile == null || !sourceFile.exists()) {
+                    Platform.runLater(() -> {
+                        showErrorAnimation("Survey file not found");
+                        SpeleoDBModals.showError(
+                            DIALOGS.TITLE_PROJECT_NOT_SAVED,
+                            "The survey file was not found on disk. Please save your project and try again."
+                        );
+                        setUILoadingState(false);
+                    });
+                    return;
+                }
+
+                String projectId = currentProject.getString("id");
+                java.nio.file.Path destPath = java.nio.file.Paths.get(PATHS.SDB_PROJECT_DIR + java.io.File.separator + projectId + PATHS.TML_FILE_EXTENSION);
+                try {
+                    java.nio.file.Files.createDirectories(destPath.getParent());
+                    java.nio.file.Files.copy(sourceFile.toPath(), destPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.io.IOException ioEx) {
+                    logger.error("Failed to copy survey file before upload: " + ioEx.getMessage());
+                    Platform.runLater(() -> {
+                        showErrorAnimation("Save copy failed");
+                        SpeleoDBModals.showError(
+                            DIALOGS.TITLE_PROJECT_NOT_SAVED,
+                            "Could not prepare project file for upload. Please save your project (CTRL+S/CMD+S) and try again."
+                        );
+                        setUILoadingState(false);
+                    });
+                    return;
+                }
+
                 speleoDBService.uploadProject(commitMessage, currentProject);
                 logger.info("Upload successful.");
                 

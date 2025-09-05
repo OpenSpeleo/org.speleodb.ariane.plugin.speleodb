@@ -128,6 +128,32 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             stage.setScene(new Scene(root));
             stage.getIcons().add(new Image(Objects.requireNonNull(getClass().getResourceAsStream("/images/logo.png"))));
             stage.setTitle("SpeleoDB");
+            // Attach global FX event logger to help discover control IDs/events
+            // FX Event Logger (disabled by default) — enable via SpeleoDBConstants.DEBUG.ENABLE_FX_EVENT_LOGGER
+            if (SpeleoDBConstants.DEBUG.ENABLE_FX_EVENT_LOGGER) {
+                stage.getScene().addEventFilter(javafx.event.Event.ANY, evt -> {
+                    try {
+                        Object tgt = evt.getTarget();
+                        Object src = evt.getSource();
+                        String target = (tgt != null) ? tgt.getClass().getName() : "unknown";
+                        String source = (src != null) ? src.getClass().getName() : "unknown";
+                        String type = (evt.getEventType() != null) ? evt.getEventType().getName() : "unknown";
+                        String nodeId = (tgt instanceof javafx.scene.Node) ? ((javafx.scene.Node) tgt).getId() : null;
+                        String text = null;
+                        if (tgt instanceof javafx.scene.control.Labeled) {
+                            text = ((javafx.scene.control.Labeled) tgt).getText();
+                        } else if (tgt instanceof javafx.scene.control.TextInputControl) {
+                            text = ((javafx.scene.control.TextInputControl) tgt).getText();
+                        }
+                        logger.info("FX EVENT: type=" + type + 
+                                    ", target=" + target +
+                                    (nodeId != null ? ", id=" + nodeId : "") +
+                                    (text != null ? ", text=\"" + text + "\"" : "") +
+                                    ", source=" + source);
+                    } catch (Exception ignored) {
+                    }
+                });
+            }
             stage.show();
         }
     }
@@ -185,6 +211,21 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
 
     public void saveSurvey() {
+        // Programmatically trigger the host app's Save button if present (id="saveButton")
+        try {
+            SpeleoDBController controller = SpeleoDBController.getInstance();
+            javafx.scene.Scene scene = (controller != null && controller.getSpeleoDBAnchorPane() != null) ?
+                    controller.getSpeleoDBAnchorPane().getScene() : null;
+            if (scene != null) {
+                javafx.scene.Node node = scene.lookup("#saveButton");
+                if (node instanceof javafx.scene.control.Button) {
+                    ((javafx.scene.control.Button) node).fire();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Also trigger host save via command property as a fallback
         commandProperty.set(DataServerCommands.SAVE.name());
         commandProperty.set(DataServerCommands.DONE.name());
     }
