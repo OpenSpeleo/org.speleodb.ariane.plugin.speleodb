@@ -80,7 +80,7 @@ public class SpeleoDBAPITest {
             skipTests = true;
             return;
         }
-        
+
         // Check if required configuration is present
         if (!TestEnvironmentConfig.hasRequiredConfig()) {
             System.out.println("❌ Required configuration missing. Please check your .env file.");

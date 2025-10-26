@@ -59,13 +59,8 @@ class SpeleoDBImportFlowTest {
         setPrivateField(controller, "serverProgressIndicator", progress);
         setPrivateField(controller, "uploadButton", uploadBtn);
 
-        // Assign a test plugin with an executor service and overridable loadSurvey
-        testPlugin = new SpeleoDBPlugin() {
-            @Override
-            public void loadSurvey(File file) {
-                super.loadSurvey(file); // use existing signaling behavior
-            }
-        };
+        // Assign a test plugin and ensure LOAD events set a dummy survey in tests
+        testPlugin = new SpeleoDBPlugin();
         controller.parentPlugin = testPlugin;
 
         // Set a current project
@@ -92,15 +87,31 @@ class SpeleoDBImportFlowTest {
         };
         setPrivateField(controller, "speleoDBService", fakeService);
 
-        // Override plugin loadSurvey to record ordering and signal latch
-        SpeleoDBPlugin orderingPlugin = new SpeleoDBPlugin() {
-            @Override
-            public void loadSurvey(File file) {
-                assertThat(stage.get()).as("Upload should be done before loadSurvey").isEqualTo(1);
+        // Listen for LOAD command to record ordering and signal latch
+        SpeleoDBPlugin orderingPlugin = new SpeleoDBPlugin();
+        orderingPlugin.getCommandProperty().addListener((obs, o, n) -> {
+            if (n != null && n.equals(com.arianesline.ariane.plugin.api.DataServerCommands.LOAD.name())) {
+                assertThat(stage.get()).as("Upload should be done before load").isEqualTo(1);
+                // Set survey to release async lock path
+                orderingPlugin.setSurvey(new com.arianesline.cavelib.api.CaveSurveyInterface() {
+                    @Override public String getExtraData() { return ""; }
+                    @Override public void setExtraData(String data) {}
+                    @Override public java.util.ArrayList<com.arianesline.cavelib.api.SurveyDataInterface> getSurveyDataInterface() { return new java.util.ArrayList<>(); }
+                    @Override public String getDescription() { return ""; }
+                    @Override public String getGeoCoding() { return ""; }
+                    @Override public String getCaveName() { return ""; }
+                    @Override public String getUnit() { return ""; }
+                    @Override public void setUnit(String unit) {}
+                    @Override public Boolean getUseMagneticAzimuth() { return false; }
+                    @Override public int addStation(String sectionname, String explorer, java.time.LocalDate datetime, String nomstation,
+                                              double direction, double length, double depthin, double depth, int fromid, int toid, String type, javafx.scene.paint.Color color,
+                                              double longitude, double latitude,
+                                              double up, double down, double left, double right, String comment, String profiletype, boolean islocked) { return 0; }
+                });
                 stage.set(2);
                 loadedLatch.countDown();
             }
-        };
+        });
         controller.parentPlugin = orderingPlugin;
 
         // Create a temp .tml file to import
@@ -128,13 +139,13 @@ class SpeleoDBImportFlowTest {
         };
         setPrivateField(controller, "speleoDBService", failingService);
 
-        SpeleoDBPlugin detectingPlugin = new SpeleoDBPlugin() {
-            @Override
-            public void loadSurvey(File file) {
-                stage.set(99); // should not be called on failure
+        SpeleoDBPlugin detectingPlugin = new SpeleoDBPlugin();
+        detectingPlugin.getCommandProperty().addListener((obs, o, n) -> {
+            if (n != null && n.equals(com.arianesline.ariane.plugin.api.DataServerCommands.LOAD.name())) {
+                stage.set(99); // should not be emitted on failure
                 doneLatch.countDown();
             }
-        };
+        });
         controller.parentPlugin = detectingPlugin;
 
         File tempTml = File.createTempFile("import-fail", ".tml");
@@ -150,7 +161,7 @@ class SpeleoDBImportFlowTest {
             // expected: wrapped exception due to upload failure triggers FX error handling
         }
 
-        // Allow any FX tasks to run; ensure loadSurvey was not called
+        // Allow any FX tasks to run; ensure LOAD was not emitted
         Thread.sleep(200);
         assertThat(stage.get()).isNotEqualTo(99);
     }

@@ -296,7 +296,7 @@ public class TestEnvironmentConfig {
     public static boolean isApiTestEnabled() {
         return getBoolean(API_TEST_ENABLED, true);
     }
-    
+
     /**
      * Check if required configuration is present
      */

@@ -17,7 +17,6 @@ import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
-import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.fxml.FXMLLoader;
@@ -227,45 +226,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
         // Also trigger host save via command property as a fallback
         commandProperty.set(DataServerCommands.SAVE.name());
-    }
-
-    public void loadSurvey(File file) {
-        // Use the executor service to avoid blocking the calling thread
-        executorService.execute(() -> {
-            // Set up for loading on JavaFX thread
-            Platform.runLater(() -> {
-                lock.set(true);  // Set lock before starting
-                survey = null;
-                surveyFile = file;
-                commandProperty.set(DataServerCommands.LOAD.name());
-            });
-
-            // Wait for the survey to be loaded (polling with timeout)
-            var start = java.time.LocalDateTime.now();
-            while (lock.get() && java.time.Duration.between(start, java.time.LocalDateTime.now()).toMillis() < TIMEOUT) {
-                try {
-                    Thread.sleep(50); // Check every 50ms instead of 10ms to reduce CPU usage
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    logger.warn("Survey loading interrupted");
-                    break;
-                }
-            }
-            
-            // Check if we timed out
-            if (lock.get()) {
-                logger.error("Timeout while loading survey: " + file.getName());
-                lock.set(false); // Reset lock on timeout
-            } else {
-                logger.info("Survey loaded successfully: " + file.getName());
-            }
-            
-            // Clean up on JavaFX thread
-            Platform.runLater(() -> {
-                commandProperty.set(DataServerCommands.REDRAW.name());
-            javafx.animation.Timeline t = new javafx.animation.Timeline(
-            });
-        });
     }
 
     @Override

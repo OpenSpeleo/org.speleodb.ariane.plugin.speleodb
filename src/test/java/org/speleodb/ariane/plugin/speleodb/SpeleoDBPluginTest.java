@@ -192,8 +192,10 @@ class SpeleoDBPluginTest {
         @Test
         @DisplayName("Should handle load with null file")
         void shouldHandleLoadWithNullFile() {
-            assertThatCode(() -> plugin.loadSurvey(null))
-                .doesNotThrowAnyException();
+            assertThatCode(() -> {
+                plugin.setSurveyFile(null);
+                plugin.getCommandProperty().set(DataServerCommands.LOAD.name());
+            }).doesNotThrowAnyException();
         }
     }
     
@@ -273,7 +275,8 @@ class SpeleoDBPluginTest {
         void shouldHandleConcurrentSurveyOperations() {
             assertThatCode(() -> {
                 plugin.saveSurvey();
-                plugin.loadSurvey(testSurveyFile);
+                plugin.setSurveyFile(testSurveyFile);
+                plugin.getCommandProperty().set(DataServerCommands.LOAD.name());
                 plugin.saveSurvey();
             }).doesNotThrowAnyException();
         }
