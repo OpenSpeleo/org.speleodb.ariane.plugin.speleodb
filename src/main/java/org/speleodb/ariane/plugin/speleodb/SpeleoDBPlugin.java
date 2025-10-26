@@ -227,7 +227,6 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
         // Also trigger host save via command property as a fallback
         commandProperty.set(DataServerCommands.SAVE.name());
-        commandProperty.set(DataServerCommands.DONE.name());
     }
 
     public void loadSurvey(File file) {
@@ -263,7 +262,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             
             // Clean up on JavaFX thread
             Platform.runLater(() -> {
-                commandProperty.set(DataServerCommands.DONE.name());
+                commandProperty.set(DataServerCommands.REDRAW.name());
+            javafx.animation.Timeline t = new javafx.animation.Timeline(
             });
         });
     }

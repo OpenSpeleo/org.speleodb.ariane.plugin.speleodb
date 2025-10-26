@@ -443,6 +443,7 @@ public final class SpeleoDBConstants {
         public static final int FADE_IN_DURATION_MILLIS = 400;
         public static final int SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS = 5;
         public static final int INFO_POPUP_DELAY_SECONDS = 3;
+        public static final int REDRAW_DELAY_MILLIS = 750;
     }
     
     // ==================== DEBUG & SYSTEM PROPERTIES ====================

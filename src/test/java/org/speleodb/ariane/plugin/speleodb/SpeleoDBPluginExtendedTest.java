@@ -1,5 +1,8 @@
 package org.speleodb.ariane.plugin.speleodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -8,16 +11,14 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 
 import com.arianesline.ariane.plugin.api.DataServerCommands;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 
 /**
  * Extended unit tests for SpeleoDBPlugin covering missing behaviors and edge cases.
@@ -163,9 +164,9 @@ class SpeleoDBPluginExtendedTest {
             
             plugin.getCommandProperty().set(DataServerCommands.LOAD.name());
             assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.LOAD.name());
-            
-            plugin.getCommandProperty().set(DataServerCommands.DONE.name());
-            assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.DONE.name());
+
+            plugin.getCommandProperty().set(DataServerCommands.REDRAW.name());
+            assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.REDRAW.name());
         }
     }
     

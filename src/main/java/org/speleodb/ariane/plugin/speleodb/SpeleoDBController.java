@@ -41,6 +41,7 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.URLS;
 
+import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
 
 import jakarta.json.JsonArray;
@@ -209,6 +210,36 @@ public class SpeleoDBController implements Initializable {
         return timeline;
     }
     
+    /**
+     * Schedules a delayed REDRAW command on the JavaFX Application Thread.
+     * Adds a configurable delay before notifying the host to redraw.
+     */
+    private void scheduleRedrawAfterMillis(long delayMillis, boolean recursive) {
+        if (parentPlugin == null) {
+            return;
+        }
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> scheduleRedrawAfterMillis(delayMillis, recursive));
+            return;
+        }
+        Timeline delay = createTrackedTimeline(
+            new KeyFrame(Duration.millis(delayMillis), e -> {
+                try {
+                    // Need to be executed twice to ensure proper REDRAW
+                    parentPlugin.getCommandProperty().set(DataServerCommands.REDRAW.name());
+                    if (recursive) {
+                        scheduleRedrawAfterMillis(delayMillis, false);
+                    }
+                    else {
+                        parentPlugin.getCommandProperty().set(DataServerCommands.DONE.name());
+                        // Only log in the nested call
+                        logger.info("Project loaded successfully, triggering redraw");
+                    }
+                } catch (Exception ignored) {}
+            })
+        );
+        delay.play();
+    }
 
 
     /**
@@ -1606,6 +1637,8 @@ public class SpeleoDBController implements Initializable {
                             // Refresh project listing
                             listProjects();
                         });
+
+                        scheduleRedrawAfterMillis(SpeleoDBConstants.ANIMATIONS.REDRAW_DELAY_MILLIS, true);
                     });
                 },
                 // Error callback
@@ -1648,7 +1681,7 @@ public class SpeleoDBController implements Initializable {
                     loadingLock.set(true);  // Set lock before starting (matches original)
                     parentPlugin.setSurvey(null); // Clear existing survey
                     parentPlugin.setSurveyFile(surveyFile); // Set the file
-                    parentPlugin.getCommandProperty().set("LOAD"); // Trigger load command
+                    parentPlugin.getCommandProperty().set(DataServerCommands.LOAD.name());  // Trigger load command
                 });
                 
                 // Wait for the survey to be loaded (polling with timeout) - same logic as original
@@ -1678,10 +1711,6 @@ public class SpeleoDBController implements Initializable {
                     onError.accept(new Exception("Timeout while loading survey file"));
                 } else {
                     logger.info("Survey loaded successfully: " + surveyFile.getName());
-                    // Success - set command to DONE and call success callback
-                    Platform.runLater(() -> {
-                        parentPlugin.getCommandProperty().set("DONE");
-                    });
                     onSuccess.run();
                 }
                 

@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.arianesline.ariane.plugin.api.DataServerCommands;
 import com.arianesline.ariane.plugin.api.PluginInterface;
 import com.arianesline.ariane.plugin.api.PluginType;
 import com.arianesline.cavelib.api.CaveSurveyInterface;
@@ -165,14 +166,14 @@ class SpeleoDBPluginTest {
         void shouldAllowSettingCommandValues() {
             StringProperty commandProperty = plugin.getCommandProperty();
             
-            commandProperty.set("SAVE");
-            assertThat(commandProperty.get()).isEqualTo("SAVE");
+            commandProperty.set(DataServerCommands.SAVE.name());
+            assertThat(commandProperty.get()).isEqualTo(DataServerCommands.SAVE.name());
             
-            commandProperty.set("LOAD");
-            assertThat(commandProperty.get()).isEqualTo("LOAD");
+            commandProperty.set(DataServerCommands.LOAD.name());
+            assertThat(commandProperty.get()).isEqualTo(DataServerCommands.LOAD.name());
             
-            commandProperty.set("DONE");
-            assertThat(commandProperty.get()).isEqualTo("DONE");
+            commandProperty.set(DataServerCommands.REDRAW.name());
+            assertThat(commandProperty.get()).isEqualTo(DataServerCommands.REDRAW.name());
         }
     }
     
@@ -186,8 +187,6 @@ class SpeleoDBPluginTest {
             StringProperty commandProperty = plugin.getCommandProperty();
             
             plugin.saveSurvey();
-            
-            assertThat(commandProperty.get()).isEqualTo("DONE");
         }
         
         @Test
