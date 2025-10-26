@@ -26,7 +26,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ANIMATIONS;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ARIANE_JAVAFX;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
@@ -39,6 +39,7 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.SortMode;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.TIMINGS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.URLS;
 
 import com.arianesline.ariane.plugin.api.DataServerCommands;
@@ -58,6 +59,7 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContentDisplay;
+import javafx.scene.control.Control;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -67,6 +69,7 @@ import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -222,17 +225,19 @@ public class SpeleoDBController implements Initializable {
             Platform.runLater(() -> scheduleRedrawAfterMillis(delayMillis, recursive));
             return;
         }
+        
         Timeline delay = createTrackedTimeline(
             new KeyFrame(Duration.millis(delayMillis), e -> {
                 try {
                     // Need to be executed twice to ensure proper REDRAW
                     parentPlugin.getCommandProperty().set(DataServerCommands.REDRAW.name());
+                    // After the final (non-recursive) REDRAW, trigger CENTER VIEW
+                    centerMapViewerAsync();
                     if (recursive) {
-                        scheduleRedrawAfterMillis(delayMillis, false);
+                        scheduleRedrawAfterMillis(TIMINGS.REDRAW_DELAY_MILLIS_2, false);
                     }
                     else {
-                        parentPlugin.getCommandProperty().set(DataServerCommands.DONE.name());
-                        // Only log in the nested call
+                        // Only log in the nested call - end of routine
                         logger.info("Project loaded successfully, triggering redraw");
                     }
                 } catch (Exception ignored) {}
@@ -241,6 +246,68 @@ public class SpeleoDBController implements Initializable {
         delay.play();
     }
 
+    /**
+     * Returns the CENTER VIEW button if available, preferring lookup by assigned id.
+     */
+    public Button findCenterViewButton() {
+        if (speleoDBAnchorPane == null || speleoDBAnchorPane.getScene() == null) return null;
+        javafx.scene.Scene scene = speleoDBAnchorPane.getScene();
+        return findButtonByTooltip(scene.getRoot(), ARIANE_JAVAFX.CENTER_VIEW_TOOLTIP);
+    }
+
+    private Button findButtonByTooltip(javafx.scene.Node node, String tooltipText) {
+        if (node == null || tooltipText == null) return null;
+        if (node instanceof Button btn) {
+            Tooltip tt = btn.getTooltip();
+            if (tt != null && tooltipText.equalsIgnoreCase(String.valueOf(tt.getText()).trim())) {
+                return btn;
+            }
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                Button found = findButtonByTooltip(child, tooltipText);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Triggers the CENTER VIEW button shortly after the final redraw.
+     * Uses a small delay to let host layout settle before lookup and fire.
+     */
+    private void centerMapViewerAsync() {
+        if (speleoDBAnchorPane == null || speleoDBAnchorPane.getScene() == null) {
+            return;
+        }
+
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> centerMapViewerAsync());
+            return;
+        }
+
+        Timeline delay = createTrackedTimeline(
+            new KeyFrame(Duration.millis(TIMINGS.CENTER_VIEW_DELAY_MILLIS), e -> {
+                try {
+                    Button btn = findCenterViewButton();
+                    if (btn != null) {
+                        btn.fire();
+                        logger.info("Map has been recentered successfully ...");
+                    } else {
+                        logger.warn(
+                            "CENTER VIEW button (tooltip '" + ARIANE_JAVAFX.CENTER_VIEW_TOOLTIP + "') not found. " +
+                            "Impossible to center the map. Skipping ..."
+                        );
+                    }
+                } catch (Exception ex) {
+                    logger.warn("Failed to trigger center the map: " + ex.getMessage());
+                }
+            })
+        );
+        delay.play();
+
+        
+    }
 
     /**
      * Shows a confirmation modal using the centralized modal system.
@@ -805,6 +872,7 @@ public class SpeleoDBController implements Initializable {
         if (scene == null) return;
         if (eventLoggedScenes.contains(scene)) return;
         eventLoggedScenes.add(scene);
+        // Capture all events (including MOUSE_MOVED, MOUSE_ENTERED/EXITED, TOUCH, SCROLL, KEY, ACTION)
         scene.addEventFilter(javafx.event.Event.ANY, evt -> {
             try {
                 Object tgt = evt.getTarget();
@@ -814,19 +882,79 @@ public class SpeleoDBController implements Initializable {
                 String type = (evt.getEventType() != null) ? evt.getEventType().getName() : "unknown";
                 String nodeId = (tgt instanceof javafx.scene.Node) ? ((javafx.scene.Node) tgt).getId() : null;
                 String text = null;
-                if (tgt instanceof javafx.scene.control.Labeled) {
-                    text = ((javafx.scene.control.Labeled) tgt).getText();
-                } else if (tgt instanceof javafx.scene.control.TextInputControl) {
-                    text = ((javafx.scene.control.TextInputControl) tgt).getText();
+                switch (tgt) {
+                    case null -> {}
+                    case javafx.scene.control.Labeled labeled -> text = labeled.getText();
+                    case javafx.scene.control.TextInputControl textInputControl -> text = textInputControl.getText();
+                    default -> {}
                 }
-                logger.info("FX EVENT: type=" + type +
-                            ", target=" + target +
-                            (nodeId != null ? ", id=" + nodeId : "") +
-                            (text != null ? ", text=\"" + text + "\"" : "") +
-                            ", source=" + source);
+
+                // Try to capture tooltip and accessibility info
+                String tooltip = null;
+                String accText = null;
+                String styleClasses = null;
+                String path = null;
+                if (tgt instanceof javafx.scene.Node n) {
+                    if (tgt instanceof Control control) {
+                        Tooltip tt = control.getTooltip();
+                        if (tt != null) {
+                            tooltip = tt.getText();
+                        }
+                    }
+                    accText = n.getAccessibleText();
+                    styleClasses = String.join(" ", n.getStyleClass());
+                    path = describeNodePath(n);
+                }
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("FX EVENT: type=").append(type)
+                  .append(", target=").append(target);
+                String idLabel = (nodeId == null || nodeId.isEmpty()) ? "null" : nodeId;
+                sb.append(", id=").append(idLabel);
+                if (text != null && !text.isEmpty()) sb.append(", text=\"").append(text).append("\"");
+                if (tooltip != null && !tooltip.isEmpty()) sb.append(", tooltip=\"").append(tooltip).append("\"");
+                if (accText != null && !accText.isEmpty()) sb.append(", a11y=\"").append(accText).append("\"");
+                if (styleClasses != null && !styleClasses.isEmpty()) sb.append(", classes=[").append(styleClasses).append("]");
+                if (path != null && !path.isEmpty()) sb.append(", path=").append(path);
+                sb.append(", source=").append(source);
+                logger.info(sb.toString());
             } catch (Exception ignored) {
             }
         });
+
+        // Also log when CENTER VIEW button is created or added later (post-layout)
+        try {
+            scene.getRoot().layoutBoundsProperty().addListener((obs, o, n) -> {
+                try {
+                    Button btn = findCenterViewButton();
+                    if (btn != null) {
+                        logger.info("SCAN: CENTER VIEW present in scene with id='" + btn.getId() + "'");
+                    }
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String describeNodePath(javafx.scene.Node node) {
+        StringBuilder path = new StringBuilder();
+        javafx.scene.Node current = node;
+        int depth = 0;
+        while (current != null && depth < 6) { // limit depth to avoid huge logs
+            if (depth > 0) path.insert(0, " < ");
+            String cls = current.getClass().getSimpleName();
+            String id = current.getId();
+            String classes = String.join(".", current.getStyleClass());
+            String segment = cls + (id != null ? "#" + id : "") + (!classes.isEmpty() ? "." + classes : "");
+            path.insert(0, segment);
+            if (current instanceof javafx.scene.Parent) {
+                current = ((javafx.scene.Parent) current).getParent();
+            } else {
+                break;
+            }
+            depth++;
+        }
+        return path.toString();
     }
 
 
@@ -1638,7 +1766,7 @@ public class SpeleoDBController implements Initializable {
                             listProjects();
                         });
 
-                        scheduleRedrawAfterMillis(SpeleoDBConstants.ANIMATIONS.REDRAW_DELAY_MILLIS, true);
+                        scheduleRedrawAfterMillis(SpeleoDBConstants.TIMINGS.REDRAW_DELAY_MILLIS, true);
                     });
                 },
                 // Error callback
@@ -2962,12 +3090,12 @@ public class SpeleoDBController implements Initializable {
     private void scheduleInformationPopup() {
         // Create timeline to show popup after delay
         Timeline delayTimeline = createTrackedTimeline(
-            new KeyFrame(Duration.seconds(ANIMATIONS.INFO_POPUP_DELAY_SECONDS), 
+            new KeyFrame(Duration.seconds(TIMINGS.INFO_POPUP_DELAY_SECONDS), 
                         e -> showInformationPopup())
         );
         delayTimeline.play();
         
-        logger.debug("Information popup scheduled to appear in " + ANIMATIONS.INFO_POPUP_DELAY_SECONDS + " seconds");
+        logger.debug("Information popup scheduled to appear in " + TIMINGS.INFO_POPUP_DELAY_SECONDS + " seconds");
     }
 
     /**
@@ -3116,7 +3244,7 @@ public class SpeleoDBController implements Initializable {
             
             // Add fade-in animation for smooth appearance
             dialogPane.setOpacity(0.0);
-            FadeTransition fadeIn = new FadeTransition(Duration.millis(ANIMATIONS.FADE_IN_DURATION_MILLIS), dialogPane);
+            FadeTransition fadeIn = new FadeTransition(Duration.millis(TIMINGS.FADE_IN_DURATION_MILLIS), dialogPane);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
             

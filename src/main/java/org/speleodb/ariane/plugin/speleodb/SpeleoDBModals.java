@@ -3,12 +3,12 @@ package org.speleodb.ariane.plugin.speleodb;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ANIMATIONS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES.MATERIAL_COLORS;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.TIMINGS;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
@@ -654,7 +654,7 @@ public class SpeleoDBModals {
             // Auto-close timer
             Timeline autoClose = new Timeline(
                 new KeyFrame(
-                    Duration.seconds(ANIMATIONS.SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS),
+                    Duration.seconds(TIMINGS.SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS),
                     e -> dialog.close()
                 )
             );

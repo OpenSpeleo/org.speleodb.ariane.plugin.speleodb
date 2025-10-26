@@ -66,6 +66,11 @@ public final class SpeleoDBConstants {
             }
         }
     }
+    // ==================== ARIANE JAVAFX CONSTANTS ====================
+
+    public static final class ARIANE_JAVAFX {
+        public static final String CENTER_VIEW_TOOLTIP = "CENTER VIEW";
+    }
     // ==================== URL CONSTANTS ====================
     public static final class URLS {
         // public static final String WEBVIEW = "http://localhost:8000/webview/ariane/";
@@ -439,11 +444,13 @@ public final class SpeleoDBConstants {
     }
     
     // ==================== ANIMATION TIMING ====================
-    public static final class ANIMATIONS {
+    public static final class TIMINGS {
         public static final int FADE_IN_DURATION_MILLIS = 400;
         public static final int SUCCESS_CELEBRATION_AUTO_CLOSE_SECONDS = 5;
         public static final int INFO_POPUP_DELAY_SECONDS = 3;
-        public static final int REDRAW_DELAY_MILLIS = 750;
+        public static final int REDRAW_DELAY_MILLIS = 1000;
+        public static final int REDRAW_DELAY_MILLIS_2 = 1500;
+        public static final int CENTER_VIEW_DELAY_MILLIS = 1000;
     }
     
     // ==================== DEBUG & SYSTEM PROPERTIES ====================
