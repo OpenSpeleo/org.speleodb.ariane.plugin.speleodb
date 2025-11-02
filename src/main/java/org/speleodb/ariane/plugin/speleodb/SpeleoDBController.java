@@ -1979,6 +1979,7 @@ public class SpeleoDBController implements Initializable {
                     clickSpeleoDBProject(event);
                 } catch (IOException | URISyntaxException e) {
                     logger.error("Error opening project: " + getSafeErrorMessage(e));
+                    setUILoadingState(false);
                 }
 
             } catch (InterruptedException e) {
@@ -2196,6 +2197,7 @@ public class SpeleoDBController implements Initializable {
             if (currentProject == null) {
                 showErrorAnimation("No project selected");
                 SpeleoDBModals.showError("Import Unavailable", "No active project. Please open a project first.");
+                setUILoadingState(false);
                 return;
             }
 
@@ -2222,6 +2224,7 @@ public class SpeleoDBController implements Initializable {
 
                     if (!proceed) {
                         logger.info("User cancelled local import warning");
+                        setUILoadingState(false);
                         return;
                     }
 
@@ -2237,6 +2240,7 @@ public class SpeleoDBController implements Initializable {
 
                     if (selectedFile == null) {
                         logger.info("User cancelled file selection for local import");
+                        setUILoadingState(false);
                         return;
                     }
 
@@ -2251,6 +2255,7 @@ public class SpeleoDBController implements Initializable {
                             if (message.isEmpty()) {
                                 logger.info(SpeleoDBConstants.MESSAGES.UPLOAD_MESSAGE_EMPTY);
                                 SpeleoDBModals.showError(SpeleoDBConstants.DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, SpeleoDBConstants.MESSAGES.UPLOAD_MESSAGE_EMPTY);
+                                setUILoadingState(false);
                                 return;
                             }
 
