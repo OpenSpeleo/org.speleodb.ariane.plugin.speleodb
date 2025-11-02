@@ -827,6 +827,9 @@ public class SpeleoDBController implements Initializable {
             // Schedule information popup
             scheduleInformationPopup();
             
+            // Attempt automatic login if credentials are present (silent, no popups on failure)
+            attemptAutomaticLogin();
+
             // Initialize tooltip system when scene is available and attach FX event logger
             if (speleoDBAnchorPane != null) {
                 if (speleoDBAnchorPane.getScene() != null) {
@@ -851,6 +854,33 @@ public class SpeleoDBController implements Initializable {
             
             logger.debug("SpeleoDBController initialization complete");
         });
+    }
+
+    /**
+     * Attempts an automatic login at startup if credentials are present (token or email+password).
+     * This runs silently: failures only log and never show popups.
+     * On success, switches to the Projects pane and loads the project list.
+     */
+    private void attemptAutomaticLogin() {
+        try {
+            // Credentials should already be in the UI from loadPreferences()
+            String email = emailTextField.getText();
+            String password = passwordPasswordField.getText();
+            String oauthToken = oauthtokenPasswordField.getText();
+
+            boolean hasToken = oauthToken != null && !oauthToken.trim().isEmpty();
+            boolean hasEmailPassword = (email != null && !email.trim().isEmpty()) &&
+                                       (password != null && !password.trim().isEmpty());
+
+            if (!hasToken && !hasEmailPassword) {
+                return; // No credentials available; skip silently
+            }
+
+            connectToSpeleoDB(true);
+        } catch (Exception e) {
+            // Silent: log only, no popups
+            logger.error("Automatic login setup failed: " + getSafeErrorMessage(e));
+        }
     }
     
     /**
@@ -967,72 +997,80 @@ public class SpeleoDBController implements Initializable {
      * Validates the OAuth token format before attempting connection.
      * Updates the UI state based on the connection result.
      */
-    private void connectToSpeleoDB() {
+    private void connectToSpeleoDB(boolean silent) {
         String email = emailTextField.getText();
         String password = passwordPasswordField.getText();
         String oauthToken = oauthtokenPasswordField.getText();
-        String sdb_instance = instanceTextField.getText();
+        String SDB_instance = instanceTextField.getText();
 
-        // Validate that user has provided authentication credentials
+        // Validate credentials presence
         boolean hasOAuthToken = oauthToken != null && !oauthToken.trim().isEmpty();
-        boolean hasEmailPassword = (email != null && !email.trim().isEmpty()) && 
-                                  (password != null && !password.trim().isEmpty());
-        
+        boolean hasEmailPassword = (email != null && !email.trim().isEmpty()) &&
+                                   (password != null && !password.trim().isEmpty());
+
         if (!hasOAuthToken && !hasEmailPassword) {
-            SpeleoDBModals.showError(
-                "Invalid SpeleoDB Credentials", 
-                """
-                Please provide authentication credentials to connect to SpeleoDB.
-                
-                You must provide either:
-                • An OAuth Token (40-character hex string)
-                • Both Email and Password
-                
-                Please fill in the required fields and try again.
-                """
-            );
+            if (!silent) {
+                SpeleoDBModals.showError(
+                    "Invalid SpeleoDB Credentials",
+                    """
+                    Please provide authentication credentials to connect to SpeleoDB.
+
+                    You must provide either:
+                    • An OAuth Token (40-character hex string)
+                    • Both Email and Password
+
+                    Please fill in the required fields and try again.
+                    """
+                );
+            }
             return;
         }
 
         // Validate OAuth token format if provided
-        if (hasOAuthToken) {
-            if (!validateOAuthToken(oauthToken)) {
+        if (hasOAuthToken && !validateOAuthToken(oauthToken)) {
+            if (!silent) {
                 SpeleoDBModals.showError(
-                    "Invalid OAuth Token", 
+                    "Invalid OAuth Token",
                     """
                     OAuth token must be exactly 40 hexadecimal characters (0-9, a-f).
-                    
+
                     Please check your token format and try again.
                     """
                 );
-                return;
+            } else {
+                logger.error("Auth aborted: invalid OAuth token format");
             }
+            return;
         }
 
-        logger.info("Connecting to " + sdb_instance);
+        final String targetInstance = (SDB_instance != null && !SDB_instance.trim().isEmpty()) ? SDB_instance.trim() : PREFERENCES.DEFAULT_INSTANCE;
+
+        logger.info("Connecting to " + targetInstance);
 
         parentPlugin.executorService.execute(() -> {
-                    
             setUILoadingState(true);
             try {
-                speleoDBService = new SpeleoDBService(this);
-                speleoDBService.authenticate(email, password, oauthToken, sdb_instance);
+                if (speleoDBService == null) {
+                    speleoDBService = new SpeleoDBService(this);
+                }
+                speleoDBService.authenticate(email, password, oauthToken, targetInstance);
                 logger.info("Connected successfully.");
-                
+
                 // Always save preferences on successful connection
                 savePreferences();
 
                 Platform.runLater(() -> {
                     projectsTitlePane.setVisible(true);
                     projectsTitlePane.setExpanded(true);
+                    aboutTitlePane.setExpanded(false);
                     createNewProjectButton.setDisable(false);
                     refreshProjectsButton.setDisable(false);
-                    
+
                     // Update UI state for connected mode
                     connectionButton.setText("DISCONNECT");
                     javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 3);
                     signupButton.setVisible(false);
-                    
+
                     // Disable connection form fields while connected
                     setConnectionFormEnabled(false);
                 });
@@ -1042,24 +1080,26 @@ public class SpeleoDBController implements Initializable {
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Connection");
                 logger.error("Connection failed: " + getSafeErrorMessage(e));
-                
-                Platform.runLater(() -> {
-                    if (isServerOfflineError(e)) {
-                        showErrorAnimation("Can't reach server");
-                        SpeleoDBModals.showError("Server Offline", errorMessage);
-                    } else if (isTimeoutError(e)) {
-                        showErrorAnimation("Request timed out");
-                        SpeleoDBModals.showError("Connection Timeout", errorMessage);
-                    } else {
-                        showErrorAnimation("Connection Failed: " + getSafeErrorMessage(e));
-                    }
-                });
+
+                if (!silent) {
+                    Platform.runLater(() -> {
+                        if (isServerOfflineError(e)) {
+                            showErrorAnimation("Can't reach server");
+                            SpeleoDBModals.showError("Server Offline", errorMessage);
+                        } else if (isTimeoutError(e)) {
+                            showErrorAnimation("Request timed out");
+                            SpeleoDBModals.showError("Connection Timeout", errorMessage);
+                        } else {
+                            showErrorAnimation("Connection Failed: " + getSafeErrorMessage(e));
+                        }
+                    });
+                }
             } finally {
                 setUILoadingState(false);
             }
-
         });
     }
+
 
     /**
      * Disconnects from SpeleoDB and updates the UI state.
@@ -1251,7 +1291,7 @@ public class SpeleoDBController implements Initializable {
         if (speleoDBService.isAuthenticated()) {
             disconnectFromSpeleoDB();
         } else {
-            connectToSpeleoDB();
+            connectToSpeleoDB(false);
         }
     }
 
@@ -2292,13 +2332,13 @@ public class SpeleoDBController implements Initializable {
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
         try {
-            String sdb_instance = instanceTextField.getText().trim();
-            if (sdb_instance.isEmpty()) {
-                sdb_instance = PREFERENCES.DEFAULT_INSTANCE;
+            String SDB_instance = instanceTextField.getText().trim();
+            if (SDB_instance.isEmpty()) {
+                SDB_instance = PREFERENCES.DEFAULT_INSTANCE;
             }
             
             String protocol = isDebugMode() ? "http" : "https";
-            String signupUrl = protocol + "://" + sdb_instance + "/signup/";
+            String signupUrl = protocol + "://" + SDB_instance + "/signup/";
             
             java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
             logger.info("Opening signup page: " + signupUrl);
