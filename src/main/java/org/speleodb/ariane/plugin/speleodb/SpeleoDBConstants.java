@@ -46,6 +46,10 @@ public final class SpeleoDBConstants {
         BY_NAME, 
         BY_DATE 
     }
+
+    public static enum ProjectType { 
+        ARIANE,
+    }
     
     /**
      * Access levels for SpeleoDB projects
@@ -463,33 +467,34 @@ public final class SpeleoDBConstants {
     
     // ==================== JSON FIELD NAMES ====================
     public static final class JSON_FIELDS {
-        public static final String EMAIL = "email";
-        public static final String PASSWORD = "password";
-        public static final String NAME = "name";
-        public static final String DESCRIPTION = "description";
         public static final String COUNTRY = "country";
+        public static final String DATA = "data";
+        public static final String DESCRIPTION = "description";
+        public static final String EMAIL = "email";
+        public static final String ERROR = "error";
+        public static final String EXPIRES_AT = "expiracy_date";
+        public static final String FILE_KEY = "artifact";
+        public static final String HEADER = "header";
+        public static final String ID = "id";
+        public static final String IS_ACTIVE = "is_active";
         public static final String LATITUDE = "latitude";
         public static final String LONGITUDE = "longitude";
         public static final String MESSAGE = "message";
-        public static final String FILE_KEY = "artifact";
-        public static final String DATA = "data";
-        public static final String ERROR = "error";
-        public static final String ID = "id";
-        public static final String TITLE = "title";
-        public static final String HEADER = "header";
-        public static final String IS_ACTIVE = "is_active";
+        public static final String NAME = "name";
+        public static final String PASSWORD = "password";
+        public static final String PROJECT_TYPE = "type";
         public static final String SOFTWARE = "software";
-        public static final String EXPIRES_AT = "expiracy_date";
-        public static final String VERSION = "version";
+        public static final String TITLE = "title";
         public static final String UUID = "uuid";
+        public static final String VERSION = "version";
         // Plugin release fields
-        public static final String PLUGIN_VERSION = "plugin_version";
-        public static final String MIN_SOFTWARE_VERSION = "min_software_version";
-        public static final String MAX_SOFTWARE_VERSION = "max_software_version";
-        public static final String OPERATING_SYSTEM = "operating_system";
-        public static final String DOWNLOAD_URL = "download_url";
-        public static final String SHA256_HASH = "sha256_hash";
         public static final String CHANGELOG = "changelog";
+        public static final String DOWNLOAD_URL = "download_url";
+        public static final String MAX_SOFTWARE_VERSION = "max_software_version";
+        public static final String MIN_SOFTWARE_VERSION = "min_software_version";
+        public static final String OPERATING_SYSTEM = "operating_system";
+        public static final String PLUGIN_VERSION = "plugin_version";
+        public static final String SHA256_HASH = "sha256_hash";
     }
     
     // ==================== UI ICONS & SYMBOLS ====================

@@ -25,6 +25,7 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ProjectType;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.VALIDATION;
 
 import jakarta.json.Json;
@@ -261,6 +262,8 @@ public class SpeleoDBService {
             jsonBuilder.add(JSON_FIELDS.LONGITUDE, longitude);
         }
 
+        jsonBuilder.add(JSON_FIELDS.PROJECT_TYPE, ProjectType.ARIANE.name());
+
         String requestBody = jsonBuilder.build().toString();
 
         HttpRequest request = HttpRequest.newBuilder(uri)
@@ -321,13 +324,26 @@ public class SpeleoDBService {
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception(MESSAGES.PROJECT_LIST_FAILED_STATUS + response.statusCode());
         }
-
-        // TODO: Improve Error management
         
-        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-            JsonObject responseObject = reader.readObject();
-            return responseObject.getJsonArray(JSON_FIELDS.DATA);
-        }
+		try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+			JsonObject responseObject = reader.readObject();
+			JsonArray projects = responseObject.getJsonArray(JSON_FIELDS.DATA);
+
+            // TODO: Improve Error management
+			
+			// Keep only ARIANE projects
+			return projects.stream()
+					.filter(JsonObject.class::isInstance)
+					.map(JsonObject.class::cast)
+					.filter(project -> ProjectType.ARIANE.name().equals(project.getString(JSON_FIELDS.PROJECT_TYPE, "")))
+					.collect(Json::createArrayBuilder,
+							(builder, project) -> builder.add(project),
+							(b1, b2) -> {
+								// Sequential collection only
+								throw new UnsupportedOperationException("Parallel processing not supported");
+							})
+					.build();
+		}
     }
 
     // -------------------------- Project Upload --------------------------- //
