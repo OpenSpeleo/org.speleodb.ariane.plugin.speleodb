@@ -22,7 +22,9 @@ import jakarta.json.JsonReader;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ComboBox;
@@ -52,6 +54,14 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private ComboBox<String> countryComboBox;
     private TextField latitudeField;
     private TextField longitudeField;
+    
+    // For searchable country dropdown
+    private ObservableList<String> allCountryNames;
+    private FilteredList<String> filteredCountryNames;
+    
+    // Save button reference for validation
+    private Node saveButton;
+    private static final String ERROR_STYLE = "-fx-border-color: #e74c3c; -fx-border-width: 2px; -fx-border-radius: 3px;";
 
     // Async loading executor
     private static final ExecutorService countryLoader = Executors.newSingleThreadExecutor(r -> {
@@ -138,6 +148,11 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         ButtonType saveButtonType = new ButtonType(DIALOGS.BUTTON_SAVE_CHANGES, ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelButtonType = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonBar.ButtonData.CANCEL_CLOSE);
         getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
+        
+        // Get reference to save button for validation
+        saveButton = getDialogPane().lookupButton(saveButtonType);
+        saveButton.setDisable(true); // Initially disabled until valid country selected
+        
         // Ensure dialog sizing is capped to avoid accidental fullscreen
         getDialogPane().setMinWidth(DIMENSIONS.DIALOG_MIN_WIDTH);
         getDialogPane().setPrefWidth(DIMENSIONS.DIALOG_PREF_WIDTH);
@@ -220,9 +235,13 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         countryComboBox = new ComboBox<>();
         countryComboBox.setPromptText(DIALOGS.PROMPT_COUNTRY);
         countryComboBox.setMaxWidth(Double.MAX_VALUE);
+        countryComboBox.setEditable(true); // Enable typing to search
 
         // Load countries asynchronously
         loadCountriesIntoComboBox();
+        
+        // Setup searchable filtering
+        setupCountrySearchFilter();
 
         section.getChildren().addAll(labelBox, countryComboBox);
         return section;
@@ -276,12 +295,102 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private void populateCountryComboBox(Map<String, String> countries) {
         if (countries == null) return;
 
-        ObservableList<String> countryNames = FXCollections.observableArrayList(countries.keySet());
-        countryNames.sort(String::compareTo);
-        countryComboBox.setItems(countryNames);
+        allCountryNames = FXCollections.observableArrayList(countries.keySet());
+        allCountryNames.sort(String::compareTo);
+        
+        filteredCountryNames = new FilteredList<>(allCountryNames, p -> true);
+        countryComboBox.setItems(filteredCountryNames);
+        
+        // Re-validate in case user typed something before countries loaded
+        validateCountrySelection();
 
         System.out.println("Loaded " + countries.size() + " countries into combo box" +
                 (cachedCountries != null ? " (from cache)" : " (direct load)"));
+    }
+    
+    private void setupCountrySearchFilter() {
+        // Add listener to filter countries as user types
+        countryComboBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
+            // Don't filter if a selection was just made
+            final String selected = countryComboBox.getSelectionModel().getSelectedItem();
+            if (selected != null && selected.equals(newValue)) {
+                validateCountrySelection();
+                return;
+            }
+            
+            if (filteredCountryNames == null) return;
+            
+            Platform.runLater(() -> {
+                // Filter based on typed text (case-insensitive)
+                if (newValue == null || newValue.isEmpty()) {
+                    filteredCountryNames.setPredicate(country -> true);
+                } else {
+                    final String lowerCaseFilter = newValue.toLowerCase();
+                    filteredCountryNames.setPredicate(country -> 
+                        country.toLowerCase().contains(lowerCaseFilter)
+                    );
+                }
+                
+                // Show dropdown if there are matching results
+                if (!filteredCountryNames.isEmpty() && !countryComboBox.isShowing()) {
+                    countryComboBox.show();
+                }
+                
+                // Validate after filtering
+                validateCountrySelection();
+            });
+        });
+        
+        // When an item is selected from the dropdown, set the editor text properly
+        countryComboBox.setOnAction(event -> {
+            String selected = countryComboBox.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                countryComboBox.getEditor().setText(selected);
+                validateCountrySelection();
+            }
+        });
+        
+        // Also validate when combo box loses focus
+        countryComboBox.getEditor().focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) {
+                validateCountrySelection();
+            }
+        });
+    }
+    
+    /**
+     * Validates that the current country field contains a valid country selection.
+     * Updates the Save button state and visual error indicator.
+     */
+    private void validateCountrySelection() {
+        String editorText = countryComboBox.getEditor().getText();
+        boolean isValid = isValidCountrySelection(editorText);
+        
+        // Update Save button state
+        if (saveButton != null) {
+            saveButton.setDisable(!isValid);
+        }
+        
+        // Update visual feedback on the combo box editor
+        if (editorText != null && !editorText.isEmpty()) {
+            if (isValid) {
+                countryComboBox.getEditor().setStyle(""); // Clear error style
+            } else {
+                countryComboBox.getEditor().setStyle(ERROR_STYLE); // Show error
+            }
+        } else {
+            countryComboBox.getEditor().setStyle(""); // Empty is ok (just not submitted)
+        }
+    }
+    
+    /**
+     * Checks if the given text matches a valid country in the list.
+     */
+    private boolean isValidCountrySelection(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        return cachedCountries != null && cachedCountries.containsKey(text);
     }
 
     private void setupResultConverter() {
@@ -300,10 +409,18 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     }
 
     private String getSelectedCountryCode() {
+        // First try the selection model
         String selected = countryComboBox.getSelectionModel().getSelectedItem();
-        if (selected != null && cachedCountries != null) {
+        if (selected != null && cachedCountries != null && cachedCountries.containsKey(selected)) {
             return cachedCountries.get(selected);
         }
+        
+        // If editable, also check the editor text for an exact match
+        String editorText = countryComboBox.getEditor().getText();
+        if (editorText != null && cachedCountries != null && cachedCountries.containsKey(editorText)) {
+            return cachedCountries.get(editorText);
+        }
+        
         return null;
     }
 
