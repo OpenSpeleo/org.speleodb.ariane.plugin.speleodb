@@ -130,7 +130,7 @@
 													</GridPane.margin>
 												</VBox>
 												<Separator prefWidth="200.0" GridPane.halignment="CENTER" GridPane.rowIndex="9" GridPane.valignment="CENTER" />
-												                     
+
 												<Button fx:id="resetButton" alignment="CENTER" contentDisplay="CENTER" maxWidth="Infinity" mnemonicParsing="false" onAction="#onResetConnectionForm" styleClass="bold" text="🔄 Reset Form" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="10" GridPane.valignment="CENTER">
 													<font>
 														<Font name="System Bold" size="10.0" />

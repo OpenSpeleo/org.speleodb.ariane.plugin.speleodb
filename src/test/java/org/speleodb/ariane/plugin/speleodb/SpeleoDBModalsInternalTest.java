@@ -52,5 +52,3 @@ class SpeleoDBModalsInternalTest {
         assertEquals(55.0, width, 0.001);
     }
 }
-
-

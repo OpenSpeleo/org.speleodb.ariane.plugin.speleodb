@@ -9,5 +9,3 @@ public class NotModifiedException extends Exception {
         super(message);
     }
 }
-
-

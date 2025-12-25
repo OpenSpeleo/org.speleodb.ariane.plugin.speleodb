@@ -27,7 +27,7 @@ class SpeleoDBLockAcquisitionTest {
 
     @Mock
     private SpeleoDBService mockService;
-    
+
     private TestableSpeleoDBController controller;
 
     @BeforeEach
@@ -390,7 +390,7 @@ class SpeleoDBLockAcquisitionTest {
         }
 
         public boolean canAcquireLock(AccessLevel accessLevel) {
-            return accessLevel == AccessLevel.ADMIN || 
+            return accessLevel == AccessLevel.ADMIN ||
                    accessLevel == AccessLevel.READ_AND_WRITE;
         }
 
@@ -408,7 +408,7 @@ class SpeleoDBLockAcquisitionTest {
             if (lockDate == null || lockDate.isEmpty()) {
                 return "unknown";
             }
-            
+
             try {
                 // Simple simulation - in real implementation this would use DateTimeFormatter
                 if (lockDate.contains("2024-01-20T14:30")) {
@@ -470,4 +470,4 @@ class SpeleoDBLockAcquisitionTest {
             // Mock implementation - do nothing in tests
         }
     }
-} 
+}

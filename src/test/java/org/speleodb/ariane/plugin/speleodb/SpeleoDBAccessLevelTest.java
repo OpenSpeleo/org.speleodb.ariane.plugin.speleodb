@@ -15,14 +15,14 @@ class SpeleoDBAccessLevelTest {
     @Nested
     @DisplayName("Enum Values")
     class EnumValuesTests {
-        
+
         @Test
         @DisplayName("Should have three access levels")
         void shouldHaveThreeAccessLevels() {
             SpeleoDBConstants.AccessLevel[] levels = SpeleoDBConstants.AccessLevel.values();
             assertThat(levels).hasSize(3);
         }
-        
+
         @Test
         @DisplayName("Should contain ADMIN access level")
         void shouldContainAdminAccessLevel() {
@@ -30,7 +30,7 @@ class SpeleoDBAccessLevelTest {
                 .isNotNull()
                 .hasToString("ADMIN");
         }
-        
+
         @Test
         @DisplayName("Should contain READ_AND_WRITE access level")
         void shouldContainReadAndWriteAccessLevel() {
@@ -38,7 +38,7 @@ class SpeleoDBAccessLevelTest {
                 .isNotNull()
                 .hasToString("READ_AND_WRITE");
         }
-        
+
         @Test
         @DisplayName("Should contain READ_ONLY access level")
         void shouldContainReadOnlyAccessLevel() {
@@ -47,11 +47,11 @@ class SpeleoDBAccessLevelTest {
                 .hasToString("READ_ONLY");
         }
     }
-    
+
     @Nested
     @DisplayName("Enum Operations")
     class EnumOperationsTests {
-        
+
         @Test
         @DisplayName("Should support valueOf operation")
         void shouldSupportValueOfOperation() {
@@ -62,7 +62,7 @@ class SpeleoDBAccessLevelTest {
             assertThat(SpeleoDBConstants.AccessLevel.valueOf("READ_ONLY"))
                 .isEqualTo(SpeleoDBConstants.AccessLevel.READ_ONLY);
         }
-        
+
         @Test
         @DisplayName("Should support ordinal values")
         void shouldSupportOrdinalValues() {
@@ -70,7 +70,7 @@ class SpeleoDBAccessLevelTest {
             assertThat(SpeleoDBConstants.AccessLevel.READ_AND_WRITE.ordinal()).isEqualTo(1);
             assertThat(SpeleoDBConstants.AccessLevel.READ_ONLY.ordinal()).isEqualTo(2);
         }
-        
+
         @Test
         @DisplayName("Should support name() method")
         void shouldSupportNameMethod() {
@@ -78,7 +78,7 @@ class SpeleoDBAccessLevelTest {
             assertThat(SpeleoDBConstants.AccessLevel.READ_AND_WRITE.name()).isEqualTo("READ_AND_WRITE");
             assertThat(SpeleoDBConstants.AccessLevel.READ_ONLY.name()).isEqualTo("READ_ONLY");
         }
-        
+
         @Test
         @DisplayName("Should support compareTo operation")
         void shouldSupportCompareToOperation() {
@@ -90,23 +90,23 @@ class SpeleoDBAccessLevelTest {
                 .isEqualTo(0);
         }
     }
-    
+
     @Nested
     @DisplayName("Permission Level Semantics")
     class PermissionSemanticsTests {
-        
+
         @Test
         @DisplayName("Should maintain proper permission hierarchy")
         void shouldMaintainProperPermissionHierarchy() {
             // ADMIN should be the highest level (ordinal 0)
             assertThat(SpeleoDBConstants.AccessLevel.ADMIN.ordinal())
                 .isLessThan(SpeleoDBConstants.AccessLevel.READ_AND_WRITE.ordinal());
-            
+
             // READ_AND_WRITE should be higher than READ_ONLY
             assertThat(SpeleoDBConstants.AccessLevel.READ_AND_WRITE.ordinal())
                 .isLessThan(SpeleoDBConstants.AccessLevel.READ_ONLY.ordinal());
         }
-        
+
         @Test
         @DisplayName("Should allow checking if level allows writing")
         void shouldAllowCheckingIfLevelAllowsWriting() {
@@ -115,7 +115,7 @@ class SpeleoDBAccessLevelTest {
             assertThat(allowsWriting(SpeleoDBConstants.AccessLevel.READ_AND_WRITE)).isTrue();
             assertThat(allowsWriting(SpeleoDBConstants.AccessLevel.READ_ONLY)).isFalse();
         }
-        
+
         @Test
         @DisplayName("Should allow checking if level allows admin operations")
         void shouldAllowCheckingIfLevelAllowsAdminOperations() {
@@ -124,13 +124,13 @@ class SpeleoDBAccessLevelTest {
             assertThat(allowsAdmin(SpeleoDBConstants.AccessLevel.READ_ONLY)).isFalse();
         }
     }
-    
+
     // Helper methods to simulate permission checking logic
     private boolean allowsWriting(SpeleoDBConstants.AccessLevel level) {
         return level != SpeleoDBConstants.AccessLevel.READ_ONLY;
     }
-    
+
     private boolean allowsAdmin(SpeleoDBConstants.AccessLevel level) {
         return level == SpeleoDBConstants.AccessLevel.ADMIN;
     }
-} 
+}

@@ -117,10 +117,10 @@ class SpeleoDBPluginUpdateTest {
                 method.setAccessible(true);
 
                 byte[] testData = "test".getBytes();
-                
+
                 // Test with null hash
                 assertFalse((Boolean) method.invoke(controller, testData, null));
-                
+
                 // Test with empty hash
                 assertFalse((Boolean) method.invoke(controller, testData, ""));
 
@@ -168,28 +168,28 @@ class SpeleoDBPluginUpdateTest {
             // Use a test version instead of relying on SpeleoDBConstants.ARIANE_VERSION
             String testCurrentVersion = "25.2.1";
             int compatibleReleases = 0;
-            
+
             for (int i = 0; i < releases.size(); i++) {
                 JsonObject release = releases.getJsonObject(i);
                 if (!"ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, ""))) {
                     continue;
                 }
-                
+
                 String minVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
                 String maxVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
-                
+
                 boolean isCompatible = true;
-                
+
                 // Check minimum version
                 if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
-                
+
                 // Check maximum version
                 if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
-                
+
                 if (isCompatible) {
                     compatibleReleases++;
                 }
@@ -240,21 +240,21 @@ class SpeleoDBPluginUpdateTest {
                 if (!"ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, ""))) {
                     continue;
                 }
-                
+
                 // Check version bounds
                 String minVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
                 String maxVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
-                
+
                 boolean isCompatible = true;
-                
+
                 if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
-                
+
                 if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
-                
+
                 if (isCompatible) {
                     String pluginVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, null);
                     if (pluginVersion != null) {
@@ -273,4 +273,4 @@ class SpeleoDBPluginUpdateTest {
     }
 
 
-} 
+}

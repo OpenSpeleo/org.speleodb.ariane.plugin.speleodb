@@ -11,20 +11,20 @@ import javafx.scene.control.ButtonType;
  * All string literals, numeric values, and configuration parameters are centralized here.
  */
 public final class SpeleoDBConstants {
-    
+
     // ==================== VERSION INFORMATION ====================
     /**
      * SpeleoDB Plugin Version (CalVer format: YYYY.MM.DD)
      */
     public static final String VERSION = null;
     public static final String VERSION_DISPLAY = VERSION != null ? "v" + VERSION : "Development";
-    
+
     /**
      * ARIANE Software Version (loaded from Plugin API containerVersion)
      */
     public static final String ARIANE_VERSION = Plugin.containerVersion.toString();
     public static final String ARIANE_SOFTWARE_NAME = "ARIANE";
-    
+
     // ==================== TEST MODE ====================
     /**
      * Test Mode Flag
@@ -32,33 +32,33 @@ public final class SpeleoDBConstants {
      * This is automatically set by the build system during test execution.
      */
     public static final boolean TEST_MODE = false;
-    
+
     // ==================== PREVENT INSTANTIATION ====================
     private SpeleoDBConstants() {
         throw new AssertionError("Constants class should not be instantiated");
     }
-    
+
     // ==================== ENUMS ====================
     /**
      * Sorting modes for project lists
      */
-    public static enum SortMode { 
-        BY_NAME, 
-        BY_DATE 
+    public static enum SortMode {
+        BY_NAME,
+        BY_DATE
     }
 
-    public static enum ProjectType { 
+    public static enum ProjectType {
         ARIANE,
     }
-    
+
     /**
      * Access levels for SpeleoDB projects
      */
     public static enum AccessLevel {
-        ADMIN, 
-        READ_AND_WRITE, 
+        ADMIN,
+        READ_AND_WRITE,
         READ_ONLY;
-    
+
         public static AccessLevel fromString(String value) {
             if (value == null) {
                 return READ_ONLY;
@@ -80,7 +80,7 @@ public final class SpeleoDBConstants {
         // public static final String WEBVIEW = "http://localhost:8000/webview/ariane/";
         public static final String WEBVIEW = "https://" + PREFERENCES.DEFAULT_INSTANCE + "/webview/ariane/";
     }
-    
+
     // ==================== API ENDPOINTS ====================
     public static final class API {
         public static final String BASE_PATH = "/api/v1";
@@ -93,7 +93,7 @@ public final class SpeleoDBConstants {
         public static final String RELEASE_LOCK_PATH = "/release/";
         public static final String DOWNLOAD_ARIANE_TML_PATH = "/download/ariane_tml/";
     }
-    
+
     // ==================== HTTP STATUS CODES ====================
     public static final class HTTP_STATUS {
         public static final int OK = 200;
@@ -101,7 +101,7 @@ public final class SpeleoDBConstants {
         public static final int NOT_MODIFIED = 304;
         public static final int UNPROCESSABLE_ENTITY = 422;
     }
-    
+
     // ==================== NETWORK & CONNECTION ====================
     public static final class NETWORK {
         public static final String HTTP_PROTOCOL = "http://";
@@ -113,7 +113,7 @@ public final class SpeleoDBConstants {
         public static final int DEFAULT_TIMEOUT_MILLIS = 10000;
         public static final int EXECUTOR_SHUTDOWN_TIMEOUT_MILLIS = 500;
     }
-    
+
     // ==================== HTTP HEADERS ====================
     public static final class HEADERS {
         public static final String CONTENT_TYPE = "Content-Type";
@@ -125,7 +125,7 @@ public final class SpeleoDBConstants {
         public static final String TEXT_PLAIN = "text/plain";
         public static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
     }
-    
+
     // ==================== MULTIPART CONSTANTS ====================
     public static final class MULTIPART {
         public static final String CRLF = "\r\n";
@@ -142,7 +142,7 @@ public final class SpeleoDBConstants {
         public static final String FILENAME_PARAM = "\"; filename=\"";
         public static final String DEFAULT_MIMETYPE = "text/plain";
     }
-    
+
     // ==================== USER PREFERENCES ====================
     public static final class PREFERENCES {
         public static final String PREF_EMAIL = "SDB_EMAIL";
@@ -153,13 +153,13 @@ public final class SpeleoDBConstants {
         public static final String PREF_SUPPRESS_SUCCESS_GIF = "SDB_SUPPRESS_SUCCESS_GIF";
         public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
         public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
-        
+
         // Test preferences node path (without leading slash for Preferences.userRoot().node())
         public static final String TEST_PREFERENCES_NODE = "org/speleodb/ariane/plugin/speleodb/test";
         // Test preferences absolute path (with leading slash for path comparisons)
         public static final String TEST_PREFERENCES_PATH = "/" + TEST_PREFERENCES_NODE;
     }
-    
+
     // ==================== FILE PATHS & DIRECTORIES ====================
     public static final class PATHS {
         public static final String ARIANE_ROOT_DIR = System.getProperty("user.home") + System.getProperty("file.separator") + ".ariane";
@@ -176,7 +176,7 @@ public final class SpeleoDBConstants {
         public static final String SUCCESS_GIFS_DIR = "/images/success_gifs/";
         public static final String SUCCESS_GIFS_PATTERN = "*.gif";
     }
-    
+
     // ==================== LOGGING CONFIGURATION ====================
     public static final class LOGGING {
         public static final String LOG_DIR = PATHS.ARIANE_SDB_DIR + System.getProperty("file.separator") + "logs";
@@ -199,7 +199,7 @@ public final class SpeleoDBConstants {
         public static final String LOG_ERROR_CREATING_DIR = "Error creating log directory: ";
         public static final String LOG_ERROR_ROTATING = "Error rotating log file: ";
     }
-    
+
     // ==================== VALIDATION PATTERNS ====================
     public static final class VALIDATION {
         public static final String OAUTH_TOKEN_PATTERN = "^[a-f0-9]{40}$";
@@ -207,7 +207,7 @@ public final class SpeleoDBConstants {
         public static final String TOKEN_JSON_START = "\"token\":\"";
         public static final int TOKEN_JSON_START_LENGTH = 9;
     }
-    
+
     // ==================== UI MESSAGES ====================
     public static final class MESSAGES {
         // Error Messages
@@ -217,14 +217,14 @@ public final class SpeleoDBConstants {
         public static final String ERROR_LOADING_COUNTRIES = "Error loading countries: ";
         public static final String ERROR_PRE_LOADING_COUNTRIES = "Error pre-loading countries data: ";
         public static final String COUNTRIES_NOT_FOUND = "countries.json not found in resources at: ";
-        
+
         // Success Messages
         public static final String SUCCESS_DEFAULT = "Success";
         public static final String ERROR_DEFAULT = "Error";
         public static final String COUNTRIES_CACHED_SUCCESS = "Successfully cached %d countries from JSON";
         public static final String OAUTH_TOKEN_SAVED = "OAuth token saved to preferences (format validated)";
         public static final String PASSWORD_SAVED = "Password saved to preferences";
-        
+
         // Update Messages
         public static final String UPDATE_CHECK_STARTING = "Checking for SpeleoDB plugin updates ...";
         public static final String UPDATE_AVAILABLE = "SpeleoDB update available: v%s";
@@ -238,12 +238,12 @@ public final class SpeleoDBConstants {
         public static final String UPDATE_DIALOG_TITLE = "SpeleoDB Updated";
         public static final String UPDATE_DIALOG_HEADER = "Plugin Update Successful";
         public static final String UPDATE_RESTART_WARNING = "Please restart Ariane now for the new plugin to take effect";
-        
+
         // Validation Messages
         public static final String OAUTH_TOKEN_INVALID_NOT_SAVED = "Warning: Invalid OAuth token format not saved to preferences";
-        
+
         // Connection Error Messages
-        
+
         // Auth Error Messages
         public static final String AUTH_FAILED_STATUS = "Authentication failed with status code: ";
         public static final String PROJECT_CREATE_FAILED_STATUS = "Failed to create project with status code: ";
@@ -255,7 +255,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "Project exists but is empty - create empty TML file.";
         public static final String DOWNLOAD_FAILED = "Failed to download project file";
-        
+
         // Multipart body building errors
         public static final String ERROR_BUILDING_MULTIPART_BODY = "Error building HTTP request multipart body";
         public static final String ERROR_WRITING_MULTIPART_PART = "Error writing multipart part: ";
@@ -269,7 +269,7 @@ public final class SpeleoDBConstants {
                 If you did modify the project, press the save icon in Ariane
                 to save your local changes, then try uploading again.""";
     }
-    
+
     // ==================== UI DIALOG CONSTANTS ====================
     public static final class DIALOGS {
         // Button Text
@@ -281,7 +281,7 @@ public final class SpeleoDBConstants {
         public static final String BUTTON_CONNECT = "CONNECT";
         public static final String BUTTON_CLOSE = "Close";
         public static final String BUTTON_GOT_IT = "Got it!";
-        
+
         // Dialog Titles
         public static final String TITLE_CREATE_NEW_PROJECT = "Create New Project";
         public static final String TITLE_UPLOAD_MESSAGE_REQUIRED = "Upload Message Required";
@@ -291,7 +291,7 @@ public final class SpeleoDBConstants {
         // Announcement DefaultValues
         public static final String DEFAULT_ANNOUNCEMENT_TITLE = "SpeleoDB";
         public static final String DEFAULT_ANNOUNCEMENT_HEADER = "";
-        
+
         // Input Labels and Prompts
         public static final String LABEL_PROJECT_NAME = "Project Name:";
         public static final String LABEL_DESCRIPTION = "Description:";
@@ -299,7 +299,7 @@ public final class SpeleoDBConstants {
         public static final String LABEL_LATITUDE = "Latitude:";
         public static final String LABEL_LONGITUDE = "Longitude:";
         public static final String ASTERISK_REQUIRED = " *";
-        
+
         // Prompt Text
         public static final String PROMPT_PROJECT_NAME = "Enter project name";
         public static final String PROMPT_DESCRIPTION = "Enter project description";
@@ -309,12 +309,12 @@ public final class SpeleoDBConstants {
         public static final String PROMPT_UPLOAD_MESSAGE = "What did you modify and with whom ?";
         public static final String PROMPT_LOAD_FROM_DISK_MESSAGE = "Describe your changes - who was involved ?";
     }
-    
+
     // ==================== UI STYLING ====================
     public static final class STYLES {
         // CSS File Path
         public static final String MAIN_CSS_PATH = "/css/fxmlmain.css";
-        
+
         // Material Design Colors
         public static final class MATERIAL_COLORS {
             public static final String PRIMARY = "#2196F3";       // Blue 500
@@ -328,7 +328,7 @@ public final class SpeleoDBConstants {
             public static final String INFO = "#2196F3";          // Blue 500
             public static final String INFO_DARK = "#1976D2";     // Blue 700
         }
-        
+
         // Colors
         public static final String COLOR_SUCCESS_BG = "#9CCC65";  // Green 400
         public static final String COLOR_ERROR_BG = "#EF5350";  // Red 400
@@ -336,7 +336,7 @@ public final class SpeleoDBConstants {
         public static final String COLOR_MATERIAL_SURFACE = "#FFFFFF";
         public static final String COLOR_MATERIAL_ON_SURFACE = "#212121";
         public static final String COLOR_MATERIAL_SHADOW = "rgba(0,0,0,0.2)";
-        
+
         // Debug Animation Style (highly visible for testing)
         public static final String DEBUG_ANIMATION_STYLE = "-fx-background-color: #FF6600; -fx-text-fill: white; " +
                 "-fx-padding: 20 30; -fx-background-radius: 15; -fx-font-size: 20px; " +
@@ -344,36 +344,36 @@ public final class SpeleoDBConstants {
                 "-fx-border-color: #FF4400; -fx-border-width: 3; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(255,102,0,0.8), 20, 0, 0, 5); " +
                 "-fx-opacity: 1.0; -fx-mouse-transparent: true;";
-        
+
         // Material Design Information Dialog Style
-        public static final String MATERIAL_INFO_DIALOG_STYLE = 
+        public static final String MATERIAL_INFO_DIALOG_STYLE =
                 "-fx-background-color: " + COLOR_MATERIAL_SURFACE + "; " +
                 "-fx-background-radius: 8; " +
                 "-fx-effect: dropshadow(three-pass-box, " + COLOR_MATERIAL_SHADOW + ", 16, 0, 0, 8); " +
                 "-fx-padding: 0;";
-        
-        public static final String MATERIAL_INFO_CONTENT_STYLE = 
+
+        public static final String MATERIAL_INFO_CONTENT_STYLE =
                 "-fx-background-color: " + COLOR_MATERIAL_SURFACE + "; " +
                 "-fx-background-radius: 8; " +
                 "-fx-padding: 24; " +
                 "-fx-spacing: 16; " +
                 "-fx-pref-width: -1; " +
                 "-fx-pref-height: -1;";
-        
-        public static final String MATERIAL_INFO_TITLE_STYLE = 
+
+        public static final String MATERIAL_INFO_TITLE_STYLE =
                 "-fx-font-size: 20px; " +
                 "-fx-font-weight: bold; " +
                 "-fx-text-fill: " + COLOR_MATERIAL_ON_SURFACE + "; " +
                 "-fx-padding: 0 0 8 0;";
-        
-        public static final String MATERIAL_INFO_TEXT_STYLE = 
+
+        public static final String MATERIAL_INFO_TEXT_STYLE =
                 "-fx-font-size: 14px; " +
                 "-fx-text-fill: " + COLOR_MATERIAL_ON_SURFACE + "; " +
                 "-fx-line-spacing: 6; " +
                 "-fx-wrap-text: true; " +
                 "-fx-padding: 8 0 8 0;";
-        
-        public static final String MATERIAL_WARNING_TEXT_STYLE = 
+
+        public static final String MATERIAL_WARNING_TEXT_STYLE =
                 "-fx-font-size: 14px; " +
                 "-fx-font-weight: bold; " +
                 "-fx-text-fill: #F57C00; " +
@@ -386,8 +386,8 @@ public final class SpeleoDBConstants {
                 "-fx-line-spacing: 4; " +
                 "-fx-wrap-text: true; " +
                 "-fx-margin: 8 0 8 0;";
-        
-        public static final String MATERIAL_BUTTON_STYLE = 
+
+        public static final String MATERIAL_BUTTON_STYLE =
                 "-fx-background-color: " + COLOR_MATERIAL_PRIMARY + "; " +
                 "-fx-text-fill: white; " +
                 "-fx-font-size: 14px; " +
@@ -398,8 +398,8 @@ public final class SpeleoDBConstants {
                 "-fx-min-width: 100px; " +
                 "-fx-pref-width: 100px; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(25,118,210,0.3), 4, 0, 0, 2);";
-        
-        public static final String MATERIAL_BUTTON_HOVER_STYLE = 
+
+        public static final String MATERIAL_BUTTON_HOVER_STYLE =
                 "-fx-background-color: #1565C0; " +
                 "-fx-text-fill: white; " +
                 "-fx-font-size: 14px; " +
@@ -410,11 +410,11 @@ public final class SpeleoDBConstants {
                 "-fx-min-width: 100px; " +
                 "-fx-pref-width: 100px; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(25,118,210,0.4), 6, 0, 0, 3);";
-        
+
         // Required Field Style
         public static final String REQUIRED_FIELD_STYLE = "-fx-text-fill: #dc2626;";
     }
-    
+
     // ==================== UI DIMENSIONS ====================
     public static final class DIMENSIONS {
         // Dialog Dimensions
@@ -424,29 +424,29 @@ public final class SpeleoDBConstants {
         public static final int INFO_DIALOG_MIN_WIDTH = 520;
         public static final int INFO_DIALOG_PREF_WIDTH = 520;
         public static final int INFO_DIALOG_MIN_HEIGHT = 380;
-        
+
         // Field Dimensions
         public static final int FIELD_PREF_WIDTH = 350;
         public static final int DESCRIPTION_FIELD_ROWS = 4;
-        
+
         // Layout Spacing
         public static final int DIALOG_CONTENT_SPACING = 15;
         public static final int SECTION_SPACING = 5;
         public static final int COORDINATES_SECTION_SPACING = 10;
-        
+
         // Padding
         public static final int DIALOG_PADDING = 20;
-        
+
         // Animation Label Dimensions
         public static final int SUCCESS_LABEL_MIN_WIDTH = 150;
         public static final int SUCCESS_LABEL_MAX_WIDTH = 800;
         public static final int ERROR_LABEL_MIN_WIDTH = 200;
         public static final int ERROR_LABEL_MAX_WIDTH = 900;
-        
+
         // Font Sizes
         public static final int LABEL_FONT_SIZE = 12;
     }
-    
+
     // ==================== ANIMATION TIMING ====================
     public static final class TIMINGS {
         public static final int FADE_IN_DURATION_MILLIS = 400;
@@ -456,7 +456,7 @@ public final class SpeleoDBConstants {
         public static final int REDRAW_DELAY_MILLIS_2 = 1500;
         public static final int CENTER_VIEW_DELAY_MILLIS = 1000;
     }
-    
+
     // ==================== DEBUG & SYSTEM PROPERTIES ====================
     public static final class DEBUG {
         public static final String COUNTRIES_LOADER_THREAD_NAME = "CountriesLoader";
@@ -464,7 +464,7 @@ public final class SpeleoDBConstants {
         // Toggle for verbose JavaFX event logging across scenes (disabled by default)
         public static final boolean ENABLE_FX_EVENT_LOGGER = false;
     }
-    
+
     // ==================== JSON FIELD NAMES ====================
     public static final class JSON_FIELDS {
         public static final String COUNTRY = "country";
@@ -496,18 +496,18 @@ public final class SpeleoDBConstants {
         public static final String PLUGIN_VERSION = "plugin_version";
         public static final String SHA256_HASH = "sha256_hash";
     }
-    
+
     // ==================== UI ICONS & SYMBOLS ====================
     public static final class ICONS {
         public static final String SUCCESS_CHECKMARK = "✅ ";
         public static final String ERROR_X = "❌ ";
     }
-    
+
     // ==================== DEFAULT BUTTON TYPES ====================
     public static final class BUTTON_TYPES {
         public static final ButtonType FAST_GOT_IT = new ButtonType(DIALOGS.BUTTON_GOT_IT, ButtonType.OK.getButtonData());
     }
-    
+
     // ==================== MISC CONSTANTS ====================
     public static final class MISC {
         public static final String PROJECT_DATA_FORMAT = "ProjectData{name='%s', description='%s', countryCode='%s', latitude='%s', longitude='%s'}";

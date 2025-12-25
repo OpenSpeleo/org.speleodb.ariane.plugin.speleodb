@@ -63,5 +63,3 @@ class SuccessGifSuppressionTest {
         assertTrue(prefs.getBoolean(SpeleoDBConstants.PREFERENCES.PREF_SUPPRESS_SUCCESS_GIF, false));
     }
 }
-
-

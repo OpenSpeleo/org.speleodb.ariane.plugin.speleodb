@@ -53,5 +53,3 @@ class NewProjectDialogFXPropertiesTest {
         assertEquals(600, (int) pane.getMaxHeight());
     }
 }
-
-

@@ -92,22 +92,22 @@ import javafx.util.Duration;
 public class SpeleoDBController implements Initializable {
 	// Centralized logger instance (MUST be initialized before 'instance')
 	private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
-    
+
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
     // Track scenes that already have the global event logger attached
     private final java.util.Set<javafx.scene.Scene> eventLoggedScenes =
             java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
-    
+
     /**
      * Gets the singleton instance of SpeleoDBController.
-     * 
+     *
      * @return the singleton instance
      */
     public static SpeleoDBController getInstance() {
         return instance;
     }
-    
+
     /**
      * Resets the singleton instance state.
      * Since we use eager initialization, we can't null the instance,
@@ -121,7 +121,7 @@ public class SpeleoDBController implements Initializable {
             instance.speleoDBService.logout();
         }
     }
-    
+
     public SpeleoDBPlugin parentPlugin;
     public Button signupButton;
     public TextArea serverTextArea;
@@ -179,7 +179,7 @@ public class SpeleoDBController implements Initializable {
     private SpeleoDBService speleoDBService;
 
     // Note: Constants moved to SpeleoDBConstants class
-    
+
     // Thread-safe shutdown coordination
     private volatile boolean shutdownInProgress = false;
     private final Object shutdownLock = new Object();
@@ -188,16 +188,16 @@ public class SpeleoDBController implements Initializable {
 
     // Internal Controller Data
     private JsonObject currentProject = null;
-    
+
     // Sorting state
     private SortMode currentSortMode = SortMode.BY_NAME; // Default to sort by name
-    
+
     // Store the original project data for sorting without API calls
     private JsonArray cachedProjectList = null;
-    
+
     // Track running animations to stop them during cleanup
     private final List<Timeline> runningAnimations = new ArrayList<>();
-    
+
     /**
      * Helper method to create and track Timeline animations for cleanup
      */
@@ -213,7 +213,7 @@ public class SpeleoDBController implements Initializable {
         });
         return timeline;
     }
-    
+
     /**
      * Schedules a delayed REDRAW command on the JavaFX Application Thread.
      * Adds a configurable delay before notifying the host to redraw.
@@ -226,7 +226,7 @@ public class SpeleoDBController implements Initializable {
             Platform.runLater(() -> scheduleRedrawAfterMillis(delayMillis, recursive));
             return;
         }
-        
+
         Timeline delay = createTrackedTimeline(
             new KeyFrame(Duration.millis(delayMillis), e -> {
                 try {
@@ -307,12 +307,12 @@ public class SpeleoDBController implements Initializable {
         );
         delay.play();
 
-        
+
     }
 
     /**
      * Shows a confirmation modal using the centralized modal system.
-     * 
+     *
      * @param title the dialog title
      * @param message the main message to display
      * @param positiveText text for the positive button (e.g., "Yes")
@@ -331,12 +331,12 @@ public class SpeleoDBController implements Initializable {
 		setupShutdownHook();
 		setupUncaughtExceptionHandler();
     }
-    
+
     /**
      * Protected constructor for test subclasses only.
      * This allows test classes to extend SpeleoDBController for mocking
      * while maintaining the singleton pattern in production code.
-     * 
+     *
      * @param testOnly marker parameter to distinguish from private constructor
      */
     protected SpeleoDBController(boolean testOnly) {
@@ -361,7 +361,7 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Shows a success animation overlay with customizable message.
-     * 
+     *
      * @param message the success message to display (optional, defaults to "Success")
      */
     private void showSuccessAnimation(String message) {
@@ -371,7 +371,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Shows an error animation overlay with customizable message.
      * Enhanced with a more prominent red ERROR styling.
-     * 
+     *
      * @param message the error message to display (optional, defaults to "ERROR")
      */
     private void showErrorAnimation(String message) {
@@ -425,43 +425,43 @@ public class SpeleoDBController implements Initializable {
     }
 
     // ===================== NETWORK ERROR DETECTION ======================= //
-    
+
     /**
      * Safely extracts a meaningful error message from an exception.
      * Handles cases where getMessage() returns null by falling back to exception class name.
-     * 
+     *
      * @param exception the exception to extract message from
      * @return a non-null error message
      */
     private String getSafeErrorMessage(Exception exception) {
         if (exception == null) return "Unknown error";
-        
+
         String message = exception.getMessage();
         if (message != null && !message.trim().isEmpty()) {
             return message;
         }
-        
+
         // Fall back to exception class name if message is null or empty
         return exception.getClass().getSimpleName();
     }
-    
+
     /**
      * Analyzes an exception to determine if it's a server offline error.
      * Detects various network connectivity issues that indicate the server is unreachable.
-     * 
+     *
      * @param exception the exception to analyze
      * @return true if the error indicates the server is offline/unreachable
      */
     private boolean isServerOfflineError(Exception exception) {
         if (exception == null) return false;
-        
+
         String message = exception.getMessage();
         if (message == null) message = "";
         message = message.toLowerCase();
-        
+
         // Check exception type
         String exceptionType = exception.getClass().getSimpleName().toLowerCase();
-        
+
         // Connection refused, host unreachable, network errors
         return message.contains("connection refused") ||
                message.contains("no route to host") ||
@@ -474,24 +474,24 @@ public class SpeleoDBController implements Initializable {
                exceptionType.contains("unknownhostexception") ||
                exceptionType.contains("noroutetohostexception");
     }
-    
+
     /**
      * Analyzes an exception to determine if it's a timeout error.
      * Detects various timeout scenarios during network operations.
-     * 
+     *
      * @param exception the exception to analyze
      * @return true if the error indicates a timeout occurred
      */
     private boolean isTimeoutError(Exception exception) {
         if (exception == null) return false;
-        
+
         String message = exception.getMessage();
         if (message == null) message = "";
         message = message.toLowerCase();
-        
+
         // Check exception type
         String exceptionType = exception.getClass().getSimpleName().toLowerCase();
-        
+
         // Various timeout conditions
         return message.contains("timed out") ||
                message.contains("timeout") ||
@@ -503,11 +503,11 @@ public class SpeleoDBController implements Initializable {
                exceptionType.contains("httptimeoutexception") ||
                exceptionType.contains("interruptedexception");
     }
-    
+
     /**
      * Creates an appropriate error message based on the type of network error.
      * Provides user-friendly messages for different error scenarios.
-     * 
+     *
      * @param exception the exception that occurred
      * @param operation the operation that was being performed (e.g., "Connection", "Upload")
      * @return a user-friendly error message
@@ -534,11 +534,11 @@ public class SpeleoDBController implements Initializable {
     }
 
     // ====================== INPUT VALIDATION METHODS ====================== //
-    
+
     /**
      * Validates OAuth token format using regex pattern.
      * OAuth tokens should be exactly 40 hexadecimal characters (0-9, a-f).
-     * 
+     *
      * @param token the OAuth token to validate
      * @return true if token matches the expected format, false otherwise
      */
@@ -546,20 +546,20 @@ public class SpeleoDBController implements Initializable {
         if (token == null) {
             return false;
         }
-        
+
         // Remove any whitespace and convert to lowercase for validation
         String cleanToken = token.trim().toLowerCase();
-        
+
         // Regex pattern: exactly 40 hexadecimal characters
         String oauthPattern = "^[a-f0-9]{40}$";
-        
+
         boolean isValid = cleanToken.matches(oauthPattern);
-        
+
         if (!isValid) {
-            logger.info("OAuth token format validation: FAILED - Expected 40 hex characters, got: " + 
+            logger.info("OAuth token format validation: FAILED - Expected 40 hex characters, got: " +
                       cleanToken.length() + " characters");
         }
-        
+
         return isValid;
     }
 
@@ -599,14 +599,14 @@ public class SpeleoDBController implements Initializable {
         // Save email and instance
         prefs.put(PREFERENCES.PREF_EMAIL, emailTextField.getText());
         prefs.put(PREFERENCES.PREF_INSTANCE, instanceTextField.getText());
-            
+
         String oauthToken = oauthtokenPasswordField.getText();
         String password = passwordPasswordField.getText();
 
         if (oauthToken != null && !oauthToken.trim().isEmpty()) {
             // If OAuth token is provided, save it and remove password
             prefs.put(PREFERENCES.PREF_PASSWORD, password);
-            
+
             if (validateOAuthToken(oauthToken)) {
                 prefs.put(PREFERENCES.PREF_OAUTH_TOKEN, oauthToken);
                 logger.debug(MESSAGES.OAUTH_TOKEN_SAVED);
@@ -654,7 +654,7 @@ public class SpeleoDBController implements Initializable {
         } catch (IOException e) {
             // If loading properties fails, continue with other checks
         }
-        
+
         // Check system property
         if (Boolean.parseBoolean(System.getProperty("speleodb.debug.mode", "false"))) {
             return true;
@@ -673,17 +673,17 @@ public class SpeleoDBController implements Initializable {
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
         connectionButton.setText(DIALOGS.BUTTON_CONNECT);
-        
+
         // Set prompt text for upload message field
         uploadMessageTextField.setPromptText(DIALOGS.PROMPT_UPLOAD_MESSAGE);
-        
+
         // Initial state: CONNECT and SIGNUP buttons visible 50/50
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
-        
+
         // Use localhost URL when in debug mode, production URL otherwise
         aboutWebView.getEngine().load(URLS.WEBVIEW);
-        
+
         // Hide webview scrollbars whenever they appear using ListChangeListener
         aboutWebView.getChildrenUnmodifiable().addListener((javafx.collections.ListChangeListener.Change<? extends javafx.scene.Node> change) -> {
             java.util.Set<javafx.scene.Node> scrollBars = aboutWebView.lookupAll(".scroll-bar");
@@ -701,7 +701,7 @@ public class SpeleoDBController implements Initializable {
         // Configure TextArea without scrollbars using CSS
         pluginUILogArea.setWrapText(true);
         pluginUILogArea.getStyleClass().add("no-scrollbar-textarea");
-        
+
         pluginUILogArea.textProperty().addListener((ObservableValue<?> observable, Object oldValue, Object newValue) -> {
             // This will scroll to the bottom - use Double.MIN_VALUE to scroll to the top
             pluginUILogArea.setScrollTop(Double.MAX_VALUE);
@@ -715,7 +715,7 @@ public class SpeleoDBController implements Initializable {
         // Create Ctrl+S (Windows/Linux) / Cmd+S (Mac) key combination
         // SHORTCUT_DOWN automatically maps to Ctrl on Windows/Linux and Cmd on Mac
         KeyCombination saveKeyCombination = new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN);
-        
+
         // Add key event filter to the main anchor pane
         speleoDBAnchorPane.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (saveKeyCombination.match(event)) {
@@ -745,7 +745,7 @@ public class SpeleoDBController implements Initializable {
      * Sets up robust shutdown handling that works 100% of the time on all platforms.
      * Uses a JVM shutdown hook to catch ALL termination scenarios including:
      * - Normal window closes, Task Manager kills, System shutdown, Force termination
-     * 
+     *
      * This ensures project locks are always released regardless of how the application terminates.
      */
     private void setupShutdownHook() {
@@ -759,7 +759,7 @@ public class SpeleoDBController implements Initializable {
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
         logger.info("JVM shutdown hook installed - will catch all termination scenarios");
     }
-	
+
 	/**
 	 * Installs a default uncaught exception handler to perform cleanup on crashes.
 	 * Idempotent: will only install once.
@@ -787,7 +787,7 @@ public class SpeleoDBController implements Initializable {
 			logger.debug("Failed to install default uncaught exception handler");
 		}
 	}
-    
+
     /**
      * Performs the actual shutdown cleanup in a thread-safe manner.
      * This method is called by the JVM shutdown hook and ensures cleanup only happens once.
@@ -800,15 +800,15 @@ public class SpeleoDBController implements Initializable {
             }
             shutdownInProgress = true;
         }
-        
+
         logger.info("JVM shutdown hook executing - starting cleanup...");
-        
+
         try {
             // Release project lock if active
             if (hasActiveProjectLock()) {
                 String projectName = getCurrentProjectName();
                 logger.info("Releasing active project lock: " + projectName);
-                
+
                 try {
                     releaseCurrentProjectLock();
                     logger.info("Project lock released successfully during shutdown");
@@ -819,9 +819,9 @@ public class SpeleoDBController implements Initializable {
             } else {
                 logger.debug("No active project lock to release");
             }
-            
+
             logger.info("Shutdown cleanup completed successfully");
-            
+
         } catch (Exception e) {
             logger.error("Unexpected error during shutdown cleanup: " + e.getMessage(), e);
             // Continue with shutdown even if cleanup fails
@@ -837,10 +837,10 @@ public class SpeleoDBController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         speleoDBService = new SpeleoDBService(this);
-        
+
         // Connect this controller to the centralized logger for UI console integration
         logger.setUIController(this);
-        
+
         // Initialize logging
         logger.debug("SpeleoDBController initializing");
         logger.info("Ariane version: " + SpeleoDBConstants.ARIANE_VERSION);
@@ -848,22 +848,22 @@ public class SpeleoDBController implements Initializable {
         // Create SDB projects directory if it doesn't exist
         createSDBProjectsDirectory();
 
-        Platform.runLater(() -> { 
+        Platform.runLater(() -> {
             setupUI();
             setupKeyboardShortcuts();
             setupVersionDisplay();
             setupShutdownHook();
             loadPreferences();
-            
+
             // Initialize sorting button styles (default to sort by name)
             updateSortButtonStyles();
-            
+
             // Pre-warm modal system for instant display
             SpeleoDBModals.preWarmModalSystem();
-            
+
             // Schedule information popup
             scheduleInformationPopup();
-            
+
             // Attempt automatic login if credentials are present (silent, no popups on failure)
             attemptAutomaticLogin();
 
@@ -888,7 +888,7 @@ public class SpeleoDBController implements Initializable {
                     }
                 });
             }
-            
+
             logger.debug("SpeleoDBController initialization complete");
         });
     }
@@ -919,7 +919,7 @@ public class SpeleoDBController implements Initializable {
             logger.error("Automatic login setup failed: " + getSafeErrorMessage(e));
         }
     }
-    
+
     /**
      * Creates the log directory if it doesn't exist
      */
@@ -1144,47 +1144,47 @@ public class SpeleoDBController implements Initializable {
      */
     private void disconnectFromSpeleoDB() {
         String SDB_instance = speleoDBService != null ? speleoDBService.getSDBInstance() : "SpeleoDB";
-        
+
         if (speleoDBService != null) {
             speleoDBService.logout();
         }
-        
+
         currentProject = null;
-        
+
         // Clear cached project list and UI
         cachedProjectList = null;
         projectListView.getItems().clear();
-        
+
         // Update UI state for disconnected mode
         connectionButton.setText("CONNECT");
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
-        
+
         actionsTitlePane.setVisible(false);
         projectsTitlePane.setVisible(false);
         createNewProjectButton.setDisable(true);
         refreshProjectsButton.setDisable(true);
-        
+
         // Re-enable connection form fields
         setConnectionFormEnabled(true);
-        
+
         // Clear only password and OAuth token from preferences
         Preferences prefs = getPreferencesNode();
         prefs.remove(PREFERENCES.PREF_PASSWORD);
         prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
-        
+
         // Clear only password and OAuth token from UI (leave email and instance)
         passwordPasswordField.clear();
         oauthtokenPasswordField.clear();
-        
+
         logger.info("Disconnected from " + SDB_instance + " and cleared password/OAuth token");
     }
-    
+
     /**
      * Enables or disables the connection form fields.
      * When connected, fields are disabled to prevent changes during active session.
      * When disconnected, fields are enabled to allow user input.
-     * 
+     *
      * @param enabled true to enable the fields, false to disable them
      */
     private void setConnectionFormEnabled(boolean enabled) {
@@ -1198,7 +1198,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Sets the loading state for the entire UI, disabling/enabling all interactive elements.
      * This provides comprehensive visual feedback during loading operations.
-     * 
+     *
      * @param loading true to disable UI elements (loading state), false to enable them
      */
     private void setUILoadingState(boolean loading) {
@@ -1211,7 +1211,7 @@ public class SpeleoDBController implements Initializable {
             sortByDateButton.setDisable(loading);
 
             serverProgressIndicator.setVisible(loading);
-            
+
             // Project action controls (only disable if they're currently enabled)
             if (loading) {
                 uploadButton.setDisable(true);
@@ -1225,7 +1225,7 @@ public class SpeleoDBController implements Initializable {
             if (speleoDBService == null || !speleoDBService.isAuthenticated()) {
                 setConnectionFormEnabled(!loading);
             }
-            
+
             // Titled panes for visual feedback
             projectsTitlePane.setDisable(loading);
             actionsTitlePane.setDisable(loading);
@@ -1242,7 +1242,7 @@ public class SpeleoDBController implements Initializable {
                 PATHS.SDB_PROJECT_DIR + java.io.File.separator + projectId + SpeleoDBConstants.PATHS.TML_FILE_EXTENSION);
         java.nio.file.Files.createDirectories(target.getParent());
         java.nio.file.Files.copy(selectedFile.toPath(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-   
+
         setUILoadingState(true);
 
         try {
@@ -1278,7 +1278,7 @@ public class SpeleoDBController implements Initializable {
             });
         }
     }
-    
+
     /**
      * Resets the connection form to default values.
      * Clears email, password, and OAuth token fields, and resets instance to default.
@@ -1291,7 +1291,7 @@ public class SpeleoDBController implements Initializable {
             showErrorAnimation("Cannot reset form while connected");
             return;
         }
-        
+
         // Show confirmation dialog
         boolean confirmed = SpeleoDBModals.showConfirmation(
             "Reset Connection Form",
@@ -1299,21 +1299,21 @@ public class SpeleoDBController implements Initializable {
             "Reset",
             "Cancel"
         );
-        
+
         if (confirmed) {
             // Reset all form fields
             emailTextField.setText("");
             passwordPasswordField.setText("");
             oauthtokenPasswordField.setText("");
             instanceTextField.setText(PREFERENCES.DEFAULT_INSTANCE);
-            
+
             // Clear all saved preferences when resetting form
             Preferences prefs = getPreferencesNode();
             prefs.remove(PREFERENCES.PREF_INSTANCE);
             prefs.remove(PREFERENCES.PREF_EMAIL);
             prefs.remove(PREFERENCES.PREF_PASSWORD);
             prefs.remove(PREFERENCES.PREF_OAUTH_TOKEN);
-            
+
             logger.info("Connection form reset to defaults and cleared all preferences");
             showSuccessAnimation("Form reset successfully");
         }
@@ -1338,7 +1338,7 @@ public class SpeleoDBController implements Initializable {
     // -------------------------- Project Creation ------------------------- //
     // Note: Once a project is created:
     //   - immediately acquire mutex
-    //   - create an empty TML in Ariane, wait on "first save" to do first commit. 
+    //   - create an empty TML in Ariane, wait on "first save" to do first commit.
 
     // -------------------------- Project Listing -------------------------- //
 
@@ -1354,7 +1354,7 @@ public class SpeleoDBController implements Initializable {
         Button button = new Button();
         button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         button.setGraphic(card);
-        
+
         // Make the button scale with the ListView width
         button.setMaxWidth(Double.MAX_VALUE);
         button.prefWidthProperty().bind(projectListView.widthProperty().subtract(20)); // 20px for scrollbar/padding
@@ -1400,7 +1400,7 @@ public class SpeleoDBController implements Initializable {
             LocalDateTime modifiedDateTime = LocalDateTime.parse(modifiedDate.substring(0, modifiedDate.lastIndexOf('.')));
             card.getChildren().add(new Text("(mod) " + modifiedDateTime.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM))));
         }
-        
+
         card.setMaxWidth(Double.MAX_VALUE);
         return card;
     }
@@ -1412,14 +1412,14 @@ public class SpeleoDBController implements Initializable {
      */
     private void handleProjectListResponse(JsonArray projectList) {
         logger.info("Project listing successful on " + speleoDBService.getSDBInstance());
-        
+
         // Cache the project data for sorting without API calls
         cachedProjectList = projectList;
-        
+
         // Use the shared method to rebuild the project list
         rebuildProjectListFromCache();
     }
-    
+
     /**
      * Shared method to rebuild the project list from cached data.
      * Used by both refresh and sort operations to ensure consistent behavior.
@@ -1429,41 +1429,41 @@ public class SpeleoDBController implements Initializable {
             logger.info("No cached project data available");
             return;
         }
-        
+
         Platform.runLater(() -> {
             // Clean up property bindings to prevent memory leaks
             for (Button button : projectListView.getItems()) {
                 button.prefWidthProperty().unbind();
             }
             projectListView.getItems().clear();
-            
+
             // Convert JsonArray to List for sorting
             List<JsonObject> projects = new ArrayList<>();
             for (JsonValue jsonValue : cachedProjectList) {
                 projects.add(jsonValue.asJsonObject());
             }
-            
+
             // Sort projects based on current sort mode
             if (currentSortMode == SortMode.BY_NAME) {
-                projects.sort(Comparator.comparing(project -> 
+                projects.sort(Comparator.comparing(project ->
                     project.getString("name", "").toLowerCase()));
                 logger.debug("Projects sorted by name (A-Z)");
             } else { // BY_DATE
-                projects.sort(Comparator.comparing((JsonObject project) -> 
+                projects.sort(Comparator.comparing((JsonObject project) ->
                     project.getString("modified_date", "")).reversed()); // Most recent first
                 logger.debug("Projects sorted by modified_date (newest first)");
             }
-            
+
             // Create UI elements for sorted projects
             for (JsonObject projectItem : projects) {
                 VBox card = createProjectCard(projectItem);
                 Button button = createProjectButton(card, projectItem);
                 projectListView.getItems().add(button);
             }
-            
+
             // Update button styles to reflect current sort mode
             updateSortButtonStyles();
-            
+
             logger.debug("Project list rebuilt with " + projects.size() + " projects");
         });
     }
@@ -1478,7 +1478,7 @@ public class SpeleoDBController implements Initializable {
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Project listing");
                 logger.error("Failed to list projects: " + getSafeErrorMessage(e));
-                
+
                 Platform.runLater(() -> {
                     if (isServerOfflineError(e)) {
                         showErrorAnimation("Can't reach server");
@@ -1501,7 +1501,7 @@ public class SpeleoDBController implements Initializable {
     private void listProjects() {
         listProjects(false);
     }
-    
+
     /**
      * Handles the refresh projects button click event.
      * Refreshes the project listing with visual feedback to the user.
@@ -1512,7 +1512,7 @@ public class SpeleoDBController implements Initializable {
             logger.info("Cannot refresh projects: Not authenticated");
             return;
         }
-        
+
         logger.info("User requested project list refresh");
 
         setUILoadingState(true);
@@ -1521,7 +1521,7 @@ public class SpeleoDBController implements Initializable {
             listProjects(true);
         });
     }
-    
+
     /**
      * Handles the sort by name button click event.
      * Uses the shared rebuildProjectListFromCache method.
@@ -1532,12 +1532,12 @@ public class SpeleoDBController implements Initializable {
             logger.info("Cannot sort projects: Not authenticated");
             return;
         }
-        
+
         logger.info("User requested sort by name");
         currentSortMode = SortMode.BY_NAME;
         rebuildProjectListFromCache();
     }
-    
+
     /**
      * Handles the sort by date button click event.
      * Uses the shared rebuildProjectListFromCache method.
@@ -1548,12 +1548,12 @@ public class SpeleoDBController implements Initializable {
             logger.info("Cannot sort projects: Not authenticated");
             return;
         }
-        
+
         logger.info("User requested sort by date");
         currentSortMode = SortMode.BY_DATE;
         rebuildProjectListFromCache();
     }
-    
+
     /**
      * Updates the visual style of sorting buttons based on current sort mode
      */
@@ -1581,31 +1581,31 @@ public class SpeleoDBController implements Initializable {
             logger.info("Cannot create new project: Not authenticated");
             return;
         }
-        
+
         // Show the new project dialog
         NewProjectDialog dialog = new NewProjectDialog();
         var result = dialog.showAndWait();
-        
+
         if (result.isPresent()) {
             NewProjectDialog.ProjectData projectData = result.get();
             logger.info("Creating new project: " + projectData.getName());
 
             setUILoadingState(true);
- 
+
             parentPlugin.executorService.execute(() -> {
                 try {
                     // Create the project via API
                     JsonObject createdProject = speleoDBService.createProject(
                         projectData.getName(),
-                        projectData.getDescription(), 
+                        projectData.getDescription(),
                         projectData.getCountryCode(),
                         projectData.getLatitude(),
                         projectData.getLongitude()
                     );
-                    
+
                     logger.info("Project '" + projectData.getName() + "' created successfully!");
                     logger.info("Project ID: " + createdProject.getString("id"));
-                    
+
                     // Use centralized lock acquisition with UI integration
                     Boolean lockResult = acquireProjectLockWithUI(createdProject, "project creation", true);
 
@@ -1613,18 +1613,18 @@ public class SpeleoDBController implements Initializable {
                         // Success callback: Set up project files and load survey
                         try {
                             logger.info("Setting up new project files ...");
-                            
+
                             // Create an empty TML file for the new project using shared service method
                             String projectId = createdProject.getString("id");
                             Path emptyTmlFile = speleoDBService.createEmptyTmlFileFromTemplate(projectId, projectData.getName());
 
                             loadProject(createdProject, emptyTmlFile, projectData.getName(), true);
-                            
+
                             Platform.runLater(() -> {
                                 showSuccessAnimation("Project created and locked for editing!");
                                 listProjects();
                             });
-                            
+
                         } catch (IOException e) {
                             logger.error("Error setting up new project: " + getSafeErrorMessage(e));
                             Platform.runLater(() -> {
@@ -1635,11 +1635,11 @@ public class SpeleoDBController implements Initializable {
                     } else {
                         listProjects();
                     }
-                    
+
                 } catch (Exception e) {
                     String errorMessage = getNetworkErrorMessage(e, "Project creation");
                     logger.error("Failed to create project: " + e.getMessage());
-                    
+
                     Platform.runLater(() -> {
                         if (isServerOfflineError(e)) {
                             showErrorAnimation("Can't reach server");
@@ -1654,13 +1654,13 @@ public class SpeleoDBController implements Initializable {
 
                 } finally {
                     setUILoadingState(false);
-                }         
+                }
             });
         } else {
             logger.info("New project creation cancelled");
         }
     }
-    
+
 
 
     // -------------------------- Project Opening -------------------------- //
@@ -1672,15 +1672,15 @@ public class SpeleoDBController implements Initializable {
             String permissionString = project.getString("permission", "READ_ONLY");
 
             logger.info("Clicking SpeleoDB project: " + projectName);
-            
+
             // Convert string permission to enum
             // AccessLevel permission;
             final AccessLevel permission = AccessLevel.fromString(permissionString);
-            
+
             logger.info("Opening project: " + projectName + " (Permission: " + permission + ")");
-                
+
             Boolean hasWriteAccess = false;
-                
+
             // Check if this is a project that can be locked (ADMIN or READ_AND_WRITE)
             if (canAcquireLock(permission)) {
                 // Attempt to acquire lock first for writable projects
@@ -1712,14 +1712,14 @@ public class SpeleoDBController implements Initializable {
                     showReadOnlyPermissionPopup(project);
                 });
             }
-  
+
             downloadAndLoadProject(project, hasWriteAccess);
         });
     }
-    
+
     /**
      * Gets the access level for a project from its permission field.
-     * 
+     *
      * @param project the project JSON object
      * @return the AccessLevel enum value
      */
@@ -1729,26 +1729,26 @@ public class SpeleoDBController implements Initializable {
             return AccessLevel.valueOf(permissionString);
         } catch (IllegalArgumentException ex) {
             // Default to READ_ONLY if permission string is invalid
-            logger.info("Invalid permission '" + permissionString + "' for project " + 
+            logger.info("Invalid permission '" + permissionString + "' for project " +
                       project.getString("name") + ", defaulting to read-only");
             return AccessLevel.READ_ONLY;
         }
     }
-    
+
     /**
      * Checks if a project access level allows locking (ADMIN or READ_AND_WRITE).
-     * 
+     *
      * @param accessLevel the access level to check
      * @return true if the access level allows locking, false otherwise
      */
     private boolean canAcquireLock(AccessLevel accessLevel) {
         return (accessLevel == AccessLevel.ADMIN) || (accessLevel == AccessLevel.READ_AND_WRITE);
     }
-    
+
     /**
      * Shows a popup informing the user that the project was opened in read-only mode
      * due to insufficient permissions, and how to get write access.
-     * 
+     *
      * @param project the project that was opened in read-only mode
      */
     private void showReadOnlyPermissionPopup(JsonObject project) {
@@ -1757,30 +1757,30 @@ public class SpeleoDBController implements Initializable {
         String message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
                        "You do not have permission to modify this project.\n\n" +
                        "To get write access, please contact the project administrator.";
-        
+
         // Use optimized lock failure modal - handles Platform.runLater internally and has wider layout
         SpeleoDBModals.showLockFailure(title, message);
     }
-    
+
     /**
      * Shows a popup informing the user that the project was opened in read-only mode
      * because the lock is owned by someone else, and how to get write access.
-     * 
+     *
      * @param project the project that was opened in read-only mode
      */
     private void showLockFailurePopup(JsonObject project) {
         String projectName = project.getString("name");
         String title = "Read-Only Access";
         String message;
-        
+
         // Check if the project has lock information
         JsonValue mutex = project.get("active_mutex");
-        
+
         if (mutex != null && mutex.getValueType() != JsonValue.ValueType.NULL) {
             JsonObject mutexObj = mutex.asJsonObject();
             String lockOwner = mutexObj.getString("user", "unknown user");
             String lockDate = mutexObj.getString("creation_date", "unknown time");
-            
+
             message = "Project \"" + projectName + "\" was opened in READ-ONLY mode.\n\n" +
                      "The project is currently locked by: " + lockOwner + "\n" +
                      "Lock acquired: " + formatLockDate(lockDate) + "\n\n" +
@@ -1791,14 +1791,14 @@ public class SpeleoDBController implements Initializable {
                      "Unable to acquire project lock at this time.\n\n" +
                      "Please try again later or contact the project administrator.";
         }
-        
+
         // Use optimized lock failure modal - handles Platform.runLater internally and has wider layout
         SpeleoDBModals.showLockFailure(title, message);
     }
-    
+
     /**
      * Formats a lock date string for display in user messages.
-     * 
+     *
      * @param lockDate the raw lock date string from the server
      * @return a formatted date string for display
      */
@@ -1819,13 +1819,13 @@ public class SpeleoDBController implements Initializable {
             // Load the project asynchronously to keep UI responsive
             String loadingMessage = hasWriteAccess ? "Loading project file ..." : "Loading read-only project file...";
             logger.info(loadingMessage);
-            
+
             // Load survey asynchronously in background without blocking UI
-            loadSurveyAsync(tml_filepath.toFile(), 
+            loadSurveyAsync(tml_filepath.toFile(),
                 // Success callback
                 () -> {
                     Platform.runLater(() -> {
-                        String successMessage = hasWriteAccess ? 
+                        String successMessage = hasWriteAccess ?
                             "Project loaded successfully: " + projectName :
                             "Read-only project loaded successfully: " + projectName;
                         logger.info(successMessage);
@@ -1838,7 +1838,7 @@ public class SpeleoDBController implements Initializable {
                             if (parentPlugin.getSurvey() != null) {
                                 checkAndUpdateSpeleoDBId(project);
                             }
-                            
+
                             // Refresh project listing
                             listProjects();
                         });
@@ -1848,7 +1848,7 @@ public class SpeleoDBController implements Initializable {
                 },
                 // Error callback
                 (Exception e) -> {
-                    String errorMessage = hasWriteAccess ? 
+                    String errorMessage = hasWriteAccess ?
                         "Failed to load project: " + getSafeErrorMessage(e) :
                         "Failed to load read-only project: " + getSafeErrorMessage(e);
                     logger.error(errorMessage);
@@ -1865,12 +1865,12 @@ public class SpeleoDBController implements Initializable {
             });
         }
     }
-    
+
     /**
      * Loads a survey file asynchronously without blocking the UI thread.
      * Uses callbacks to handle completion instead of blocking polling loops.
      * Mimics the original loadSurvey logic but with callbacks for better UI responsiveness.
-     * 
+     *
      * @param surveyFile the survey file to load
      * @param onSuccess callback executed when loading succeeds
      * @param onError callback executed when loading fails
@@ -1881,22 +1881,22 @@ public class SpeleoDBController implements Initializable {
             try {
                 // Set up survey loading on JavaFX thread (same as original loadSurvey)
                 final java.util.concurrent.atomic.AtomicBoolean loadingLock = new java.util.concurrent.atomic.AtomicBoolean(false);
-                
+
                 Platform.runLater(() -> {
                     loadingLock.set(true);  // Set lock before starting (matches original)
                     parentPlugin.setSurvey(null); // Clear existing survey
                     parentPlugin.setSurveyFile(surveyFile); // Set the file
                     parentPlugin.getCommandProperty().set(DataServerCommands.LOAD.name());  // Trigger load command
                 });
-                
+
                 // Wait for the survey to be loaded (polling with timeout) - same logic as original
                 var start = java.time.LocalDateTime.now();
                 final int TIMEOUT = 10000; // 10 seconds timeout
-                
+
                 while (loadingLock.get() && java.time.Duration.between(start, java.time.LocalDateTime.now()).toMillis() < TIMEOUT) {
                     try {
                         Thread.sleep(50); // Same 50ms interval as original
-                        
+
                         // Check if survey was set (this clears the lock in original setSurvey method)
                         if (parentPlugin.getSurvey() != null) {
                             loadingLock.set(false); // Survey loaded successfully
@@ -1908,7 +1908,7 @@ public class SpeleoDBController implements Initializable {
                         return;
                     }
                 }
-                
+
                 // Check results (same as original)
                 if (loadingLock.get()) {
                     logger.error("Timeout while loading survey: " + surveyFile.getName());
@@ -1918,7 +1918,7 @@ public class SpeleoDBController implements Initializable {
                     logger.info("Survey loaded successfully: " + surveyFile.getName());
                     onSuccess.run();
                 }
-                
+
             } catch (Exception e) {
                 // Unexpected error during setup
                 logger.error("Error setting up survey loading: " + e.getMessage());
@@ -1926,7 +1926,7 @@ public class SpeleoDBController implements Initializable {
             }
         });
     }
-    
+
     /**
      * Attempts to invoke Ariane's Save accelerator by running the Scene accelerator Runnable
      * for Cmd/Ctrl+S directly (no OS-level synthetic input), to avoid macOS security prompts.
@@ -1959,16 +1959,16 @@ public class SpeleoDBController implements Initializable {
             Thread.currentThread().interrupt();
         }
     }
-    
+
     /**
      * Downloads and loads a project with unified logic for both read-only and writable projects.
-     * 
+     *
      * @param project the project to download and load
      * @param hasWriteAccess whether the user has write access (lock acquired) or read-only access
      */
     private void downloadAndLoadProject(JsonObject project, boolean hasWriteAccess) {
         String projectName = project.getString("name");
-        
+
         // Update UI based on write access
         Platform.runLater(() -> {
 
@@ -1990,7 +1990,7 @@ public class SpeleoDBController implements Initializable {
                 currentProject = null; // Don't set current project for read-only
             }
         });
-        
+
         // Download and load project (same logic for both read-only and writable)
         try {
             // Download project
@@ -2028,18 +2028,18 @@ public class SpeleoDBController implements Initializable {
                 final String selectedProjectId = projectItem.getString("id");
 
                 logger.info("Selected project: " + selectedProjectName);
-                
+
                 // Check if user is trying to switch to a different project while having an active lock
                 if (hasActiveProjectLock()) {
                     String currentProjectId = currentProject.getString("id");
-                    
+
                     // If clicking on the same project, proceed normally
                     if (!currentProjectId.equals(selectedProjectId)) {
                         // Different project selected - always release current lock first (no modal)
                         logger.debug("Switching project. Releasing lock on: " + getCurrentProjectName());
-                        
+
                         // Use centralized lock release with UI integration
-                        LockReleaseResult result = releaseProjectLockWithUI(currentProject, "project switch"); 
+                        LockReleaseResult result = releaseProjectLockWithUI(currentProject, "project switch");
 
                         if (result.isReleased()) {
                             logger.debug("Lock released successfully. Proceeding with new project selection: " + selectedProjectName);
@@ -2047,7 +2047,7 @@ public class SpeleoDBController implements Initializable {
                             logger.error("Failed to release current lock: " + result.getError());
                             setUILoadingState(false);
                             return;
-                        }             
+                        }
                     }
                 }
 
@@ -2077,7 +2077,7 @@ public class SpeleoDBController implements Initializable {
      * Shows unlock confirmation - uses the ultra-fast modal.
      */
     // Removed: lock-related confirmation dialogs
-    
+
     /**
      * Shows release lock confirmation - uses the ultra-fast modal.
      */
@@ -2093,18 +2093,18 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Shared method to upload a project with a given commit message.
-     * 
+     *
      * @param commitMessage the commit message for the upload
      */
     private void uploadProjectWithMessage(String commitMessage) {
         logger.info("Uploading project " + currentProject.getString("name") + "  ...");
-        
+
         parentPlugin.executorService.execute(() -> {
             setUILoadingState(true);
-            
+
             // Attempt to invoke host's Save accelerator without synthetic key events
             triggerHostSaveAcceleratorBlocking(300);
-            
+
             parentPlugin.saveSurvey();
 
             try {
@@ -2142,18 +2142,18 @@ public class SpeleoDBController implements Initializable {
 
                 speleoDBService.uploadProject(commitMessage, currentProject);
                 logger.info("Upload successful.");
-                
+
                 Platform.runLater(() -> {
                     // Clear the upload message text field after successful upload
                     uploadMessageTextField.clear();
                     showSuccessCelebrationDialog(() -> {});
                     setUILoadingState(false);
                 });
-                
+
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Upload");
                 logger.info("Upload failed: " + getSafeErrorMessage(e));
-                
+
 
                 Platform.runLater(() -> {
                     if (e instanceof NotModifiedException) {
@@ -2189,10 +2189,10 @@ public class SpeleoDBController implements Initializable {
             SpeleoDBModals.showError(DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, MESSAGES.UPLOAD_MESSAGE_EMPTY);
             return;
         }
-        
+
         uploadProjectWithMessage(message);
     }
-    
+
     /**
      * Handles the "Reload Project" button click event for SpeleoDB.
      * Reloads the current project from disk after confirming with the user.
@@ -2205,18 +2205,18 @@ public class SpeleoDBController implements Initializable {
             showErrorAnimation("No project to reload");
             return;
         }
-        
+
         String projectName = currentProject.getString("name");
-        
+
         // Show confirmation dialog following material design
         String message = "Are you sure you want to reload the project \"" + projectName + "\"?\n\n" +
                         "⚠️ WARNING: Any unsaved modifications will be lost!\n\n" +
                         "• All changes since last save will be discarded\n" +
                         "• The project will be reloaded from disk\n" +
                         "• This action cannot be undone";
-        
+
         boolean shouldReload = SpeleoDBModals.showConfirmation("Reload Project", message, "Reload", "Cancel");
-        
+
         if (!shouldReload) {
             logger.info("User cancelled reload operation for project: " + projectName);
             return;
@@ -2224,7 +2224,7 @@ public class SpeleoDBController implements Initializable {
 
         String projectId = currentProject.getString("id");
         Path tmlFilePath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + projectId + PATHS.TML_FILE_EXTENSION);
-        
+
         if (!Files.exists(tmlFilePath)) {
             Platform.runLater(() -> {
                 logger.error("Project file not found on disk: " + tmlFilePath);
@@ -2235,13 +2235,13 @@ public class SpeleoDBController implements Initializable {
         }
 
         setUILoadingState(true);
-        
+
         parentPlugin.executorService.execute(() -> {
             try {
                 logger.info("Reloading project from disk: " + projectName);
 
-                loadProject(currentProject, tmlFilePath, projectName, true);     
-                
+                loadProject(currentProject, tmlFilePath, projectName, true);
+
                 Platform.runLater(() -> {
                     uploadMessageTextField.clear();
                 });
@@ -2267,7 +2267,7 @@ public class SpeleoDBController implements Initializable {
     @FXML
     public void onImportProjectFromDisk(ActionEvent actionEvent) {
         setUILoadingState(true);
-        
+
         parentPlugin.executorService.execute(() -> {
 
             // Step 1: Acquire the lock on the current project; if fails, show error and abort
@@ -2291,7 +2291,7 @@ public class SpeleoDBController implements Initializable {
                             "• The imported file will become the current project content\n" +
                             "• This action cannot be undone\n\n" +
                             "Do you want to proceed?";
-                
+
                     boolean proceed = SpeleoDBModals.showConfirmation(
                         "Import Local File",
                         warningMessage,
@@ -2338,7 +2338,7 @@ public class SpeleoDBController implements Initializable {
 
                             // Show info banner BEFORE toggling heavy UI updates
                             SpeleoDBTooltips.showSuccess("Uploading project… This may take ~10-15 seconds. Please wait.");
-                            
+
                             parentPlugin.executorService.execute(() -> {
                                 // Run copy, then upload, and only after success load & adjust ID
                                 try {
@@ -2373,10 +2373,10 @@ public class SpeleoDBController implements Initializable {
             if (SDB_instance.isEmpty()) {
                 SDB_instance = PREFERENCES.DEFAULT_INSTANCE;
             }
-            
+
             String protocol = isDebugMode() ? "http" : "https";
             String signupUrl = protocol + "://" + SDB_instance + "/signup/";
-            
+
             java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
             logger.info("Opening signup page: " + signupUrl);
         } catch (IOException | URISyntaxException e) {
@@ -2384,7 +2384,7 @@ public class SpeleoDBController implements Initializable {
             showErrorAnimation();
         }
     }
-    
+
     /**
      * Handles the "Learn About" button click event to open the SpeleoDB website.
      */
@@ -2392,7 +2392,7 @@ public class SpeleoDBController implements Initializable {
     public void onLearnAbout(ActionEvent actionEvent) {
         try {
             String speleoBDUrl = "https://" + PREFERENCES.DEFAULT_INSTANCE;
-            
+
             // Open URL in default browser
             if (java.awt.Desktop.isDesktopSupported()) {
                 java.awt.Desktop desktop = java.awt.Desktop.getDesktop();
@@ -2409,31 +2409,31 @@ public class SpeleoDBController implements Initializable {
             logger.info("Failed to open SpeleoDB website: " + getSafeErrorMessage(e));
         }
     }
-    
+
     // ===================== SHUTDOWN SUPPORT METHODS ===================== //
-    
+
     /**
      * Checks if there is currently an active project with a lock.
-     * 
+     *
      * @return true if there is an active project, false otherwise
      */
     public boolean hasActiveProjectLock() {
         return currentProject != null;
     }
-    
+
     /**
      * Gets the name of the currently active project.
-     * 
+     *
      * @return the project name, or null if no project is active
      */
     public String getCurrentProjectName() {
         return currentProject != null ? currentProject.getString("name") : null;
     }
-    
+
     /**
      * Releases the lock on the currently active project.
      * This method is called during application shutdown.
-     * 
+     *
      * @throws IOException if there's an error releasing the lock
      * @throws InterruptedException if the operation is interrupted
      * @throws URISyntaxException if there's a URI syntax error
@@ -2442,16 +2442,16 @@ public class SpeleoDBController implements Initializable {
         if (currentProject != null) {
             // Use centralized lock release for shutdown - simple version without UI updates
             LockReleaseResult result = releaseProjectLock(currentProject, "application shutdown");
-            
+
             if (result.hasError()) {
                 // Re-throw exception for shutdown handling
                 throw new IOException("Failed to release lock during shutdown: " + result.getMessage(), result.getError());
             }
         }
     }
-    
+
     // ====================== CENTRALIZED LOCK MANAGEMENT ====================== //
-    
+
     /**
      * Result of a lock acquisition attempt with detailed information
      */
@@ -2460,33 +2460,33 @@ public class SpeleoDBController implements Initializable {
         private final String message;
         private final JsonObject project;
         private final Exception error;
-        
+
         private LockResult(boolean acquired, String message, JsonObject project, Exception error) {
             this.acquired = acquired;
             this.message = message;
             this.project = project;
             this.error = error;
         }
-        
+
         public static LockResult success(JsonObject project, String message) {
             return new LockResult(true, message, project, null);
         }
-        
+
         public static LockResult failure(JsonObject project, String message) {
             return new LockResult(false, message, project, null);
         }
-        
+
         public static LockResult error(JsonObject project, String message, Exception error) {
             return new LockResult(false, message, project, error);
         }
-        
+
         public boolean isAcquired() { return acquired; }
         public String getMessage() { return message; }
         public JsonObject getProject() { return project; }
         public Exception getError() { return error; }
         public boolean hasError() { return error != null; }
     }
-    
+
     /**
      * Result of a lock release attempt with detailed information
      */
@@ -2495,37 +2495,37 @@ public class SpeleoDBController implements Initializable {
         private final String message;
         private final JsonObject project;
         private final Exception error;
-        
+
         private LockReleaseResult(boolean released, String message, JsonObject project, Exception error) {
             this.released = released;
             this.message = message;
             this.project = project;
             this.error = error;
         }
-        
+
         public static LockReleaseResult success(JsonObject project, String message) {
             return new LockReleaseResult(true, message, project, null);
         }
-        
+
         public static LockReleaseResult failure(JsonObject project, String message) {
             return new LockReleaseResult(false, message, project, null);
         }
-        
+
         public static LockReleaseResult error(JsonObject project, String message, Exception error) {
             return new LockReleaseResult(false, message, project, error);
         }
-        
+
         public boolean isReleased() { return released; }
         public String getMessage() { return message; }
         public JsonObject getProject() { return project; }
         public Exception getError() { return error; }
         public boolean hasError() { return error != null; }
     }
-    
+
     /**
      * Centralized lock release with comprehensive error handling and logging.
      * This method consolidates all lock release logic to eliminate duplication.
-     * 
+     *
      * @param project the project to release lock for
      * @param context description of the operation context (e.g., "project switch", "unlock", "post-upload")
      * @return LockReleaseResult with detailed information about the operation
@@ -2534,13 +2534,13 @@ public class SpeleoDBController implements Initializable {
         if (project == null) {
             return LockReleaseResult.failure(null, "No project provided for lock release");
         }
-        
+
         String projectName = project.getString("name");
         logger.info("Releasing lock for project '" + projectName + "' (context: " + context + ")");
-        
+
         try {
             boolean success = speleoDBService.releaseProjectMutex(project);
-            
+
             if (success) {
                 String successMessage = "Successfully released lock on: " + projectName;
                 logger.info(successMessage);
@@ -2550,18 +2550,18 @@ public class SpeleoDBController implements Initializable {
                 logger.info(failureMessage);
                 return LockReleaseResult.failure(project, failureMessage);
             }
-            
+
         } catch (IOException | InterruptedException | URISyntaxException e) {
             String errorMessage = "Error releasing lock for " + projectName + ": " + getSafeErrorMessage(e);
             logger.info(errorMessage);
             return LockReleaseResult.error(project, errorMessage, e);
         }
     }
-    
+
     /**
      * Centralized lock release with UI integration and comprehensive error handling.
      * Handles all UI updates, animations, and modal displays based on the release result.
-     * 
+     *
      * @param project the project to release lock for
      * @param context description of the operation context
      * @param onSuccess callback to execute on successful lock release (optional)
@@ -2571,27 +2571,27 @@ public class SpeleoDBController implements Initializable {
     private LockReleaseResult releaseProjectLockWithUI(JsonObject project, String context) throws InterruptedException {
 
         final String selectedProjectName = project.getString("name");
-        
+
         LockReleaseResult result = releaseProjectLock(project, context);
-        
+
         if (result.isReleased()) {
             // Success: Clear current project and update UI
             currentProject = null;
-            
+
             // Update UI state
             actionsTitlePane.setVisible(false);
             actionsTitlePane.setExpanded(false);
             projectsTitlePane.setExpanded(true);
-            
+
             // Show success animation
             showSuccessAnimation("Lock Released");
 
             return LockReleaseResult.success(project, "Lock Released");
-            
+
         } else if (result.hasError()) {
             // Network/Exception error: Handle with appropriate animations and modals
             Exception error = result.getError();
-            
+
             Platform.runLater(() -> {
                 if (isServerOfflineError(error)) {
                     showErrorAnimation("Can't reach server");
@@ -2601,11 +2601,11 @@ public class SpeleoDBController implements Initializable {
                     showErrorAnimation("Failed to Release Lock");
                 }
             });
-            
+
             logger.error("Failed to release current lock");
 
             return LockReleaseResult.failure(project, "Failure to release lock. Error: " + error);
-            
+
         } else {
             logger.error("Failed to release current lock");
             // Service-level failure (returned false)
@@ -2616,11 +2616,11 @@ public class SpeleoDBController implements Initializable {
             return LockReleaseResult.failure(project, "Failed to Release Lock");
         }
     }
-    
+
     /**
      * Simple boolean wrapper for lock release operations.
      * Use this when you only need to know if the release succeeded or failed.
-     * 
+     *
      * @param project the project to release lock for
      * @param context description of the operation context
      * @return true if lock was successfully released, false otherwise
@@ -2628,18 +2628,18 @@ public class SpeleoDBController implements Initializable {
     private boolean tryReleaseProjectLock(JsonObject project, String context) {
         return releaseProjectLock(project, context).isReleased();
     }
-    
+
     /**
      * Centralized lock acquisition with comprehensive error handling and logging.
      * This method consolidates all lock acquisition logic to eliminate duplication.
-     * 
+     *
      * @param project the project to acquire lock for
      * @param context description of the operation context (e.g., "project creation", "project opening")
      * @return LockResult with detailed information about the operation
      */
     private LockResult acquireProjectLock(JsonObject project, String context) {
         String projectName = project.getString("name");
-        
+
         try {
             // Check if project allows editing
             String permission = project.getString("permission", "");
@@ -2648,11 +2648,11 @@ public class SpeleoDBController implements Initializable {
                 logger.info("🔒 " + message);
                 return LockResult.failure(project, message);
             }
-            
+
             logger.debug("🔄 Acquiring lock for " + context + ": " + projectName);
-        
+
             boolean lockAcquired = speleoDBService.acquireOrRefreshProjectMutex(project);
-            
+
             if (lockAcquired) {
                 String successMessage = "✓ Lock acquired successfully for " + context + ": " + projectName;
                 logger.info(successMessage);
@@ -2662,18 +2662,18 @@ public class SpeleoDBController implements Initializable {
                 logger.error(failureMessage);
                 return LockResult.failure(project, failureMessage);
             }
-            
+
         } catch (IOException | InterruptedException | URISyntaxException e) {
             String errorMessage = "❌ Error acquiring lock for " + context + ": " + projectName + " - " + getSafeErrorMessage(e);
             logger.info(errorMessage);
             return LockResult.error(project, errorMessage, e);
         }
     }
-    
+
     /**
      * Centralized lock acquisition with UI integration and comprehensive error handling.
      * Handles all UI updates, animations, and modal displays based on the acquisition result.
-     * 
+     *
      * @param project the project to acquire lock for
      * @param context description of the operation context
      * @param onSuccess callback to execute on successful lock acquisition (optional)
@@ -2682,18 +2682,18 @@ public class SpeleoDBController implements Initializable {
      */
     private Boolean acquireProjectLockWithUI(JsonObject project, String context, boolean showModals) {
         LockResult result = acquireProjectLock(project, context);
-        
+
         if (result.isAcquired()) {
             // Success: Set as current project and enable UI controls
             currentProject = project;
-            
+
             // // Update UI state for editing
             // actionsTitlePane.setVisible(true);
             // actionsTitlePane.setExpanded(true);
             // actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
             // uploadButton.setDisable(false);
             // unlock button removed
-            
+
             // Show success animation
             Platform.runLater(() -> {
                 showSuccessAnimation("Lock Acquired");
@@ -2705,7 +2705,7 @@ public class SpeleoDBController implements Initializable {
                 // Network/Exception error: Handle with appropriate animations and modals
                 Exception error = result.getError();
                 String networkErrorMessage = getNetworkErrorMessage(error, "Lock acquisition");
-                
+
                 Platform.runLater(() -> {
                     if (isServerOfflineError(error)) {
                         showErrorAnimation("Can't reach server");
@@ -2727,7 +2727,7 @@ public class SpeleoDBController implements Initializable {
             } else {
                 // Service-level failure (returned false) - e.g., read-only project, already locked
                 String failureReason = result.getMessage();
-                
+
                 Platform.runLater(() -> {
                     if (failureReason.contains("read-only")) {
                         showSuccessAnimation("Project opened (read-only)");
@@ -2738,27 +2738,27 @@ public class SpeleoDBController implements Initializable {
             }
 
             return false;
-            
-        } 
+
+        }
     }
 
     /**
      * Cleanup method to properly close resources and prevent shutdown hangs.
      * Should be called before the controller is destroyed.
-     * 
+     *
      * NOTE: The JVM shutdown hook is NOT removed here - it should always execute
      * to guarantee project lock release regardless of shutdown method.
      */
     public void cleanup() {
         logger.debug("Starting SpeleoDBController cleanup");
-        
+
         // Mark that normal cleanup is happening
         synchronized (shutdownLock) {
             if (!shutdownInProgress) {
                 logger.debug("Normal cleanup proceeding - shutdown hook will still execute for lock release");
             }
         }
-        
+
         // Stop all running animations to prevent memory leaks
         synchronized (runningAnimations) {
             for (Timeline timeline : runningAnimations) {
@@ -2770,18 +2770,18 @@ public class SpeleoDBController implements Initializable {
             }
             runningAnimations.clear();
         }
-        
+
         // Clear field references - but keep currentProject for shutdown hook
         cachedProjectList = null;
-        
+
         // Cleanup tooltips
         SpeleoDBTooltips.cleanup();
-        
+
         logger.info("Controller cleanup completed - shutdown hook will handle project lock release");
-        
+
         // Disconnect UI controller from logger to prevent null pointer exceptions during shutdown
         logger.disconnectUIController();
-        
+
         // Delegate logging shutdown to the plugin's centralized system
         // No need to shutdown file logger here since it's managed by the plugin
     }
@@ -2795,7 +2795,7 @@ public class SpeleoDBController implements Initializable {
             // Try to get the scene root
             if (speleoDBAnchorPane.getScene() != null) {
                 javafx.scene.Parent root = speleoDBAnchorPane.getScene().getRoot();
-                
+
                 // Look for existing overlay
                 if (root instanceof javafx.scene.layout.Pane rootPane) {
                     for (javafx.scene.Node child : rootPane.getChildren()) {
@@ -2803,17 +2803,17 @@ public class SpeleoDBController implements Initializable {
                             return (javafx.scene.layout.Pane) child;
                         }
                     }
-                    
+
                     // Create new overlay pane
                     javafx.scene.layout.Pane overlay = new javafx.scene.layout.Pane();
                     overlay.setId("animationOverlay");
                     overlay.setMouseTransparent(true);
                     overlay.setStyle("-fx-background-color: transparent;");
-                    
+
                     // Size to match scene
                     overlay.prefWidthProperty().bind(speleoDBAnchorPane.getScene().widthProperty());
                     overlay.prefHeightProperty().bind(speleoDBAnchorPane.getScene().heightProperty());
-                    
+
                     // Add to root and bring to front
                     rootPane.getChildren().add(overlay);
                     overlay.toFront();
@@ -2823,7 +2823,7 @@ public class SpeleoDBController implements Initializable {
         } catch (Exception e) {
             logger.error("Error creating animation overlay", e);
         }
-        
+
         // Fallback to main pane
         return speleoDBAnchorPane;
     }
@@ -2832,17 +2832,17 @@ public class SpeleoDBController implements Initializable {
      * Creates a highly visible debug animation for testing visibility issues.
      * This uses bright orange styling and larger dimensions.
      */
-    public void showDebugAnimation() {        
+    public void showDebugAnimation() {
         if (!Platform.isFxApplicationThread()) {
             Platform.runLater(this::showDebugAnimation);
             return;
         }
-        
+
         if (speleoDBAnchorPane == null) {
             logger.warn("Cannot show debug animation - speleoDBAnchorPane is null");
             return;
         }
-        
+
         try {
             // Create highly visible debug label
             Label debugLabel = new Label("🔥 DEBUG ANIMATION TEST 🔥");
@@ -2851,10 +2851,10 @@ public class SpeleoDBController implements Initializable {
             debugLabel.setAlignment(javafx.geometry.Pos.CENTER);
             debugLabel.setMinWidth(300);
             debugLabel.setMaxWidth(600);
-            
+
             // Get overlay and position
             javafx.scene.layout.Pane animationPane = getOrCreateAnimationOverlay();
-            
+
             // Center positioning
             Platform.runLater(() -> {
                 try {
@@ -2872,19 +2872,19 @@ public class SpeleoDBController implements Initializable {
                     debugLabel.setLayoutY(50);
                 }
             });
-            
+
             // Add to overlay with maximum visibility
             animationPane.getChildren().add(debugLabel);
             debugLabel.toFront();
             animationPane.toFront();
-            
+
             // Pulsing animation for visibility
             debugLabel.setOpacity(0.0);
             FadeTransition fadeIn = new FadeTransition(Duration.millis(300), debugLabel);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
             fadeIn.play();
-            
+
             // Auto-hide after 8 seconds (longer for debugging)
             Timeline hideTimeline = createTrackedTimeline(
                 new KeyFrame(Duration.seconds(8), e -> {
@@ -2906,7 +2906,7 @@ public class SpeleoDBController implements Initializable {
                 })
             );
             hideTimeline.play();
-            
+
         } catch (Exception e) {
             logger.error("Failed to show debug animation", e);
         }
@@ -2915,7 +2915,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Shows a success celebration dialog with a random GIF animation.
      * The dialog auto-closes after 5 seconds and includes a manual close button.
-     * 
+     *
      * @param onCloseCallback callback to execute when the dialog closes (optional, can be null)
      */
     private void showSuccessCelebrationDialog(Runnable onCloseCallback) {
@@ -2935,58 +2935,58 @@ public class SpeleoDBController implements Initializable {
         }
 
         String randomGifPath = getRandomSuccessGif();
-        Window owner = speleoDBAnchorPane.getScene() != null ? 
+        Window owner = speleoDBAnchorPane.getScene() != null ?
                       speleoDBAnchorPane.getScene().getWindow() : null;
         SpeleoDBModals.showSuccessCelebration(randomGifPath, onCloseCallback, owner);
     }
-    
+
     /**
      * Gets the next success GIF using a rotating index to ensure all GIFs are shown
      * without repetition until all have been displayed.
-     * 
+     *
      * @return a GIF resource path, or null if no GIFs are available
      */
     private String getRandomSuccessGif() {
         try {
             java.util.List<String> availableGifs = getAvailableSuccessGifs();
-            
+
             if (availableGifs.isEmpty()) {
                 logger.debug("No success GIFs found in resources");
                 return null;
             }
-            
+
             // Get current index from preferences
             Preferences prefs = getPreferencesNode();
             int currentIndex = prefs.getInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, 0);
-            
+
             // Ensure index is within bounds
             if (currentIndex >= availableGifs.size()) {
                 currentIndex = 0;
             }
-            
+
             String selectedGif = availableGifs.get(currentIndex);
-            
+
             // Update index for next time (rotate through all GIFs)
             int nextIndex = (currentIndex + 1) % availableGifs.size();
             prefs.putInt(PREFERENCES.PREF_SUCCESS_GIF_INDEX, nextIndex);
-            
+
             logger.debug("Selected success GIF: " + selectedGif + " (index " + currentIndex + " of " + availableGifs.size() + ")");
             return selectedGif;
-            
+
         } catch (Exception e) {
             logger.error("Error selecting random success GIF", e);
             return null;
         }
     }
-    
+
     /**
      * Scans the success GIFs directory and returns a sorted list of available GIF file paths.
-     * 
+     *
      * @return sorted list of GIF resource paths (ensures consistent ordering for rotation)
      */
     private java.util.List<String> getAvailableSuccessGifs() {
         java.util.List<String> gifPaths = new java.util.ArrayList<>();
-        
+
         try {
             // Get the resource URL for the GIFs directory
             java.net.URL resourceUrl = getClass().getResource(PATHS.SUCCESS_GIFS_DIR);
@@ -3002,19 +3002,19 @@ public class SpeleoDBController implements Initializable {
             } else {
                 logger.warn("Success GIFs directory not found: " + PATHS.SUCCESS_GIFS_DIR);
             }
-            
+
             // Sort the paths to ensure consistent ordering for rotation
             java.util.Collections.sort(gifPaths);
-            
+
             logger.debug("Found " + gifPaths.size() + " success GIFs in directory (sorted for consistent rotation)");
-            
+
         } catch (Exception e) {
             logger.error("Error scanning for success GIFs", e);
         }
-        
+
         return gifPaths;
     }
-    
+
     /**
      * Scans for GIF files when running from a JAR file.
      */
@@ -3024,13 +3024,13 @@ public class SpeleoDBController implements Initializable {
             java.net.URL jarUrl = getClass().getProtectionDomain().getCodeSource().getLocation();
             try (java.util.jar.JarFile jarFile = new java.util.jar.JarFile(new java.io.File(jarUrl.toURI()))) {
                 java.util.Enumeration<java.util.jar.JarEntry> entries = jarFile.entries();
-                
+
                 String dirPath = PATHS.SUCCESS_GIFS_DIR.substring(1); // Remove leading slash
-                
+
                 while (entries.hasMoreElements()) {
                     java.util.jar.JarEntry entry = entries.nextElement();
                     String entryName = entry.getName();
-                    
+
                     // Check if entry is in our GIFs directory and is a .gif file
                     if (entryName.startsWith(dirPath) && entryName.toLowerCase().endsWith(".gif") && !entry.isDirectory()) {
                         String resourcePath = "/" + entryName;
@@ -3043,7 +3043,7 @@ public class SpeleoDBController implements Initializable {
             logger.error("Error scanning GIFs from JAR", e);
         }
     }
-    
+
     /**
      * Scans for GIF files when running from file system.
      */
@@ -3051,7 +3051,7 @@ public class SpeleoDBController implements Initializable {
         try {
             java.io.File directory = new java.io.File(resourceUrl.toURI());
             java.io.File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".gif"));
-            
+
             if (files != null) {
                 for (java.io.File file : files) {
                     String resourcePath = PATHS.SUCCESS_GIFS_DIR + file.getName();
@@ -3079,40 +3079,40 @@ public class SpeleoDBController implements Initializable {
                 if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
                     instanceUrl = PREFERENCES.DEFAULT_INSTANCE;
                 }
-                
+
                 // First check for plugin updates
                 checkForPluginUpdates(instanceUrl);
-                
+
                 // Then check for announcements
                 checkForAnnouncements(instanceUrl);
-                
+
             } catch (Exception e) {
                 logger.warn("Failed to fetch updates and announcements, error: " + e.getMessage());
             }
         });
     }
-    
+
     /**
      * Processes markdown-style formatting in text for JavaFX display.
      * Converts **bold** text to remove the asterisks (JavaFX doesn't support markdown natively).
      * This is a simple processor for basic formatting.
-     * 
+     *
      * @param text the text with markdown-style formatting
      * @return processed text suitable for JavaFX Label
      */
     private String processMarkdownForJavaFX(String text) {
         if (text == null) return "";
-        
+
         // Remove markdown bold markers (**text** -> text)
         // Note: JavaFX Label doesn't support rich text, so we just remove the markers
         String processed = text.replaceAll("\\*\\*(.*?)\\*\\*", "$1");
-        
+
         return processed;
     }
 
     /**
      * Extracts the UUID from the announcement JSON data.
-     * 
+     *
      * @param announcementJson the JsonObject containing the announcement data
      * @return UUID string, or null if not present
      */
@@ -3122,7 +3122,7 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Checks if an announcement has already been displayed.
-     * 
+     *
      * @param announcementJson the JsonObject containing the announcement data
      * @return true if the announcement has been displayed before, false otherwise
      */
@@ -3132,10 +3132,10 @@ public class SpeleoDBController implements Initializable {
             logger.warn("Announcement missing UUID field, treating as not displayed");
             return false;
         }
-        
+
         Preferences prefs = getPreferencesNode();
         String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
-        
+
         boolean wasDisplayed = displayedUUIDs.contains(uuid);
         if (wasDisplayed) {
             logger.debug("Announcement already displayed (UUID: " + uuid + ")");
@@ -3145,7 +3145,7 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Marks an announcement as displayed by storing its UUID in preferences.
-     * 
+     *
      * @param announcementJson the JsonObject containing the announcement data
      */
     private void markAnnouncementAsDisplayed(JsonObject announcementJson) {
@@ -3154,10 +3154,10 @@ public class SpeleoDBController implements Initializable {
             logger.warn("Cannot mark announcement as displayed - missing UUID field");
             return;
         }
-        
+
         Preferences prefs = getPreferencesNode();
         String displayedUUIDs = prefs.get(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, "");
-        
+
         if (!displayedUUIDs.contains(uuid)) {
             String updatedUUIDs = displayedUUIDs.isEmpty() ? uuid : displayedUUIDs + "," + uuid;
             prefs.put(PREFERENCES.PREF_DISPLAYED_ANNOUNCEMENTS, updatedUUIDs);
@@ -3172,18 +3172,18 @@ public class SpeleoDBController implements Initializable {
     private void scheduleInformationPopup() {
         // Create timeline to show popup after delay
         Timeline delayTimeline = createTrackedTimeline(
-            new KeyFrame(Duration.seconds(TIMINGS.INFO_POPUP_DELAY_SECONDS), 
+            new KeyFrame(Duration.seconds(TIMINGS.INFO_POPUP_DELAY_SECONDS),
                         e -> showInformationPopup())
         );
         delayTimeline.play();
-        
+
         logger.debug("Information popup scheduled to appear in " + TIMINGS.INFO_POPUP_DELAY_SECONDS + " seconds");
     }
 
     /**
      * Shows announcements sequentially, one after another.
      * Each dialog waits for the previous one to be closed before showing the next.
-     * 
+     *
      * @param announcements list of announcements to show
      * @param currentIndex index of the current announcement to show
      */
@@ -3193,7 +3193,7 @@ public class SpeleoDBController implements Initializable {
             logger.debug("Finished showing " + announcements.size() + " announcements");
             return;
         }
-        
+
         JsonObject announcement = announcements.get(currentIndex);
 
         String title = announcement.getString(JSON_FIELDS.TITLE, DIALOGS.DEFAULT_ANNOUNCEMENT_TITLE);
@@ -3203,30 +3203,30 @@ public class SpeleoDBController implements Initializable {
 
         if (message.isEmpty()) {
             logger.debug(
-                "Skipping announcement " + (currentIndex + 1) + " of " + 
+                "Skipping announcement " + (currentIndex + 1) + " of " +
                 announcements.size() + ": " + title + " because it has no message"
             );
             return;
         }
-        
+
         logger.debug("Showing announcement " + (currentIndex + 1) + " of " + announcements.size() + ": " + title);
-        
+
         // Create the dialog
         Dialog<Void> infoDialog = createInformationDialog(title, header, message);
-        
+
         // Mark this announcement as displayed
         markAnnouncementAsDisplayed(announcement);
-        
+
         // Set up callback to show next announcement when this one is closed
         infoDialog.setOnHidden(e -> {
             // Show next announcement after a brief delay
             Timeline nextAnnouncementDelay = createTrackedTimeline(
-                new KeyFrame(Duration.millis(500), event -> 
+                new KeyFrame(Duration.millis(500), event ->
                     showAnnouncementsSequentially(announcements, currentIndex + 1))
             );
             nextAnnouncementDelay.play();
         });
-        
+
         // Show the dialog
         infoDialog.show();
     }
@@ -3234,7 +3234,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Creates an information dialog with the provided title, header, and message.
      * This is extracted from showInformationDialog to allow reuse.
-     * 
+     *
      * @param title the dialog title
      * @param header the header text to display in bold
      * @param message the message content
@@ -3247,7 +3247,7 @@ public class SpeleoDBController implements Initializable {
             infoDialog.setTitle(title);
             infoDialog.setHeaderText(null); // No header for cleaner Material Design look
             infoDialog.setResizable(false);
-            
+
             // Set dialog properties to ensure all content is visible
             DialogPane dialogPane = infoDialog.getDialogPane();
             dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
@@ -3255,20 +3255,20 @@ public class SpeleoDBController implements Initializable {
             dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
             dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
             dialogPane.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH + 100); // Allow some expansion
-            
+
             // Apply Material Design dialog styling
             dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
-            
+
             // Create content layout with Material Design principles
             VBox content = new VBox();
             content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
             content.setMinHeight(Region.USE_PREF_SIZE);
             content.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            
+
             // Create title label with header from API
             Label titleLabel = new Label(header);
             titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
-            
+
             // Create message label for plain text content
             Label messageLabel = new Label();
             messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
@@ -3278,69 +3278,69 @@ public class SpeleoDBController implements Initializable {
             messageLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
             messageLabel.setPrefHeight(Region.USE_COMPUTED_SIZE);
             messageLabel.setMinHeight(Region.USE_PREF_SIZE);
-            
+
             // Process the message to convert markdown-style formatting to JavaFX
             String processedMessage = processMarkdownForJavaFX(message);
             messageLabel.setText(processedMessage);
-            
+
             // Add components to content
             content.getChildren().addAll(titleLabel, messageLabel);
-            
+
             // Set content
             dialogPane.setContent(content);
-            
+
             // Add Material Design button
             ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
             dialogPane.getButtonTypes().add(gotItButton);
-            
+
             // Style the button with Material Design - delay to ensure button exists
             Platform.runLater(() -> {
                 javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
                 if (button != null) {
                     // Set initial style
                     button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
-                    
+
                     // Add hover effects that maintain consistent size and text
                     button.setOnMouseEntered(e -> {
                         if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_HOVER_STYLE)) {
                             button.setStyle(STYLES.MATERIAL_BUTTON_HOVER_STYLE);
                         }
                     });
-                    
+
                     button.setOnMouseExited(e -> {
                         if (!button.getStyle().equals(STYLES.MATERIAL_BUTTON_STYLE)) {
                             button.setStyle(STYLES.MATERIAL_BUTTON_STYLE);
                         }
                     });
-                    
+
                     // Ensure button text never changes
                     button.setText(DIALOGS.BUTTON_GOT_IT);
                 }
             });
-            
+
             // Set owner for proper modal behavior
             if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
                 infoDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
                 infoDialog.initModality(Modality.WINDOW_MODAL);
             }
-            
+
             // Add fade-in animation for smooth appearance
             dialogPane.setOpacity(0.0);
             FadeTransition fadeIn = new FadeTransition(Duration.millis(TIMINGS.FADE_IN_DURATION_MILLIS), dialogPane);
             fadeIn.setFromValue(0.0);
             fadeIn.setToValue(1.0);
-            
+
             // After showing, ensure proper sizing
             Platform.runLater(() -> {
                 dialogPane.autosize();
             });
-            
+
             fadeIn.play();
-            
+
             logger.debug("Information popup displayed with Material Design styling and content-based sizing");
-            
+
             return infoDialog;
-            
+
         } catch (Exception e) {
             logger.error("Error creating information popup", e);
             // Return a simple fallback dialog
@@ -3354,29 +3354,29 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Checks for plugin updates and handles the update process if available.
-     * 
+     *
      * @param instanceUrl the SpeleoDB instance URL to check for updates
      */
     private void checkForPluginUpdates(String instanceUrl) {
         try {
             logger.debug(MESSAGES.UPDATE_CHECK_STARTING);
-            
+
             SpeleoDBService tempService = new SpeleoDBService(this);
             JsonArray releases = tempService.fetchPluginReleases(instanceUrl);
-            
+
             if (releases.isEmpty()) {
                 logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
                 return;
             }
-            
+
             // Find the latest version
             JsonObject latestPluginJson = null;
             String latestPluginVersion = null;
-            
+
             for (JsonValue releaseJsonValue : releases) {
                 JsonObject releaseJson = releaseJsonValue.asJsonObject();
                 String pluginVersion = releaseJson.getString(JSON_FIELDS.PLUGIN_VERSION, null);
-                
+
                 if (pluginVersion != null) {
                     if (latestPluginVersion == null || compareVersions(pluginVersion, latestPluginVersion) > 0) {
                         latestPluginVersion = pluginVersion;
@@ -3384,32 +3384,32 @@ public class SpeleoDBController implements Initializable {
                     }
                 }
             }
-            
+
             if (latestPluginJson == null || latestPluginVersion == null) {
                 // No candidate for update found
                 logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
                 return;
             }
-            
+
             // Compare with current version
             if (SpeleoDBConstants.VERSION != null && compareVersions(latestPluginVersion, SpeleoDBConstants.VERSION) > 0) {
                 logger.info(String.format(MESSAGES.UPDATE_AVAILABLE, latestPluginVersion));
-                
+
                 // Download and install the update
                 downloadAndInstallUpdate(latestPluginJson, latestPluginVersion);
-                
+
             } else {
                 logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
             }
-            
+
         } catch (Exception e) {
             logger.warn(String.format(MESSAGES.UPDATE_CHECK_FAILED, e.getMessage()));
         }
     }
-    
+
     /**
      * Downloads and installs a plugin update.
-     * 
+     *
      * @param release the JsonObject containing release information
      * @param version the version string of the update
      */
@@ -3418,55 +3418,55 @@ public class SpeleoDBController implements Initializable {
             String downloadUrl = release.getString(JSON_FIELDS.DOWNLOAD_URL, null);
             String expectedHash = release.getString(JSON_FIELDS.SHA256_HASH, null);
             String changelog = release.getString(JSON_FIELDS.CHANGELOG, "");
-            
+
             if (downloadUrl == null || expectedHash == null) {
                 logger.error("Invalid release data: missing download URL or hash");
                 return;
             }
-            
+
             logger.info(String.format(MESSAGES.UPDATE_DOWNLOAD_STARTING, version));
-            
+
             // Download the file
             byte[] fileData = downloadFile(downloadUrl);
-            
+
             // Verify SHA256 hash
             if (!verifyFileHash(fileData, expectedHash)) {
                 logger.error(MESSAGES.UPDATE_HASH_VERIFICATION_FAILED);
                 return;
             }
-            
+
             // Create plugins directory if it doesn't exist
             Path pluginsDir = Paths.get(PATHS.ARIANE_PLUGINS_DIR);
             Files.createDirectories(pluginsDir);
-            
+
             // Extract filename from download URL to preserve the exact filename
             String fileName;
             URI downloadUri = new URI(downloadUrl);
             String urlPath = downloadUri.getPath();
             fileName = urlPath.substring(urlPath.lastIndexOf('/') + 1);
-            
+
             // Validate extracted filename
             if (fileName.isEmpty() || !fileName.endsWith(PATHS.JAR_FILE_EXTENSION)) {
                 throw new IllegalArgumentException("Invalid filename extracted from download URL: " + fileName);
             }
-            
+
             // Save the file to plugins directory with .new extension
             Path targetFile = pluginsDir.resolve(fileName + ".new");
             Files.write(targetFile, fileData, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            
+
             logger.info(String.format(MESSAGES.UPDATE_INSTALL_SUCCESS, version));
-            
+
             // Show success dialog on UI thread
             Platform.runLater(() -> showUpdateSuccessDialog(version, changelog));
-            
+
         } catch (Exception e) {
             logger.error(String.format(MESSAGES.UPDATE_DOWNLOAD_FAILED, e.getMessage()), e);
         }
     }
-    
+
     /**
      * Downloads a file from the given URL.
-     * 
+     *
      * @param url the URL to download from
      * @return byte array containing the file data
      * @throws Exception if download fails
@@ -3477,24 +3477,24 @@ public class SpeleoDBController implements Initializable {
                 .GET()
                 .timeout(java.time.Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))
                 .build();
-                
+
         HttpClient client = HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))
                 .followRedirects(HttpClient.Redirect.NORMAL)  // Follow redirects automatically
                 .build();
-                
+
         HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-        
+
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception("HTTP " + response.statusCode() + " when downloading update");
         }
-        
+
         return response.body();
     }
-    
+
     /**
      * Verifies the SHA256 hash of file data.
-     * 
+     *
      * @param fileData the file data to verify
      * @param expectedHash the expected SHA256 hash (hex string)
      * @return true if hash matches, false otherwise
@@ -3503,7 +3503,7 @@ public class SpeleoDBController implements Initializable {
         try {
             java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(fileData);
-            
+
             // Convert to hex string
             StringBuilder hexString = new StringBuilder();
             for (byte b : hashBytes) {
@@ -3513,31 +3513,31 @@ public class SpeleoDBController implements Initializable {
                 }
                 hexString.append(hex);
             }
-            
+
             String actualHash = hexString.toString();
             return actualHash.equalsIgnoreCase(expectedHash);
-            
+
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to verify file hash: " + e.getMessage(), e);
             return false;
         }
     }
-    
+
     /**
      * Deletes plugin jar files matching the specified glob patterns from the plugins directory.
-     * 
+     *
      * @param patterns glob patterns to match files for deletion (e.g., "*.jar", "plugin-*.jar")
      * @return number of files successfully deleted
      */
     private int deletePluginFiles(String... patterns) {
         int deletedCount = 0;
         Path pluginsDir = Paths.get(PATHS.ARIANE_PLUGINS_DIR);
-        
+
         if (!Files.exists(pluginsDir)) {
             logger.debug("Plugins directory does not exist: " + pluginsDir);
             return 0;
         }
-        
+
         for (String pattern : patterns) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(pluginsDir, pattern)) {
                 for (Path file : stream) {
@@ -3554,10 +3554,10 @@ public class SpeleoDBController implements Initializable {
                 logger.warn("Failed to scan plugins directory with pattern '" + pattern + "': " + e.getMessage());
             }
         }
-        
+
         return deletedCount;
     }
-    
+
     /**
      * Cleans up old plugin files during initialization.
      * Only removes the old filename pattern to prevent conflicts.
@@ -3566,7 +3566,7 @@ public class SpeleoDBController implements Initializable {
         try {
             // Only delete files with the old naming convention during initialization
             int deletedCount = deletePluginFiles("com.arianesline.ariane.plugin.speleoDB-*.jar");
-            
+
             if (deletedCount > 0) {
                 logger.info("Cleaned up " + deletedCount + " old plugin file(s) during initialization");
             }
@@ -3574,11 +3574,11 @@ public class SpeleoDBController implements Initializable {
             logger.warn("Error during plugin cleanup: " + e.getMessage());
         }
     }
-    
+
     /**
      * Compares two version strings in CalVer format (YYYY.MM.DD).
      * Made package-private to allow use by SpeleoDBService for version bounds checking.
-     * 
+     *
      * @param version1 first version string
      * @param version2 second version string
      * @return positive if version1 > version2, negative if version1 < version2, 0 if equal
@@ -3587,28 +3587,28 @@ public class SpeleoDBController implements Initializable {
         if (version1 == null && version2 == null) return 0;
         if (version1 == null) return -1;
         if (version2 == null) return 1;
-        
+
         String[] parts1 = version1.split("\\.");
         String[] parts2 = version2.split("\\.");
-        
+
         int maxLength = Math.max(parts1.length, parts2.length);
-        
+
         for (int i = 0; i < maxLength; i++) {
             int num1 = i < parts1.length ? parseVersionPart(parts1[i]) : 0;
             int num2 = i < parts2.length ? parseVersionPart(parts2[i]) : 0;
-            
+
             int comparison = Integer.compare(num1, num2);
             if (comparison != 0) {
                 return comparison;
             }
         }
-        
+
         return 0;
     }
-    
+
     /**
      * Parses a version part to integer, handling non-numeric parts.
-     * 
+     *
      * @param part the version part string
      * @return integer value of the part, or 0 if not numeric
      */
@@ -3619,10 +3619,10 @@ public class SpeleoDBController implements Initializable {
             return 0;
         }
     }
-    
+
     /**
      * Shows a success dialog when an update has been installed.
-     * 
+     *
      * @param version the version that was installed
      * @param changelog the changelog for the update
      */
@@ -3632,29 +3632,29 @@ public class SpeleoDBController implements Initializable {
             updateDialog.setTitle(MESSAGES.UPDATE_DIALOG_TITLE);
             updateDialog.setHeaderText(null);
             updateDialog.setResizable(false);
-            
+
             DialogPane dialogPane = updateDialog.getDialogPane();
             dialogPane.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH);
             dialogPane.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH);
             dialogPane.setMinHeight(DIMENSIONS.INFO_DIALOG_MIN_HEIGHT);
             dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
-            
+
             dialogPane.setStyle(STYLES.MATERIAL_INFO_DIALOG_STYLE);
-            
+
             VBox content = new VBox();
             content.setStyle(STYLES.MATERIAL_INFO_CONTENT_STYLE);
-            
+
             Label titleLabel = new Label(MESSAGES.UPDATE_DIALOG_HEADER);
             titleLabel.setStyle(STYLES.MATERIAL_INFO_TITLE_STYLE);
-            
+
             Label messageLabel = new Label(String.format(MESSAGES.UPDATE_DOWNLOAD_SUCCESS, version));
             messageLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
             messageLabel.setWrapText(true);
-            
+
             Label changelogLabel = new Label(changelog);
             changelogLabel.setStyle(STYLES.MATERIAL_INFO_TEXT_STYLE);
             changelogLabel.setWrapText(true);
-            
+
             // Add restart warning with material design warning style
             Label restartWarningLabel = new Label(MESSAGES.UPDATE_RESTART_WARNING);
             restartWarningLabel.setStyle(STYLES.MATERIAL_WARNING_TEXT_STYLE);
@@ -3662,13 +3662,13 @@ public class SpeleoDBController implements Initializable {
             restartWarningLabel.setMinWidth(DIMENSIONS.INFO_DIALOG_MIN_WIDTH - 48); // Account for padding
             restartWarningLabel.setPrefWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
             restartWarningLabel.setMaxWidth(DIMENSIONS.INFO_DIALOG_PREF_WIDTH - 48); // Account for padding
-            
+
             content.getChildren().addAll(titleLabel, messageLabel, changelogLabel, restartWarningLabel);
             dialogPane.setContent(content);
-            
+
             ButtonType gotItButton = BUTTON_TYPES.FAST_GOT_IT;
             dialogPane.getButtonTypes().add(gotItButton);
-            
+
             Platform.runLater(() -> {
                 javafx.scene.control.Button button = (javafx.scene.control.Button) dialogPane.lookupButton(gotItButton);
                 if (button != null) {
@@ -3677,29 +3677,29 @@ public class SpeleoDBController implements Initializable {
                     button.setOnMouseExited(e -> button.setStyle(STYLES.MATERIAL_BUTTON_STYLE));
                 }
             });
-            
+
             if (speleoDBAnchorPane.getScene() != null && speleoDBAnchorPane.getScene().getWindow() != null) {
                 updateDialog.initOwner(speleoDBAnchorPane.getScene().getWindow());
                 updateDialog.initModality(Modality.WINDOW_MODAL);
             }
-            
+
             updateDialog.show();
-            
+
         } catch (Exception e) {
             logger.error("Error showing update success dialog", e);
         }
     }
-    
+
     /**
      * Checks for announcements and displays them.
-     * 
+     *
      * @param instanceUrl the SpeleoDB instance URL to check for announcements
      */
     private void checkForAnnouncements(String instanceUrl) {
         try {
             SpeleoDBService tempService = new SpeleoDBService(this);
             JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
-            
+
             // Filter out announcements that have already been displayed
             List<JsonObject> unshownAnnouncements = new ArrayList<>();
             for (JsonValue item : announcements) {
@@ -3708,7 +3708,7 @@ public class SpeleoDBController implements Initializable {
                     unshownAnnouncements.add(announcement);
                 }
             }
-            
+
             if (!unshownAnnouncements.isEmpty()) {
                 // Show announcements sequentially
                 Platform.runLater(() -> showAnnouncementsSequentially(unshownAnnouncements, 0));
@@ -3716,7 +3716,7 @@ public class SpeleoDBController implements Initializable {
                 // No new announcements to show
                 logger.debug("No new announcements to display");
             }
-            
+
         } catch (Exception e) {
             logger.warn("Failed to fetch announcements, error: " + e.getMessage());
         }

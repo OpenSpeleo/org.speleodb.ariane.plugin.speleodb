@@ -26,7 +26,7 @@ dependencies {
     implementation("jakarta.json:jakarta.json-api:2.1.3")
     implementation ('org.eclipse.parsson:parsson:1.1.4')
     implementation("org.glassfish:jakarta.json:2.0.1")
-    
+
     // Testing dependencies
     testImplementation platform('org.junit:junit-bom:5.10.1')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -35,7 +35,7 @@ dependencies {
     testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    
+
     // JavaFX testing support
     testImplementation 'org.testfx:testfx-core:4.0.16-alpha'
     testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
@@ -45,7 +45,7 @@ dependencies {
 tasks.register('help-build') {
     group = 'help'
     description = 'Shows available build and test tasks'
-    
+
     doLast {
         println ''
         println '=== SpeleoDB Plugin Build Tasks ==='
@@ -81,7 +81,7 @@ tasks.register('help-build') {
 tasks.register('cleanBuildArtifacts') {
     group = 'build'
     description = 'Cleans the build/libs directory before building'
-    
+
     doFirst {
         def libsDir = file('build/libs')
         if (libsDir.exists()) {
@@ -103,7 +103,7 @@ tasks.register('cleanBuildArtifacts') {
 tasks.register('generateReleaseVersion') {
     group = 'build'
     description = 'Generates version string based on current date in CalVer format (YYYY.MM.DD)'
-    
+
     // Capture required project data at configuration time to avoid accessing
     // Task.project during task execution (deprecated since Gradle 8, removed in 10)
     inputs.property('calVerVersion', calVerVersion)
@@ -111,23 +111,23 @@ tasks.register('generateReleaseVersion') {
     doFirst {
         def versionString = inputs.properties['calVerVersion']
         def versionDisplay = "v${versionString}"
-        
+
         println "Generating version: ${versionString} (display: ${versionDisplay})"
-        
+
         // Read the constants file
         def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
-        
+
         // Replace the version constants - match VERSION in main class, not in nested classes
         // Look for VERSION after the version comment block
         content = content.replaceFirst(
             /(?s)(SpeleoDB Plugin Version.*?\n\s*\*\/\s*\n)(\s*public static final String VERSION = )null;/,
             "\$1\$2\"${versionString}\";"
         )
-        
+
         // Write back to file
         constantsFile.text = content
-        
+
         println "Updated SpeleoDBConstants.java with version: ${versionString}"
     }
 }
@@ -136,27 +136,27 @@ tasks.register('generateReleaseVersion') {
 tasks.register('enableTestMode') {
     group = 'test'
     description = 'Enables test mode to isolate test preferences from user preferences'
-    
+
     doFirst {
         println "Enabling test mode for preference isolation..."
-        
+
         // Read the constants file
         def constantsFile = file('src/main/java/org/speleodb/ariane/plugin/speleodb/SpeleoDBConstants.java')
         def content = constantsFile.text
-        
+
         // Enable TEST_MODE
         content = content.replaceFirst(
             /public static final boolean TEST_MODE = false;/,
             "public static final boolean TEST_MODE = true;"
         )
-        
+
         // Write back to file
         constantsFile.text = content
-        
+
         // Force recompilation by marking outputs as out of date
         tasks.compileJava.outputs.upToDateWhen { false }
         tasks.compileTestJava.outputs.upToDateWhen { false }
-        
+
         println "Test mode ENABLED - tests will use isolated preferences"
     }
 }
@@ -176,7 +176,7 @@ check {
 build {
     dependsOn.clear()
     dependsOn assemble
-    
+
     doFirst {
         println 'Building without running tests. Use "./gradlew test" or "./gradlew check" to run tests.'
     }
@@ -190,7 +190,7 @@ gradle.buildFinished {
     if (constantsFile.exists()) {
         def content = constantsFile.text
         def hasChanges = false
-        
+
         // Reset TEST_MODE if needed
         if (content.contains('public static final boolean TEST_MODE = true;')) {
             println "Build finished - ensuring test mode is disabled..."
@@ -201,7 +201,7 @@ gradle.buildFinished {
             hasChanges = true
             println "Test mode DISABLED after build completion"
         }
-        
+
         // Reset VERSION if needed
         if (content =~ /(?s)SpeleoDB Plugin Version.*?\n\s*\*\/\s*\n\s*public static final String VERSION = "[^"]*";/) {
             println "Build finished - ensuring version is reset to null..."
@@ -212,7 +212,7 @@ gradle.buildFinished {
             hasChanges = true
             println "Version RESET to null after build completion"
         }
-        
+
         if (hasChanges) {
             constantsFile.text = content
         }
@@ -245,14 +245,14 @@ jar {
     dependsOn generateReleaseVersion
     archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
     archiveVersion = project.calVerVersion
-    
+
     // Optimize JAR structure and compression
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    
+
     // Use most aggressive compression available in standard ZIP format
     entryCompression = ZipEntryCompression.DEFLATED
     zip64 = true  // Enable ZIP64 extensions for better compression
-    
+
     // Add security and optimization manifest entries
     manifest {
         attributes(
@@ -266,7 +266,7 @@ jar {
             'Multi-Release': 'false'  // Explicitly disable for clarity
         )
     }
-    
+
     // Preserve file timestamps for better caching
     preserveFileTimestamps = false
     reproducibleFileOrder = true

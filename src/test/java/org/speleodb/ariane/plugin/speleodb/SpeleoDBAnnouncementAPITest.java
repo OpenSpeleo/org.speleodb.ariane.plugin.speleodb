@@ -32,15 +32,15 @@ class SpeleoDBAnnouncementAPITest {
 
     @Mock
     private SpeleoDBController mockController;
-    
+
     @Mock
     private HttpClient mockHttpClient;
-    
+
     @Mock
     private HttpResponse<String> mockResponse;
-    
+
     private SpeleoDBService speleoDBService;
-    
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -57,7 +57,7 @@ class SpeleoDBAnnouncementAPITest {
             // This test verifies the URL construction logic
             String instanceUrl = "www.speleodb.org";
             String expectedUrl = "https://www.speleodb.org/api/v1/announcements/";
-            
+
             // We can't easily test the private URL construction without exposing it,
             // but we can verify the behavior through the API call
             assertDoesNotThrow(() -> {
@@ -71,7 +71,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldConstructHttpUrlForLocalInstances() {
             String localInstanceUrl = "localhost:8000";
             String expectedUrl = "http://localhost:8000/api/v1/announcements/";
-            
+
             // Verify local pattern detection logic
             assertTrue(localInstanceUrl.contains("localhost"));
         }
@@ -81,7 +81,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldHandleIpAddressesCorrectly() {
             String ipInstanceUrl = "192.168.1.100:8000";
             String expectedUrl = "http://192.168.1.100:8000/api/v1/announcements/";
-            
+
             // Verify IP pattern detection
             assertTrue(ipInstanceUrl.matches(".*\\d+\\.\\d+\\.\\d+\\.\\d+.*"));
         }
@@ -96,7 +96,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldCreateGetRequestWithCorrectHeaders() {
             // Test that the HTTP request is constructed properly
             String instanceUrl = "www.speleodb.org";
-            
+
             assertDoesNotThrow(() -> {
                 // The fetchAnnouncements method should create a proper GET request
                 // with Content-Type: application/json header
@@ -109,7 +109,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldSetRequestTimeout() {
             // Verify that request timeout is set
             String instanceUrl = "www.speleodb.org";
-            
+
             assertDoesNotThrow(() -> {
                 // The request should have a timeout configured
                 // This is verified through the SpeleoDBConstants.NETWORK.REQUEST_TIMEOUT_SECONDS
@@ -122,7 +122,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldNotRequireAuthentication() {
             // Verify that no auth token is required for announcements
             String instanceUrl = "www.speleodb.org";
-            
+
             // The fetchAnnouncements method should work without authentication
             assertDoesNotThrow(() -> {
                 // This endpoint should be public
@@ -153,12 +153,12 @@ class SpeleoDBAnnouncementAPITest {
                     ]
                 }
                 """;
-            
+
             // Test JSON parsing logic
             assertDoesNotThrow(() -> {
                 JsonObject responseObject = Json.createReader(new StringReader(validJsonResponse)).readObject();
                 JsonArray announcements = responseObject.getJsonArray("data");
-                
+
                 assertEquals(1, announcements.size());
                 JsonObject announcement = announcements.getJsonObject(0);
                 assertEquals("Test Announcement", announcement.getString("title"));
@@ -175,11 +175,11 @@ class SpeleoDBAnnouncementAPITest {
                     "data": []
                 }
                 """;
-            
+
             assertDoesNotThrow(() -> {
                 JsonObject responseObject = Json.createReader(new StringReader(emptyResponse)).readObject();
                 JsonArray announcements = responseObject.getJsonArray("data");
-                
+
                 assertEquals(0, announcements.size());
             });
         }
@@ -188,7 +188,7 @@ class SpeleoDBAnnouncementAPITest {
         @DisplayName("Should handle malformed JSON gracefully")
         void shouldHandleMalformedJsonGracefully() {
             String malformedJson = "{ invalid json }";
-            
+
             assertThrows(Exception.class, () -> {
                 Json.createReader(new StringReader(malformedJson)).readObject();
             });
@@ -234,12 +234,12 @@ class SpeleoDBAnnouncementAPITest {
                     ]
                 }
                 """;
-            
+
             // Test the filtering logic that would be applied in fetchAnnouncements
             assertDoesNotThrow(() -> {
                 JsonObject responseObject = Json.createReader(new StringReader(responseWithMixedData)).readObject();
                 JsonArray announcements = responseObject.getJsonArray("data");
-                
+
                 // Simulate the filtering logic
                 LocalDate today = LocalDate.now();
                 long validCount = announcements.stream()
@@ -260,7 +260,7 @@ class SpeleoDBAnnouncementAPITest {
                             return true;
                         })
                         .count();
-                
+
                 assertEquals(1, validCount, "Should only include the active ARIANE announcement with future expiry");
             });
         }
@@ -294,15 +294,15 @@ class SpeleoDBAnnouncementAPITest {
                     ]
                 }
                 """;
-            
+
             assertDoesNotThrow(() -> {
                 JsonObject responseObject = Json.createReader(new StringReader(responseWithVersions)).readObject();
                 JsonArray announcements = responseObject.getJsonArray("data");
-                
+
                 // Test version filtering logic
                 // Use the plugin VERSION constant which might be null in test environment
                 String currentVersion = SpeleoDBConstants.VERSION; // null in development, set during build
-                
+
                 long validCount = announcements.stream()
                         .filter(JsonObject.class::isInstance)
                         .map(JsonObject.class::cast)
@@ -316,7 +316,7 @@ class SpeleoDBAnnouncementAPITest {
                             return true; // No version specified - always include
                         })
                         .count();
-                
+
                 // The count depends on whether we're in development (VERSION = null) or build (VERSION = "2025.06.23")
                 if (currentVersion == null) {
                     // In development/test, only announcements without version should be included
@@ -343,7 +343,7 @@ class SpeleoDBAnnouncementAPITest {
         void shouldHandleHttpErrorStatusCodes() {
             // Test various HTTP error codes
             int[] errorCodes = {400, 401, 403, 404, 500, 502, 503};
-            
+
             for (int errorCode : errorCodes) {
                 assertDoesNotThrow(() -> {
                     // The fetchAnnouncements method should throw an exception for non-200 status codes
@@ -375,7 +375,7 @@ class SpeleoDBAnnouncementAPITest {
                 "https://",
                 null
             };
-            
+
             for (String invalidUrl : invalidUrls) {
                 if (invalidUrl != null) {
                     assertDoesNotThrow(() -> {
@@ -405,9 +405,9 @@ class SpeleoDBAnnouncementAPITest {
                 "10.0.0.1",
                 "172.16.0.1"
             };
-            
+
             String localPattern = SpeleoDBConstants.NETWORK.LOCAL_PATTERN;
-            
+
             for (String address : localAddresses) {
                 boolean isLocal = java.util.regex.Pattern.compile(localPattern).matcher(address).find();
                 assertTrue(isLocal, "Address " + address + " should be detected as local");
@@ -423,9 +423,9 @@ class SpeleoDBAnnouncementAPITest {
                 "api.example.com",
                 "subdomain.domain.org"
             };
-            
+
             String localPattern = SpeleoDBConstants.NETWORK.LOCAL_PATTERN;
-            
+
             for (String address : remoteAddresses) {
                 boolean isLocal = java.util.regex.Pattern.compile(localPattern).matcher(address).find();
                 assertFalse(isLocal, "Address " + address + " should be detected as remote");
@@ -441,7 +441,7 @@ class SpeleoDBAnnouncementAPITest {
         @DisplayName("Should have valid API endpoint constant")
         void shouldHaveValidApiEndpointConstant() {
             String endpoint = SpeleoDBConstants.API.ANNOUNCEMENTS_ENDPOINT;
-            
+
             assertNotNull(endpoint, "Announcements endpoint should not be null");
             assertFalse(endpoint.isEmpty(), "Announcements endpoint should not be empty");
             assertTrue(endpoint.startsWith("/"), "Endpoint should start with /");
@@ -459,7 +459,7 @@ class SpeleoDBAnnouncementAPITest {
             assertNotNull(SpeleoDBConstants.JSON_FIELDS.SOFTWARE);
             assertNotNull(SpeleoDBConstants.JSON_FIELDS.EXPIRES_AT);
             assertNotNull(SpeleoDBConstants.JSON_FIELDS.VERSION);
-            
+
             assertEquals("data", SpeleoDBConstants.JSON_FIELDS.DATA);
             assertEquals("title", SpeleoDBConstants.JSON_FIELDS.TITLE);
             assertEquals("message", SpeleoDBConstants.JSON_FIELDS.MESSAGE);
@@ -477,7 +477,7 @@ class SpeleoDBAnnouncementAPITest {
             assertNotNull(SpeleoDBConstants.NETWORK.LOCAL_PATTERN);
             assertNotNull(SpeleoDBConstants.NETWORK.HTTP_PROTOCOL);
             assertNotNull(SpeleoDBConstants.NETWORK.HTTPS_PROTOCOL);
-            
+
             assertEquals("http://", SpeleoDBConstants.NETWORK.HTTP_PROTOCOL);
             assertEquals("https://", SpeleoDBConstants.NETWORK.HTTPS_PROTOCOL);
         }
@@ -494,7 +494,7 @@ class SpeleoDBAnnouncementAPITest {
             assertDoesNotThrow(() -> {
                 // Verify the method can be called (though we won't make actual HTTP calls in unit tests)
                 String instanceUrl = "localhost:8000";
-                
+
                 // The method should exist and be callable
                 // In a real test environment, we would mock the HTTP client
                 assertNotNull(speleoDBService);
@@ -512,7 +512,7 @@ class SpeleoDBAnnouncementAPITest {
                 // - Connection refused
                 // - Invalid URLs
                 // - HTTP error status codes
-                
+
                 // This is tested through the exception handling in the implementation
                 assertTrue(true); // Placeholder for error handling verification
             });
@@ -525,7 +525,7 @@ class SpeleoDBAnnouncementAPITest {
             assertDoesNotThrow(() -> {
                 // The fetchAnnouncements method should create its own HTTP client
                 // since it doesn't require authentication
-                
+
                 // This is verified through the createHttpClient() call in the implementation
                 assertTrue(true); // Placeholder for HTTP client creation verification
             });
@@ -568,4 +568,4 @@ class SpeleoDBAnnouncementAPITest {
             }
             """;
     }
-} 
+}

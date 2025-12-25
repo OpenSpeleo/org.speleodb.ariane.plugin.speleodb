@@ -28,9 +28,9 @@ class SpeleoDBAnnouncementFilteringTest {
 
     @Mock
     private SpeleoDBController mockController;
-    
+
     private SpeleoDBService speleoDBService;
-    
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -47,9 +47,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Test Title", "Test Message", true, "ARIANE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
             assertEquals("Test Title", result.getJsonObject(0).getString("title"));
         }
@@ -60,9 +60,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Inactive Announcement", "Test Message", false, "ARIANE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
 
@@ -80,9 +80,9 @@ class SpeleoDBAnnouncementFilteringTest {
                     ]
                 }
                 """;
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
     }
@@ -97,9 +97,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("ARIANE Announcement", "Test Message", true, "ARIANE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
 
@@ -109,9 +109,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Other Software", "Test Message", true, "OTHER_SOFTWARE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
 
@@ -129,9 +129,9 @@ class SpeleoDBAnnouncementFilteringTest {
                     ]
                 }
                 """;
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
     }
@@ -145,13 +145,13 @@ class SpeleoDBAnnouncementFilteringTest {
         void shouldIncludeFutureExpiryDates() {
             LocalDate futureDate = LocalDate.now().plusDays(1);
             String futureDateStr = futureDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            
+
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Future Expiry", "Test Message", true, "ARIANE", futureDateStr, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
 
@@ -160,13 +160,13 @@ class SpeleoDBAnnouncementFilteringTest {
         void shouldExcludePastExpiryDates() {
             LocalDate pastDate = LocalDate.now().minusDays(1);
             String pastDateStr = pastDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            
+
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Past Expiry", "Test Message", true, "ARIANE", pastDateStr, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
 
@@ -176,9 +176,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("No Expiry", "Test Message", true, "ARIANE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
 
@@ -188,9 +188,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Invalid Date", "Test Message", true, "ARIANE", "invalid-date", null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             // Should include announcement when date parsing fails (fail-safe)
             assertEquals(1, result.size());
         }
@@ -200,13 +200,13 @@ class SpeleoDBAnnouncementFilteringTest {
         void shouldHandleDateFormatCorrectly() {
             // Test with a specific future date in YYYY-MM-DD format
             String futureDate = "2025-12-31";
-            
+
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Date Format Test", "Test Message", true, "ARIANE", futureDate, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
     }
@@ -221,9 +221,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("No Version", "Test Message", true, "ARIANE", null, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
 
@@ -232,13 +232,13 @@ class SpeleoDBAnnouncementFilteringTest {
         void shouldIncludeMatchingVersion() {
             // Mock the plugin version
             String pluginVersion = "2024.12.15";
-            
+
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Version Match", "Test Message", true, "ARIANE", null, pluginVersion)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             // Note: This test would need the actual plugin version to be set
             // For now, we test the logic structure
             assertNotNull(result);
@@ -250,9 +250,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Wrong Version", "Test Message", true, "ARIANE", null, "999.99.99")
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             // When plugin version is null (development), version-specific announcements are excluded
             assertEquals(0, result.size());
         }
@@ -263,9 +263,9 @@ class SpeleoDBAnnouncementFilteringTest {
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Empty Version", "Test Message", true, "ARIANE", null, "")
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
     }
@@ -281,7 +281,7 @@ class SpeleoDBAnnouncementFilteringTest {
             String futureDateStr = futureDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
             LocalDate pastDate = LocalDate.now().minusDays(1);
             String pastDateStr = pastDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
-            
+
             String jsonResponse = """
                 {
                     "data": [
@@ -314,9 +314,9 @@ class SpeleoDBAnnouncementFilteringTest {
                     ]
                 }
                 """.formatted(futureDateStr, pastDateStr);
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
             assertEquals("Valid Announcement", result.getJsonObject(0).getString("title"));
         }
@@ -329,9 +329,9 @@ class SpeleoDBAnnouncementFilteringTest {
                     "data": []
                 }
                 """;
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(0, result.size());
         }
 
@@ -348,9 +348,9 @@ class SpeleoDBAnnouncementFilteringTest {
                     ]
                 }
                 """;
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             // Should exclude announcements with missing required fields
             assertEquals(0, result.size());
         }
@@ -368,7 +368,7 @@ class SpeleoDBAnnouncementFilteringTest {
                     "data": null
                 }
                 """;
-            
+
             assertThrows(Exception.class, () -> {
                 parseAnnouncementsFromResponse(jsonResponse);
             });
@@ -382,7 +382,7 @@ class SpeleoDBAnnouncementFilteringTest {
                     "other_field": "value"
                 }
                 """;
-            
+
             assertThrows(Exception.class, () -> {
                 parseAnnouncementsFromResponse(jsonResponse);
             });
@@ -392,13 +392,13 @@ class SpeleoDBAnnouncementFilteringTest {
         @DisplayName("Should handle very long expiry dates")
         void shouldHandleVeryLongExpiryDates() {
             String futureDate = "2099-12-31";
-            
+
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Far Future", "Test Message", true, "ARIANE", futureDate, null)
             );
-            
+
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
-            
+
             assertEquals(1, result.size());
         }
     }
@@ -416,29 +416,29 @@ class SpeleoDBAnnouncementFilteringTest {
         return sb.toString();
     }
 
-    private String createAnnouncement(String title, String message, Boolean isActive, 
+    private String createAnnouncement(String title, String message, Boolean isActive,
                                     String software, String expiryDate, String version) {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
         sb.append("\"title\": \"").append(title).append("\",");
         sb.append("\"message\": \"").append(message).append("\"");
-        
+
         if (isActive != null) {
             sb.append(",\"is_active\": ").append(isActive);
         }
-        
+
         if (software != null) {
             sb.append(",\"software\": \"").append(software).append("\"");
         }
-        
+
         if (expiryDate != null) {
             sb.append(",\"expiracy_date\": \"").append(expiryDate).append("\"");
         }
-        
+
         if (version != null && !version.isEmpty()) {
             sb.append(",\"version\": \"").append(version).append("\"");
         }
-        
+
         sb.append("}");
         return sb.toString();
     }
@@ -447,10 +447,10 @@ class SpeleoDBAnnouncementFilteringTest {
         try {
             JsonObject responseObject = Json.createReader(new StringReader(jsonResponse)).readObject();
             JsonArray announcements = responseObject.getJsonArray(SpeleoDBConstants.JSON_FIELDS.DATA);
-            
+
             // Simulate the filtering logic from SpeleoDBService.fetchAnnouncements
             LocalDate today = LocalDate.now();
-            
+
             return announcements.stream()
                     .filter(JsonObject.class::isInstance)
                     .map(JsonObject.class::cast)
@@ -481,7 +481,7 @@ class SpeleoDBAnnouncementFilteringTest {
                         // If no version specified, include the announcement
                         return true;
                     })
-                    .collect(Json::createArrayBuilder, 
+                    .collect(Json::createArrayBuilder,
                             (builder, announcement) -> builder.add(announcement),
                             (builder1, builder2) -> {
                                 throw new UnsupportedOperationException("Parallel processing not supported");
@@ -491,4 +491,4 @@ class SpeleoDBAnnouncementFilteringTest {
             throw new RuntimeException("Failed to parse announcements", e);
         }
     }
-} 
+}

@@ -35,7 +35,7 @@ import javafx.application.Platform;
 
 /**
  * Centralized logging system for the SpeleoDB plugin.
- * 
+ *
  * Features:
  * - Thread-safe file logging with automatic rotation
  * - Multiple log levels (DEBUG, INFO, WARN, ERROR)
@@ -45,32 +45,32 @@ import javafx.application.Platform;
  * - Graceful fallback to console if file logging fails
  * - Automatic log directory creation
  * - Clean shutdown handling
- * 
+ *
  * Log files are saved to: ~/.ariane/logs/speleodb-plugin.log
  */
 public final class SpeleoDBLogger {
-    
+
     private static SpeleoDBLogger instance;
     private static final Object instanceLock = new Object();
-    
+
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern(LOG_DATE_FORMAT);
     private final AtomicInteger messageCounter = new AtomicInteger(0);
-    
+
     private PrintWriter logWriter;
     private boolean initialized = false;
     private boolean shutdownCalled = false;
-    
+
     // UI Console integration
     private SpeleoDBController uiController = null;
-    
+
     /**
      * Private constructor for singleton pattern
      */
     private SpeleoDBLogger() {
         initialize();
     }
-    
+
     /**
      * Gets the singleton logger instance
      */
@@ -82,17 +82,17 @@ public final class SpeleoDBLogger {
         }
         return instance;
     }
-    
+
     /**
      * Sets the UI controller for console logging integration.
      * This allows the logger to display messages in the UI console.
-     * 
+     *
      * @param controller the SpeleoDBController instance for UI integration
      */
     public void setUIController(SpeleoDBController controller) {
         this.uiController = controller;
     }
-    
+
     /**
      * Safely disconnects the UI controller without shutting down file logging.
      * This should be called when the UI is being destroyed but the logger should continue.
@@ -100,37 +100,37 @@ public final class SpeleoDBLogger {
     public void disconnectUIController() {
         this.uiController = null;
     }
-    
+
     // ==================== PUBLIC LOGGING API ====================
-    
+
     /**
      * Logs a DEBUG message - goes to file only (not shown in UI console)
      */
     public void debug(String message) {
         log(LOG_LEVEL_DEBUG, message, false); // DEBUG not shown in UI
     }
-    
+
     /**
      * Logs an INFO message - goes to both file and UI console
      */
     public void info(String message) {
         log(LOG_LEVEL_INFO, message, true); // INFO shown in UI
     }
-    
+
     /**
      * Logs a WARNING message - goes to both file and UI console
      */
     public void warn(String message) {
         log(LOG_LEVEL_WARN, message, true); // WARN shown in UI
     }
-    
+
     /**
      * Logs an ERROR message - goes to both file and UI console
      */
     public void error(String message) {
         log(LOG_LEVEL_ERROR, message, true); // ERROR shown in UI
     }
-    
+
     /**
      * Logs an ERROR message with exception details - goes to both file and UI console
      */
@@ -138,25 +138,25 @@ public final class SpeleoDBLogger {
         StringBuilder sb = new StringBuilder(message);
         sb.append(" - Exception: ").append(throwable.getClass().getSimpleName());
         sb.append(": ").append(throwable.getMessage());
-        
+
         // Add stack trace for file logging (detailed)
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         throwable.printStackTrace(pw);
         String fileMessage = sb.toString() + "\nStack trace:\n" + sw.toString();
-        
+
         // Shorter message for UI console
         String uiMessage = message + " - " + throwable.getMessage();
-        
+
         // Log full details to file
         log(LOG_LEVEL_ERROR, fileMessage, false);
-        
+
         // Log shorter message to UI console
         logToUIConsole("ERROR: " + uiMessage);
     }
-    
+
     // ==================== INTERNAL LOGGING SYSTEM ====================
-    
+
     /**
      * Initializes the logging system
      */
@@ -164,18 +164,18 @@ public final class SpeleoDBLogger {
         lock.writeLock().lock();
         try {
             if (initialized) return;
-            
+
             // Create log directory if it doesn't exist
             createLogDirectory();
-            
+
             // Initialize log file writer
             initializeLogWriter();
-            
+
             initialized = true;
-            
+
             // Log startup message
             info(LOG_STARTUP_MESSAGE + LOG_FILE_PATH);
-            
+
         } catch (Exception e) {
             System.err.println(LOG_ERROR_WRITING + e.getMessage());
             e.printStackTrace();
@@ -183,7 +183,7 @@ public final class SpeleoDBLogger {
             lock.writeLock().unlock();
         }
     }
-    
+
     /**
      * Creates the log directory if it doesn't exist
      */
@@ -198,7 +198,7 @@ public final class SpeleoDBLogger {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * Initializes the log file writer
      */
@@ -210,10 +210,10 @@ public final class SpeleoDBLogger {
             throw new RuntimeException(e);
         }
     }
-    
+
     /**
      * Core logging method that handles thread safety, file rotation, and UI integration
-     * 
+     *
      * @param level the log level
      * @param message the message to log
      * @param showInUI whether to show this message in the UI console
@@ -224,19 +224,19 @@ public final class SpeleoDBLogger {
             System.out.println(formatLogMessage(level, message));
             return;
         }
-        
+
         lock.writeLock().lock();
         try {
             if (!initialized) {
                 initialize();
             }
-            
+
             // Check if log rotation is needed
             checkAndRotateLog();
-            
+
             // Format and write to file (ALL levels go to file)
             String formattedMessage = formatLogMessage(level, message);
-            
+
             if (logWriter != null) {
                 logWriter.print(formattedMessage);
                 logWriter.flush(); // Ensure immediate write
@@ -244,13 +244,13 @@ public final class SpeleoDBLogger {
                 // Fallback to console
                 System.out.print(formattedMessage);
             }
-            
+
             // Log to UI console if requested (only INFO and above)
             if (showInUI) {
                 String uiMessage = level.equals(LOG_LEVEL_INFO) ? message : level + ": " + message;
                 logToUIConsole(uiMessage);
             }
-            
+
         } catch (Exception e) {
             // Fallback to console if file logging fails
             System.err.println(LOG_ERROR_WRITING + e.getMessage());
@@ -259,7 +259,7 @@ public final class SpeleoDBLogger {
             lock.writeLock().unlock();
         }
     }
-    
+
     /**
      * Logs a message to the UI console (if controller is available)
      * This handles the UI display part of logging.
@@ -268,7 +268,7 @@ public final class SpeleoDBLogger {
         if (uiController != null && !shutdownCalled) {
             final int messageIndex = messageCounter.incrementAndGet();
             final SpeleoDBController controller = uiController; // Capture reference to avoid race condition
-            
+
             // Log to UI (must be on JavaFX Application Thread)
             Platform.runLater(() -> {
                 // Double-check controller is still valid when the runLater executes
@@ -283,7 +283,7 @@ public final class SpeleoDBLogger {
             });
         }
     }
-    
+
     /**
      * Formats a log message with timestamp and level
      */
@@ -291,7 +291,7 @@ public final class SpeleoDBLogger {
         String timestamp = LocalDateTime.now().format(dateFormatter);
         return String.format(LOG_FORMAT, timestamp, level, message);
     }
-    
+
     /**
      * Checks if log rotation is needed and performs it
      */
@@ -305,7 +305,7 @@ public final class SpeleoDBLogger {
             System.err.println(LOG_ERROR_ROTATING + e.getMessage());
         }
     }
-    
+
     /**
      * Rotates the log file when it gets too large
      */
@@ -315,7 +315,7 @@ public final class SpeleoDBLogger {
             if (logWriter != null) {
                 logWriter.close();
             }
-            
+
             // Rotate existing backup files
             for (int i = LOG_FILE_MAX_BACKUP_COUNT - 1; i >= 1; i--) {
                 Path oldFile = Paths.get(LOG_FILE_PATH + "." + i);
@@ -324,19 +324,19 @@ public final class SpeleoDBLogger {
                     Files.move(oldFile, newFile, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
-            
+
             // Move current log to .1
             Path currentLog = Paths.get(LOG_FILE_PATH);
             Path backupLog = Paths.get(LOG_FILE_PATH + ".1");
             if (Files.exists(currentLog)) {
                 Files.move(currentLog, backupLog, StandardCopyOption.REPLACE_EXISTING);
             }
-            
+
             // Create new log writer
             initializeLogWriter();
-            
+
             info(LOG_FILE_ROTATION_MESSAGE);
-            
+
         } catch (IOException e) {
             System.err.println(LOG_ERROR_ROTATING + e.getMessage());
             // Try to reinitialize writer anyway
@@ -347,23 +347,23 @@ public final class SpeleoDBLogger {
             }
         }
     }
-    
+
     // ==================== DIAGNOSTIC AND UTILITY METHODS ====================
-    
+
     /**
      * Gets the current log file path for external access
      */
     public String getLogFilePath() {
         return LOG_FILE_PATH;
     }
-    
+
     /**
      * Gets the log directory path
      */
     public String getLogDirectory() {
         return LOG_DIR;
     }
-    
+
     /**
      * Checks if the logger is properly initialized
      */
@@ -375,7 +375,7 @@ public final class SpeleoDBLogger {
             lock.readLock().unlock();
         }
     }
-    
+
     /**
      * Gets comprehensive diagnostic information about the logging system
      */
@@ -394,7 +394,7 @@ public final class SpeleoDBLogger {
             diagnostics.append("- Max backup files: ").append(LOG_FILE_MAX_BACKUP_COUNT).append("\n");
             diagnostics.append("- File logging: ALL levels (DEBUG, INFO, WARN, ERROR)\n");
             diagnostics.append("- UI console: INFO and above only (DEBUG hidden)\n");
-            
+
             try {
                 Path logFile = Paths.get(LOG_FILE_PATH);
                 if (Files.exists(logFile)) {
@@ -407,13 +407,13 @@ public final class SpeleoDBLogger {
             } catch (IOException e) {
                 diagnostics.append("- Current file size: Error reading file size\n");
             }
-            
+
             return diagnostics.toString();
         } finally {
             lock.readLock().unlock();
         }
     }
-    
+
     /**
      * Shuts down the logging system gracefully
      */
@@ -421,19 +421,19 @@ public final class SpeleoDBLogger {
         lock.writeLock().lock();
         try {
             if (shutdownCalled) return;
-            
+
             // Clear UI controller reference FIRST to prevent new UI logging attempts
             uiController = null;
             shutdownCalled = true;
-            
+
             // Log shutdown message (will only go to file now)
             info(LOG_SHUTDOWN_MESSAGE);
-            
+
             if (logWriter != null) {
                 logWriter.close();
                 logWriter = null;
             }
-            
+
         } finally {
             lock.writeLock().unlock();
         }

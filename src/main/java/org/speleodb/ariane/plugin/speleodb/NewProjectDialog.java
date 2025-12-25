@@ -54,11 +54,11 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private ComboBox<String> countryComboBox;
     private TextField latitudeField;
     private TextField longitudeField;
-    
+
     // For searchable country dropdown
     private ObservableList<String> allCountryNames;
     private FilteredList<String> filteredCountryNames;
-    
+
     // Save button reference for validation
     private Node saveButton;
     private static final String ERROR_STYLE = "-fx-border-color: #e74c3c; -fx-border-width: 2px; -fx-border-radius: 3px;";
@@ -148,11 +148,11 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         ButtonType saveButtonType = new ButtonType(DIALOGS.BUTTON_SAVE_CHANGES, ButtonBar.ButtonData.OK_DONE);
         ButtonType cancelButtonType = new ButtonType(DIALOGS.BUTTON_CANCEL, ButtonBar.ButtonData.CANCEL_CLOSE);
         getDialogPane().getButtonTypes().addAll(saveButtonType, cancelButtonType);
-        
+
         // Get reference to save button for validation
         saveButton = getDialogPane().lookupButton(saveButtonType);
         saveButton.setDisable(true); // Initially disabled until valid country selected
-        
+
         // Ensure dialog sizing is capped to avoid accidental fullscreen
         getDialogPane().setMinWidth(DIMENSIONS.DIALOG_MIN_WIDTH);
         getDialogPane().setPrefWidth(DIMENSIONS.DIALOG_PREF_WIDTH);
@@ -160,7 +160,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         getDialogPane().setMinHeight(200);
         getDialogPane().setPrefHeight(Region.USE_COMPUTED_SIZE);
         getDialogPane().setMaxHeight(600);
-        
+
         // Apply CSS stylesheet to the dialog
         getDialogPane().getStylesheets().add(getClass().getResource(STYLES.MAIN_CSS_PATH).toExternalForm());
     }
@@ -189,10 +189,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         Label nameLabel = new Label(DIALOGS.LABEL_PROJECT_NAME);
         Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
         asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE); // Red color for required asterisk
-        
+
         HBox labelBox = new HBox(nameLabel, asterisk);
         nameLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
-        
+
         nameField = new TextField();
         nameField.setPromptText(DIALOGS.PROMPT_PROJECT_NAME);
         nameField.setPrefWidth(DIMENSIONS.FIELD_PREF_WIDTH);
@@ -208,10 +208,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         Label descLabel = new Label(DIALOGS.LABEL_DESCRIPTION);
         Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
         asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE);
-        
+
         HBox labelBox = new HBox(descLabel, asterisk);
         descLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
-        
+
         descriptionField = new TextArea();
         descriptionField.setPromptText(DIALOGS.PROMPT_DESCRIPTION);
         descriptionField.setPrefRowCount(DIMENSIONS.DESCRIPTION_FIELD_ROWS);
@@ -228,10 +228,10 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         Label countryLabel = new Label(DIALOGS.LABEL_COUNTRY);
         Label asterisk = new Label(DIALOGS.ASTERISK_REQUIRED);
         asterisk.setStyle(STYLES.REQUIRED_FIELD_STYLE);
-        
+
         HBox labelBox = new HBox(countryLabel, asterisk);
         countryLabel.setFont(Font.font(Font.getDefault().getFamily(), FontWeight.MEDIUM, DIMENSIONS.LABEL_FONT_SIZE));
-        
+
         countryComboBox = new ComboBox<>();
         countryComboBox.setPromptText(DIALOGS.PROMPT_COUNTRY);
         countryComboBox.setMaxWidth(Double.MAX_VALUE);
@@ -239,7 +239,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
 
         // Load countries asynchronously
         loadCountriesIntoComboBox();
-        
+
         // Setup searchable filtering
         setupCountrySearchFilter();
 
@@ -297,17 +297,17 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
 
         allCountryNames = FXCollections.observableArrayList(countries.keySet());
         allCountryNames.sort(String::compareTo);
-        
+
         filteredCountryNames = new FilteredList<>(allCountryNames, p -> true);
         countryComboBox.setItems(filteredCountryNames);
-        
+
         // Re-validate in case user typed something before countries loaded
         validateCountrySelection();
 
         System.out.println("Loaded " + countries.size() + " countries into combo box" +
                 (cachedCountries != null ? " (from cache)" : " (direct load)"));
     }
-    
+
     private void setupCountrySearchFilter() {
         // Add listener to filter countries as user types
         countryComboBox.getEditor().textProperty().addListener((obs, oldValue, newValue) -> {
@@ -317,30 +317,30 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
                 validateCountrySelection();
                 return;
             }
-            
+
             if (filteredCountryNames == null) return;
-            
+
             Platform.runLater(() -> {
                 // Filter based on typed text (case-insensitive)
                 if (newValue == null || newValue.isEmpty()) {
                     filteredCountryNames.setPredicate(country -> true);
                 } else {
                     final String lowerCaseFilter = newValue.toLowerCase();
-                    filteredCountryNames.setPredicate(country -> 
+                    filteredCountryNames.setPredicate(country ->
                         country.toLowerCase().contains(lowerCaseFilter)
                     );
                 }
-                
+
                 // Show dropdown if there are matching results
                 if (!filteredCountryNames.isEmpty() && !countryComboBox.isShowing()) {
                     countryComboBox.show();
                 }
-                
+
                 // Validate after filtering
                 validateCountrySelection();
             });
         });
-        
+
         // When an item is selected from the dropdown, set the editor text properly
         countryComboBox.setOnAction(event -> {
             String selected = countryComboBox.getSelectionModel().getSelectedItem();
@@ -349,7 +349,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
                 validateCountrySelection();
             }
         });
-        
+
         // Also validate when combo box loses focus
         countryComboBox.getEditor().focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) {
@@ -357,7 +357,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             }
         });
     }
-    
+
     /**
      * Validates that the current country field contains a valid country selection.
      * Updates the Save button state and visual error indicator.
@@ -365,12 +365,12 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
     private void validateCountrySelection() {
         String editorText = countryComboBox.getEditor().getText();
         boolean isValid = isValidCountrySelection(editorText);
-        
+
         // Update Save button state
         if (saveButton != null) {
             saveButton.setDisable(!isValid);
         }
-        
+
         // Update visual feedback on the combo box editor
         if (editorText != null && !editorText.isEmpty()) {
             if (isValid) {
@@ -382,7 +382,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             countryComboBox.getEditor().setStyle(""); // Empty is ok (just not submitted)
         }
     }
-    
+
     /**
      * Checks if the given text matches a valid country in the list.
      */
@@ -414,13 +414,13 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         if (selected != null && cachedCountries != null && cachedCountries.containsKey(selected)) {
             return cachedCountries.get(selected);
         }
-        
+
         // If editable, also check the editor text for an exact match
         String editorText = countryComboBox.getEditor().getText();
         if (editorText != null && cachedCountries != null && cachedCountries.containsKey(editorText)) {
             return cachedCountries.get(editorText);
         }
-        
+
         return null;
     }
 
@@ -454,4 +454,4 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             return String.format(MISC.PROJECT_DATA_FORMAT, name, description, countryCode, latitude, longitude);
         }
     }
-} 
+}

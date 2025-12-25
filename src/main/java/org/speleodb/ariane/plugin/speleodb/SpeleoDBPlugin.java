@@ -43,9 +43,9 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         t.setName(DEBUG.SPELEODB_WORKER_THREAD_NAME);
         return t;
     });
-    
+
     // ==================== CENTRALIZED LOGGING SYSTEM ====================
-    
+
     /**
      * Centralized logger instance - used directly without wrapper methods
      */
@@ -88,7 +88,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
     /**
      * Shows a confirmation dialog asking the user if they want to release the project lock before shutdown.
-     * 
+     *
      * @param projectName the name of the project that has an active lock
      * @return true if the user wants to release the lock, false otherwise
      */
@@ -106,10 +106,10 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         controller.parentPlugin = this; // Set the parent plugin reference
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/fxml/SpeleoDB.fxml"));
         fxmlLoader.setController(controller);
-        
+
         try {
             Parent root = fxmlLoader.load();
-            
+
             return root;
         } catch (IOException e) {
             System.err.println("Error loading FXML for SpeleoDB UI: " + e.getMessage());
@@ -144,7 +144,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                         } else if (tgt instanceof javafx.scene.control.TextInputControl) {
                             text = ((javafx.scene.control.TextInputControl) tgt).getText();
                         }
-                        logger.info("FX EVENT: type=" + type + 
+                        logger.info("FX EVENT: type=" + type +
                                     ", target=" + target +
                                     (nodeId != null ? ", id=" + nodeId : "") +
                                     (text != null ? ", text=\"" + text + "\"" : "") +
@@ -172,23 +172,23 @@ public class SpeleoDBPlugin implements DataServerPlugin {
         // Plugin cleanup during application shutdown
         // NOTE: No confirmation dialogs here - they're handled by the window close handler
         // This prevents app crashes during the JavaFX shutdown sequence
-        
+
         SpeleoDBController controller = SpeleoDBController.getInstance();
-        
+
         // Just log the current state, don't show any dialogs
         if (controller.hasActiveProjectLock()) {
             String projectName = controller.getCurrentProjectName();
             logger.info("Application shutting down with active lock on: " + projectName);
             logger.info("JVM shutdown hook will release the project lock.");
         }
-        
+
 		// Proactively perform shutdown cleanup to release locks even if JVM is not terminated yet.
 		// This call is idempotent and will not conflict with the JVM shutdown hook.
 		controller.performShutdownCleanup();
-		
+
         // Cleanup resources to prevent shutdown hangs
         controller.cleanup();
-        
+
         // Shutdown the executor service quickly during application shutdown
         try {
             executorService.shutdown(); // Disable new tasks from being submitted
@@ -206,7 +206,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             // Preserve interrupt status
             Thread.currentThread().interrupt();
         }
-        
+
         // Shutdown centralized logging system last
         logger.info("SpeleoDB Plugin shutting down");
         logger.shutdown();

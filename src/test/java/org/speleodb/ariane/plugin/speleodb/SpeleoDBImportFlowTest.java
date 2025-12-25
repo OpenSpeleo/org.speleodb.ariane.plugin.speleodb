@@ -172,6 +172,3 @@ class SpeleoDBImportFlowTest {
         f.set(target, value);
     }
 }
-
-
-

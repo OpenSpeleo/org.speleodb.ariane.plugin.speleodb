@@ -29,7 +29,7 @@ class SpeleoDBPluginExtendedTest {
 
     @TempDir
     Path tempDir;
-    
+
     private TestableSpeleoDBPlugin plugin;
     private File testSurveyFile;
 
@@ -43,7 +43,7 @@ class SpeleoDBPluginExtendedTest {
     @Nested
     @DisplayName("Show Settings Method")
     class ShowSettingsMethodTests {
-        
+
         @Test
         @DisplayName("Should handle showSettings method without throwing exceptions")
         void shouldHandleShowSettingsMethodWithoutThrowingExceptions() {
@@ -51,7 +51,7 @@ class SpeleoDBPluginExtendedTest {
             assertThatCode(() -> plugin.showSettings())
                 .doesNotThrowAnyException();
         }
-        
+
         @Test
         @DisplayName("Should be callable multiple times")
         void shouldBeCallableMultipleTimes() {
@@ -63,71 +63,71 @@ class SpeleoDBPluginExtendedTest {
             }).doesNotThrowAnyException();
         }
     }
-    
+
     @Nested
     @DisplayName("Timeout Handling")
     class TimeoutHandlingTests {
-        
+
         @Test
         @DisplayName("Should have correct timeout constant")
         void shouldHaveCorrectTimeoutConstant() {
             assertThat(SpeleoDBPlugin.TIMEOUT).isEqualTo(10000);
         }
-        
+
         @Test
         @DisplayName("Should handle timeout calculation")
         void shouldHandleTimeoutCalculation() {
             LocalDateTime start = LocalDateTime.now();
-            
+
             // Simulate a very short operation (should be under timeout)
             try {
                 Thread.sleep(10); // 10ms
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            
+
             Duration elapsed = Duration.between(start, LocalDateTime.now());
             assertThat(elapsed.toMillis()).isLessThan(SpeleoDBPlugin.TIMEOUT);
         }
-        
+
         @Test
         @DisplayName("Should handle atomic boolean lock mechanism")
         void shouldHandleAtomicBooleanLockMechanism() {
             AtomicBoolean lock = new AtomicBoolean(false);
-            
+
             // Initial state
             assertThat(lock.get()).isFalse();
-            
+
             // Set lock
             lock.set(true);
             assertThat(lock.get()).isTrue();
-            
+
             // Reset lock
             lock.set(false);
             assertThat(lock.get()).isFalse();
-            
+
             // Test compare and set
             boolean result = lock.compareAndSet(false, true);
             assertThat(result).isTrue();
             assertThat(lock.get()).isTrue();
-            
+
             // Test compare and set with wrong expected value
             boolean failedResult = lock.compareAndSet(false, false);
             assertThat(failedResult).isFalse();
             assertThat(lock.get()).isTrue(); // Should remain unchanged
         }
     }
-    
+
     @Nested
     @DisplayName("Survey Loading Edge Cases")
     class SurveyLoadingEdgeCasesTests {
-        
+
         @Test
         @DisplayName("Should handle loadSurvey with null file")
         void shouldHandleLoadSurveyWithNullFile() {
             plugin.setSurvey(null);
             plugin.setSurveyFile(null);
-            
+
             // This should not crash, but we can't test the actual behavior
             // since it involves thread timing and external dependencies
             assertThatCode(() -> {
@@ -136,32 +136,32 @@ class SpeleoDBPluginExtendedTest {
                 assertThat(plugin.getSurveyFile()).isNull();
             }).doesNotThrowAnyException();
         }
-        
+
         @Test
         @DisplayName("Should handle survey file state management")
         void shouldHandleSurveyFileStateManagement() {
             // Test initial state
             assertThat(plugin.getSurveyFile()).isNull();
-            
+
             // Set survey file
             plugin.setSurveyFile(testSurveyFile);
             assertThat(plugin.getSurveyFile()).isEqualTo(testSurveyFile);
-            
+
             // Clear survey file
             plugin.setSurveyFile(null);
             assertThat(plugin.getSurveyFile()).isNull();
         }
-        
+
         @Test
         @DisplayName("Should handle command property changes")
         void shouldHandleCommandPropertyChanges() {
             // Test initial command property
             assertThat(plugin.getCommandProperty()).isNotNull();
-            
+
             // Test setting different commands
             plugin.getCommandProperty().set(DataServerCommands.SAVE.name());
             assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.SAVE.name());
-            
+
             plugin.getCommandProperty().set(DataServerCommands.LOAD.name());
             assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.LOAD.name());
 
@@ -169,11 +169,11 @@ class SpeleoDBPluginExtendedTest {
             assertThat(plugin.getCommandProperty().get()).isEqualTo(DataServerCommands.REDRAW.name());
         }
     }
-    
+
     @Nested
     @DisplayName("Plugin Lifecycle Edge Cases")
     class PluginLifecycleEdgeCasesTests {
-        
+
         @Test
         @DisplayName("Should handle multiple closeUI calls")
         void shouldHandleMultipleCloseUICalls() {
@@ -184,55 +184,55 @@ class SpeleoDBPluginExtendedTest {
                 plugin.closeUI();
             }).doesNotThrowAnyException();
         }
-        
+
         @Test
         @DisplayName("Should handle executor service shutdown")
         void shouldHandleExecutorServiceShutdown() {
             // Test that the executor service exists and can be used
             assertThat(plugin.executorService).isNotNull();
-            
+
             // Test that it's not shutdown initially
             assertThat(plugin.executorService.isShutdown()).isFalse();
-            
+
             // Call closeUI which should shutdown the executor
             plugin.closeUI();
-            
+
             // Verify executor is shutdown
             assertThat(plugin.executorService.isShutdown()).isTrue();
         }
-        
+
         @Test
         @DisplayName("Should handle save survey operations")
         void shouldHandleSaveSurveyOperations() {
             assertThatCode(() -> plugin.saveSurvey()).doesNotThrowAnyException();
-            
+
             // The command property should be set to SAVE then DONE
             // Note: We can't easily test the exact sequence due to timing,
             // but we can ensure the method doesn't throw exceptions
         }
     }
-    
+
     @Nested
     @DisplayName("File Operations Edge Cases")
     class FileOperationsEdgeCasesTests {
-        
+
         @Test
         @DisplayName("Should handle various file types")
         void shouldHandleVariousFileTypes() throws IOException {
             // Test with different file extensions
             String[] extensions = {PATHS.TML_FILE_EXTENSION, ".txt", ".dat", ".json", ".xml"};
-            
+
             for (String ext : extensions) {
                 File testFile = tempDir.resolve("test" + ext).toFile();
                 Files.createFile(testFile.toPath());
-                
+
                 assertThatCode(() -> {
                     plugin.setSurveyFile(testFile);
                     assertThat(plugin.getSurveyFile()).isEqualTo(testFile);
                 }).doesNotThrowAnyException();
             }
         }
-        
+
         @Test
         @DisplayName("Should handle files with special names")
         void shouldHandleFilesWithSpecialNames() throws IOException {
@@ -243,12 +243,12 @@ class SpeleoDBPluginExtendedTest {
                 "file.with.dots.tml",
                 "file123.tml"
             };
-            
+
             for (String name : specialNames) {
                 try {
                     File specialFile = tempDir.resolve(name).toFile();
                     Files.createFile(specialFile.toPath());
-                    
+
                     assertThatCode(() -> {
                         plugin.setSurveyFile(specialFile);
                         assertThat(plugin.getSurveyFile()).isEqualTo(specialFile);
@@ -259,12 +259,12 @@ class SpeleoDBPluginExtendedTest {
                 }
             }
         }
-        
+
         @Test
         @DisplayName("Should handle non-existent files")
         void shouldHandleNonExistentFiles() {
             File nonExistentFile = tempDir.resolve("does-not-exist.tml").toFile();
-            
+
             // Setting a non-existent file should still work (file might be created later)
             assertThatCode(() -> {
                 plugin.setSurveyFile(nonExistentFile);
@@ -272,15 +272,15 @@ class SpeleoDBPluginExtendedTest {
             }).doesNotThrowAnyException();
         }
     }
-    
+
     // ===================== TEST HELPER CLASS ===================== //
-    
+
     /**
      * Testable version of SpeleoDBPlugin that exposes protected/package methods for testing
      */
     static class TestableSpeleoDBPlugin extends SpeleoDBPlugin {
-        
+
         // All methods are already public in SpeleoDBPlugin, so no additional exposure needed
         // This class exists mainly for consistency with other test patterns
     }
-} 
+}

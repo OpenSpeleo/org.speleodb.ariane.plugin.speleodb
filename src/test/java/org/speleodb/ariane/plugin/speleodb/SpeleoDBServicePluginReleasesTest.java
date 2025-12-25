@@ -147,28 +147,28 @@ class SpeleoDBServicePluginReleasesTest {
             // Use a test version instead of relying on SpeleoDBConstants.ARIANE_VERSION
             String testCurrentVersion = "25.2.1";
             int compatibleCount = 0;
-            
+
             for (int i = 0; i < testReleases.size(); i++) {
                 JsonObject release = testReleases.getJsonObject(i);
                 if (!"ARIANE".equals(release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, ""))) {
                     continue;
                 }
-                
+
                 String minVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
                 String maxVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
-                
+
                 boolean isCompatible = true;
-                
+
                 // Check minimum version
                 if (minVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, minVersion) < 0) {
                     isCompatible = false;
                 }
-                
+
                 // Check maximum version
                 if (maxVersion != null && SpeleoDBController.compareVersions(testCurrentVersion, maxVersion) > 0) {
                     isCompatible = false;
                 }
-                
+
                 if (isCompatible) {
                     compatibleCount++;
                 }
@@ -210,7 +210,7 @@ class SpeleoDBServicePluginReleasesTest {
                 JsonObject release = testReleases.getJsonObject(i);
                 String software = release.getString(SpeleoDBConstants.JSON_FIELDS.SOFTWARE, null);
                 String pluginVersion = release.getString(SpeleoDBConstants.JSON_FIELDS.PLUGIN_VERSION, null);
-                
+
                 // In the new format, version bounds are optional, so a release is valid if it has software and plugin_version
                 if (software != null && pluginVersion != null) {
                     validCount++;
@@ -305,14 +305,14 @@ class SpeleoDBServicePluginReleasesTest {
         @Test
         @DisplayName("Should have correct ARIANE version constant")
         void shouldHaveCorrectArianeVersionConstant() {
-            // With the new Plugin API containerVersion integration, 
+            // With the new Plugin API containerVersion integration,
             // ARIANE_VERSION might be empty in test environment if containerVersion is not set
             String version = SpeleoDBConstants.ARIANE_VERSION;
             assertNotNull(version, "ARIANE_VERSION should not be null");
-            
+
             // If version is not empty, it should be in valid format
             if (!version.trim().isEmpty()) {
-                assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), 
+                assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"),
                     "ARIANE_VERSION should be in valid format when not empty: " + version);
                 System.out.println("ARIANE_VERSION in test: " + version);
             } else {
@@ -365,9 +365,9 @@ class SpeleoDBServicePluginReleasesTest {
             assertTrue(SpeleoDBConstants.NETWORK.REQUEST_TIMEOUT_SECONDS > 0);
             assertTrue(SpeleoDBConstants.NETWORK.CONNECT_TIMEOUT_SECONDS > 0);
             assertTrue(SpeleoDBConstants.NETWORK.DOWNLOAD_TIMEOUT_SECONDS > 0);
-            
+
             // Download timeout should be longer than regular request timeout
-            assertTrue(SpeleoDBConstants.NETWORK.DOWNLOAD_TIMEOUT_SECONDS >= 
+            assertTrue(SpeleoDBConstants.NETWORK.DOWNLOAD_TIMEOUT_SECONDS >=
                       SpeleoDBConstants.NETWORK.REQUEST_TIMEOUT_SECONDS);
         }
     }
@@ -404,4 +404,4 @@ class SpeleoDBServicePluginReleasesTest {
             assertTrue(SpeleoDBConstants.MESSAGES.UPDATE_INSTALL_SUCCESS.contains("%s"));
         }
     }
-} 
+}

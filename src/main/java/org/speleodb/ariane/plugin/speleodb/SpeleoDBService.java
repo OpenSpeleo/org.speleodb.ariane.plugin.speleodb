@@ -43,7 +43,7 @@ public class SpeleoDBService {
     private String authToken = "";
     private String SDB_instance = "";
     private HttpClient http_client = null;
-    
+
     // Centralized logger instance - used directly without wrapper methods
     private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
 
@@ -75,7 +75,7 @@ public class SpeleoDBService {
     private void setSDBInstance(String instanceUrl) {
         // Normalize the input URL by removing protocol prefixes and trailing slashes
         String normalizedUrl = normalizeInstanceUrl(instanceUrl);
-        
+
         // Regex to match localhost, private IP ranges, or loopback addresses.
         String localPattern = NETWORK.LOCAL_PATTERN;
 
@@ -87,16 +87,16 @@ public class SpeleoDBService {
             SDB_instance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
         }
     }
-    
+
     /**
      * Normalizes an instance URL by removing protocol prefixes and trailing slashes.
      * This ensures consistent processing regardless of user input format.
-     * 
+     *
      * Examples:
      * - "https://www.speleodb.org/" -> "www.speleodb.org"
      * - "http://localhost:8000/" -> "localhost:8000"
      * - "stage.speleodb.org" -> "stage.speleodb.org"
-     * 
+     *
      * @param instanceUrl the raw instance URL from user input
      * @return normalized URL without protocol prefix or trailing slashes
      */
@@ -104,21 +104,21 @@ public class SpeleoDBService {
         if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
             return instanceUrl;
         }
-        
+
         String normalized = instanceUrl.trim();
-        
+
         // Remove http:// or https:// protocol prefixes
         if (normalized.startsWith(NETWORK.HTTPS_PROTOCOL)) {
             normalized = normalized.substring(NETWORK.HTTPS_PROTOCOL.length());
         } else if (normalized.startsWith(NETWORK.HTTP_PROTOCOL)) {
             normalized = normalized.substring(NETWORK.HTTP_PROTOCOL.length());
         }
-        
+
         // Remove trailing slashes
         while (normalized.endsWith("/") && normalized.length() > 1) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-        
+
         return normalized;
     }
 
@@ -129,20 +129,20 @@ public class SpeleoDBService {
      * Uses HTTP/1.1 for both HTTP and HTTPS connections for better compatibility and to avoid
      * potential HTTP/2 connection hanging issues with remote servers.
      * Enhanced with proper timeouts and connection management for reliability.
-     * 
+     *
      * @return HttpClient configured with HTTP/1.1 and reliability settings
      */
     private HttpClient createHttpClient() {
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))  // Generous timeout for reliability
                 .followRedirects(HttpClient.Redirect.NORMAL);  // Handle redirects automatically
-        
+
         if (SDB_instance.startsWith(NETWORK.HTTP_PROTOCOL)) {
             builder = builder.version(HttpClient.Version.HTTP_1_1);
         } else {
             builder = builder.version(HttpClient.Version.HTTP_2);
         }
-        
+
         return builder.build();
     }
 
@@ -187,7 +187,7 @@ public class SpeleoDBService {
             var jsonBuilder = Json.createObjectBuilder()
                 .add(JSON_FIELDS.EMAIL, email)
                 .add(JSON_FIELDS.PASSWORD, password);
-    
+
             String requestBody = jsonBuilder.build().toString();
 
             request = HttpRequest.newBuilder(uri)
@@ -240,7 +240,7 @@ public class SpeleoDBService {
      * @return A JsonObject containing the created project details.
      * @throws Exception if the request fails.
      */
-    public JsonObject createProject(String name, String description, String countryCode, 
+    public JsonObject createProject(String name, String description, String countryCode,
                                    String latitude, String longitude) throws Exception {
         if (!isAuthenticated()) {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED_SHORT);
@@ -324,13 +324,13 @@ public class SpeleoDBService {
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception(MESSAGES.PROJECT_LIST_FAILED_STATUS + response.statusCode());
         }
-        
+
 		try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
 			JsonObject responseObject = reader.readObject();
 			JsonArray projects = responseObject.getJsonArray(JSON_FIELDS.DATA);
 
             // TODO: Improve Error management
-			
+
 			// Keep only ARIANE projects
 			return projects.stream()
 					.filter(JsonObject.class::isInstance)
@@ -369,7 +369,7 @@ public class SpeleoDBService {
             try {
                 byte[] fileData = Files.readAllBytes(tmp_filepath);
                 String fileHash = calculateSHA256(fileData);
-                
+
                 String emptyTemplateHash = getEmptyTemplateSHA256();
                 if (emptyTemplateHash != null && emptyTemplateHash.equals(fileHash)) {
                     throw new IllegalArgumentException(MESSAGES.PROJECT_UPLOAD_REJECTED_EMPTY);
@@ -518,7 +518,7 @@ public class SpeleoDBService {
                 .build();
 
         HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
-        
+
         // TODO: Add error management
         return (response.statusCode() == HTTP_STATUS.OK);
     }
@@ -600,9 +600,9 @@ public class SpeleoDBService {
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
             JsonObject responseObject = reader.readObject();
             JsonArray announcements = responseObject.getJsonArray(JSON_FIELDS.DATA);
-            
+
             // Note: We'll get current date inside the filter for date comparison
-            
+
             // Filter for active ARIANE announcements with additional conditions
             return announcements.stream()
                     .filter(JsonObject.class::isInstance)
@@ -636,7 +636,7 @@ public class SpeleoDBService {
                         // If no version specified, include the announcement
                         return true;
                     })
-                    .collect(Json::createArrayBuilder, 
+                    .collect(Json::createArrayBuilder,
                             (builder, announcement) -> builder.add(announcement),
                             (builder1, builder2) -> {
                                 // This combiner is for parallel streams, but we're using sequential
@@ -685,7 +685,7 @@ public class SpeleoDBService {
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
             JsonObject responseObject = reader.readObject();
             JsonArray releases = responseObject.getJsonArray(JSON_FIELDS.DATA);
-            
+
             // Filter for ARIANE releases that are compatible with current software version
             return releases.stream()
                     .filter(JsonObject.class::isInstance)
@@ -696,25 +696,25 @@ public class SpeleoDBService {
                         String minVersion = release.getString(JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
                         String maxVersion = release.getString(JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
                         String currentVersion = SpeleoDBConstants.ARIANE_VERSION;
-                        
+
                         // If current version is empty, skip all releases (can't determine compatibility)
                         if (currentVersion.isEmpty()) {
                             return false;
                         }
-                        
+
                         // If no version bounds specified, include the release
                         if (minVersion == null && maxVersion == null) {
                             return true;
                         }
-                        
+
                         // Check minimum version (current >= min)
                         if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
                             return false;
                         }
-                        
+
                         return !(maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0);
                     })
-                    .collect(Json::createArrayBuilder, 
+                    .collect(Json::createArrayBuilder,
                             (builder, release) -> builder.add(release),
                             (builder1, builder2) -> {
                                 // This combiner is for parallel streams, but we're using sequential
@@ -726,7 +726,7 @@ public class SpeleoDBService {
 
     /**
      * Calculates the SHA256 hash of the given file data.
-     * 
+     *
      * @param fileData the file data to hash
      * @return the SHA256 hash as a lowercase hex string
      * @throws RuntimeException if SHA-256 algorithm is not available
@@ -735,7 +735,7 @@ public class SpeleoDBService {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(fileData);
-            
+
             // Convert to hex string
             StringBuilder hexString = new StringBuilder();
             for (byte b : hashBytes) {
@@ -745,7 +745,7 @@ public class SpeleoDBService {
                 }
                 hexString.append(hex);
             }
-            
+
             return hexString.toString();
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("SHA-256 algorithm not available", e);
@@ -754,7 +754,7 @@ public class SpeleoDBService {
 
     /**
      * Gets the SHA256 hash of the empty project template from resources.
-     * 
+     *
      * @return the SHA256 hash of the empty template, or null if it cannot be calculated
      */
     private String getEmptyTemplateSHA256() {
@@ -763,7 +763,7 @@ public class SpeleoDBService {
                 logger.warn("Empty template file not found in resources: " + PATHS.EMPTY_TML);
                 return null;
             }
-            
+
             byte[] templateData = templateStream.readAllBytes();
             return calculateSHA256(templateData);
         } catch (IOException e) {

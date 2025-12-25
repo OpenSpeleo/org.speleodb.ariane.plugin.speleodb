@@ -20,39 +20,39 @@ import jakarta.json.JsonObject;
  * Includes checksum verification for round-trip testing integrity
  */
 public class TestFixtures {
-    
+
     private static final Random random = new Random();
     private static final String testRunId = String.valueOf(System.currentTimeMillis());
     private static final java.util.concurrent.atomic.AtomicInteger uniqueCounter = new java.util.concurrent.atomic.AtomicInteger(0);
-    
+
     // Track created projects for cleanup
     private static final List<JsonObject> createdProjects = new ArrayList<>();
-    
+
     // Path to the test TML file
     private static final String TEST_TML_FILE = "project.tml";
     private static final String TEST_ARTIFACTS_PATH = "src/test/resources/artifacts";
-    
+
     /**
      * Create a test project fixture with random but realistic data
      */
     public static ProjectFixture createProjectFixture() {
         return new ProjectFixture();
     }
-    
+
     /**
      * Create a minimal test project fixture
      */
     public static ProjectFixture createMinimalProjectFixture() {
         return new ProjectFixture().minimal();
     }
-    
+
     /**
      * Create a comprehensive test project fixture with full data
      */
     public static ProjectFixture createComprehensiveProjectFixture() {
         return new ProjectFixture().comprehensive();
     }
-    
+
     /**
      * Register a created project for cleanup tracking
      */
@@ -61,21 +61,21 @@ public class TestFixtures {
             createdProjects.add(project);
         }
     }
-    
+
     /**
      * Get all created projects for cleanup
      */
     public static List<JsonObject> getCreatedProjects() {
         return new ArrayList<>(createdProjects);
     }
-    
+
     /**
      * Clear the created projects list
      */
     public static void clearCreatedProjects() {
         createdProjects.clear();
     }
-    
+
     /**
      * Calculate SHA-256 checksum of a file
      */
@@ -83,7 +83,7 @@ public class TestFixtures {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] fileBytes = Files.readAllBytes(filePath);
         byte[] hashBytes = digest.digest(fileBytes);
-        
+
         StringBuilder hexString = new StringBuilder();
         for (byte b : hashBytes) {
             String hex = Integer.toHexString(0xff & b);
@@ -94,7 +94,7 @@ public class TestFixtures {
         }
         return hexString.toString();
     }
-    
+
     /**
      * Get the path to the test TML file in test artifacts directory
      */
@@ -106,14 +106,14 @@ public class TestFixtures {
             "../" + TEST_ARTIFACTS_PATH + "/" + TEST_TML_FILE,  // From subdirectory
             "../../" + TEST_ARTIFACTS_PATH + "/" + TEST_TML_FILE  // From deeper subdirectory
         };
-        
+
         for (String pathStr : possiblePaths) {
             Path tmlFile = Path.of(pathStr).toAbsolutePath().normalize();
             if (Files.exists(tmlFile)) {
                 return tmlFile;
             }
         }
-        
+
         // Also try using the class loader to find the resource
         try {
             ClassLoader classLoader = TestFixtures.class.getClassLoader();
@@ -124,32 +124,32 @@ public class TestFixtures {
         } catch (Exception e) {
             // Ignore and continue with file system search
         }
-        
-        throw new RuntimeException("Test TML file not found: " + TEST_TML_FILE + 
-                                 ". Please ensure " + TEST_TML_FILE + " exists in " + TEST_ARTIFACTS_PATH + 
+
+        throw new RuntimeException("Test TML file not found: " + TEST_TML_FILE +
+                                 ". Please ensure " + TEST_TML_FILE + " exists in " + TEST_ARTIFACTS_PATH +
                                  " directory. Searched paths: " + String.join(", ", possiblePaths));
     }
-    
+
     /**
      * Copy the test TML file to the specified location for upload
      */
     public static Path copyTestTmlFile(String projectId) throws IOException {
         Path sourceTml = getTestTmlFile();
-        
+
         String arianeRootDir = PATHS.SDB_PROJECT_DIR;
         Path arianeDir = Path.of(arianeRootDir);
-        
+
         // Ensure directory exists
         if (!Files.exists(arianeDir)) {
             Files.createDirectories(arianeDir);
         }
-        
+
         Path targetTml = arianeDir.resolve(projectId + PATHS.TML_FILE_EXTENSION);
         Files.copy(sourceTml, targetTml, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        
+
         return targetTml;
     }
-    
+
     /**
      * Verify that two files have the same checksum
      */
@@ -158,21 +158,21 @@ public class TestFixtures {
         String checksum2 = calculateChecksum(file2);
         return checksum1.equals(checksum2);
     }
-    
+
     /**
      * Generate a random project name
      */
     public static String generateProjectName() {
         String[] adjectives = {"Amazing", "Mysterious", "Deep", "Crystal", "Hidden", "Ancient", "Sacred", "Lost", "Wild", "Secret"};
         String[] nouns = {"Cave", "Cavern", "Grotto", "Chamber", "System", "Network", "Passage", "Tunnel", "Vault", "Labyrinth"};
-        
+
         String adjective = adjectives[random.nextInt(adjectives.length)];
         String noun = nouns[random.nextInt(nouns.length)];
         int uniqueId = uniqueCounter.incrementAndGet();
-        
+
         return adjective + " " + noun + " - Test " + testRunId + "-" + uniqueId;
     }
-    
+
     /**
      * Generate a random project description
      */
@@ -184,10 +184,10 @@ public class TestFixtures {
             "API test project with simulated cave survey data",
             "Test cave complex for SpeleoDB API functionality verification"
         };
-        
+
         return descriptions[random.nextInt(descriptions.length)] + " (Run: " + testRunId + ")";
     }
-    
+
     /**
      * Generate a random country code
      */
@@ -195,34 +195,34 @@ public class TestFixtures {
         String[] countries = {"US", "FR", "ES", "IT", "DE", "GB", "CA", "AU", "NZ", "CH"};
         return countries[random.nextInt(countries.length)];
     }
-    
+
     /**
      * Generate a random latitude (-90 to 90)
      */
     public static double generateLatitude() {
         return (random.nextDouble() * 180.0) - 90.0;
     }
-    
+
     /**
      * Generate a random longitude (-180 to 180)
      */
     public static double generateLongitude() {
         return (random.nextDouble() * 360.0) - 180.0;
     }
-    
+
     /**
      * Generate a random cave name for TML content
      */
     public static String generateCaveName() {
         String[] prefixes = {"Thunder", "Crystal", "Echo", "Shadow", "Mystic", "Dragon", "Silver", "Golden", "Frozen", "Hidden"};
         String[] suffixes = {"Falls", "Dome", "Hall", "Chamber", "Passage", "Gallery", "Room", "Corridor", "Pit", "Shaft"};
-        
+
         String prefix = prefixes[random.nextInt(prefixes.length)];
         String suffix = suffixes[random.nextInt(suffixes.length)];
-        
+
         return prefix + " " + suffix;
     }
-    
+
     /**
      * Generate a random upload message
      */
@@ -237,10 +237,10 @@ public class TestFixtures {
             "Fixture-based test upload",
             "Checksum verification upload"
         };
-        
+
         return messages[random.nextInt(messages.length)] + " - " + Instant.now().toString();
     }
-    
+
     /**
      * Project fixture builder class
      */
@@ -253,7 +253,7 @@ public class TestFixtures {
         private boolean isMinimal = false;
         private boolean isComprehensive = false;
         private boolean useRealTmlFile = false;
-        
+
         public ProjectFixture() {
             // Default random values
             this.name = generateProjectName();
@@ -262,53 +262,53 @@ public class TestFixtures {
             this.latitude = generateLatitude();
             this.longitude = generateLongitude();
         }
-        
+
         public ProjectFixture minimal() {
             this.isMinimal = true;
             this.latitude = null;
             this.longitude = null;
             return this;
         }
-        
+
         public ProjectFixture comprehensive() {
             this.isComprehensive = true;
             // Add extra metadata for comprehensive testing
             this.description += " [COMPREHENSIVE TEST]";
             return this;
         }
-        
+
         public ProjectFixture withRealTmlFile() {
             this.useRealTmlFile = true;
             return this;
         }
-        
+
         public ProjectFixture withName(String name) {
             this.name = name;
             return this;
         }
-        
+
         public ProjectFixture withDescription(String description) {
             this.description = description;
             return this;
         }
-        
+
         public ProjectFixture withCountry(String countryCode) {
             this.countryCode = countryCode;
             return this;
         }
-        
+
         public ProjectFixture withCoordinates(double latitude, double longitude) {
             this.latitude = latitude;
             this.longitude = longitude;
             return this;
         }
-        
+
         public ProjectFixture withoutCoordinates() {
             this.latitude = null;
             this.longitude = null;
             return this;
         }
-        
+
         // Getters
         public String getName() { return name; }
         public String getDescription() { return description; }
@@ -318,7 +318,7 @@ public class TestFixtures {
         public boolean isMinimal() { return isMinimal; }
         public boolean isComprehensive() { return isComprehensive; }
         public boolean usesRealTmlFile() { return useRealTmlFile; }
-        
+
         /**
          * Create the project using the SpeleoDB service
          */
@@ -327,7 +327,7 @@ public class TestFixtures {
             registerCreatedProject(project);
             return project;
         }
-        
+
         /**
          * Generate a TML file for this project
          * If useRealTmlFile is true, copies the real project.tml file
@@ -340,28 +340,28 @@ public class TestFixtures {
                 return generateSyntheticTmlFile(projectId);
             }
         }
-        
+
         /**
          * Generate synthetic TML content for testing (legacy method)
          */
         private Path generateSyntheticTmlFile(String projectId) throws IOException {
             String arianeRootDir = PATHS.SDB_PROJECT_DIR;
             Path arianeDir = Path.of(arianeRootDir);
-            
+
             // Ensure directory exists
             if (!Files.exists(arianeDir)) {
                 Files.createDirectories(arianeDir);
             }
-            
+
             Path tmlFile = arianeDir.resolve(projectId + PATHS.TML_FILE_EXTENSION);
-            
+
             // Create TML content based on fixture type
             String tmlContent = generateTmlContent();
-            
+
             Files.write(tmlFile, tmlContent.getBytes());
             return tmlFile;
         }
-        
+
         /**
          * Generate TML content based on fixture configuration
          * Now reads from the empty_project.tml template instead of generating synthetic content
@@ -372,16 +372,16 @@ public class TestFixtures {
                 if (templateStream == null) {
                     throw new RuntimeException("Template file `" + PATHS.EMPTY_TML + "` not found in resources");
                 }
-                
+
                 // Read the template content
                 return new String(templateStream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                
+
             } catch (Exception e) {
                 throw new RuntimeException("Failed to read `" + PATHS.EMPTY_TML + "` template: " + e.getMessage(), e);
             }
         }
     }
-    
+
     /**
      * Result of a round-trip test with checksum verification
      */
@@ -393,8 +393,8 @@ public class TestFixtures {
         private final long downloadTimeMs;
         private final long fileSize;
         private final String errorMessage;
-        
-        public RoundTripResult(boolean success, String originalChecksum, String downloadedChecksum, 
+
+        public RoundTripResult(boolean success, String originalChecksum, String downloadedChecksum,
                               long uploadTimeMs, long downloadTimeMs, long fileSize, String errorMessage) {
             this.success = success;
             this.originalChecksum = originalChecksum;
@@ -404,7 +404,7 @@ public class TestFixtures {
             this.fileSize = fileSize;
             this.errorMessage = errorMessage;
         }
-        
+
         public boolean isSuccess() { return success; }
         public String getOriginalChecksum() { return originalChecksum; }
         public String getDownloadedChecksum() { return downloadedChecksum; }
@@ -412,10 +412,10 @@ public class TestFixtures {
         public long getDownloadTimeMs() { return downloadTimeMs; }
         public long getFileSize() { return fileSize; }
         public String getErrorMessage() { return errorMessage; }
-        public boolean checksumMatches() { 
-            return originalChecksum != null && originalChecksum.equals(downloadedChecksum); 
+        public boolean checksumMatches() {
+            return originalChecksum != null && originalChecksum.equals(downloadedChecksum);
         }
-        
+
         @Override
         public String toString() {
             return String.format("RoundTripResult{success=%s, checksumMatch=%s, uploadTime=%dms, downloadTime=%dms, fileSize=%d bytes%s}",
@@ -423,4 +423,4 @@ public class TestFixtures {
                 errorMessage != null ? ", error='" + errorMessage + "'" : "");
         }
     }
-} 
+}

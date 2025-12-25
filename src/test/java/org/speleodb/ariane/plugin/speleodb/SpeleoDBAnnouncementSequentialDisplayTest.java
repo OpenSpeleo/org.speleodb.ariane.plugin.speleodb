@@ -38,12 +38,12 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
 
     @Mock
     private SpeleoDBController mockController;
-    
+
     private ExecutorService testExecutor;
-    
+
     // Simulate the displayed announcements tracking by UUID
     private Map<String, Boolean> displayedAnnouncements;
-    
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -64,10 +64,10 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add(createTestAnnouncementWithUUID("Second", "Second message", "Second header", "uuid-2"))
                     .add(createTestAnnouncementWithUUID("Third", "Third message", "Third header", "uuid-3"))
                     .build();
-            
+
             // All announcements should be unshown initially
             List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(announcements);
-            
+
             assertEquals(3, unshownAnnouncements.size());
             assertEquals("First", unshownAnnouncements.get(0).getString("title"));
             assertEquals("Second", unshownAnnouncements.get(1).getString("title"));
@@ -81,12 +81,12 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add(createTestAnnouncementWithUUID("Shown", "Shown message", "Shown header", "uuid-shown"))
                     .add(createTestAnnouncementWithUUID("New", "New message", "New header", "uuid-new"))
                     .build();
-            
+
             // Mark first announcement as shown by UUID
             displayedAnnouncements.put("uuid-shown", true);
-            
+
             List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(announcements);
-            
+
             assertEquals(1, unshownAnnouncements.size());
             assertEquals("New", unshownAnnouncements.get(0).getString("title"));
         }
@@ -95,9 +95,9 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         @DisplayName("Should handle empty announcement list")
         void shouldHandleEmptyAnnouncementList() {
             JsonArray emptyAnnouncements = Json.createArrayBuilder().build();
-            
+
             List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(emptyAnnouncements);
-            
+
             assertEquals(0, unshownAnnouncements.size());
         }
 
@@ -108,13 +108,13 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add(createTestAnnouncementWithUUID("First", "First message", "First header", "uuid-1"))
                     .add(createTestAnnouncementWithUUID("Second", "Second message", "Second header", "uuid-2"))
                     .build();
-            
+
             // Mark all announcements as shown by UUID
             displayedAnnouncements.put("uuid-1", true);
             displayedAnnouncements.put("uuid-2", true);
-            
+
             List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(announcements);
-            
+
             assertEquals(0, unshownAnnouncements.size());
         }
 
@@ -125,9 +125,9 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add(createTestAnnouncement("No UUID", "Message without UUID", "Header"))
                     .add(createTestAnnouncementWithUUID("With UUID", "Message with UUID", "Header", "uuid-1"))
                     .build();
-            
+
             List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(announcements);
-            
+
             // Announcement without UUID should be included (treated as never shown)
             assertEquals(2, unshownAnnouncements.size());
         }
@@ -145,14 +145,14 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     createTestAnnouncementWithUUID("Second", "Second message", "Second header", "uuid-2"),
                     createTestAnnouncementWithUUID("Third", "Third message", "Third header", "uuid-3")
             );
-            
+
             List<String> displayOrder = new ArrayList<>();
-            
+
             // Simulate sequential display
             for (JsonObject announcement : announcements) {
                 displayOrder.add(announcement.getString("title"));
             }
-            
+
             assertEquals(List.of("First", "Second", "Third"), displayOrder);
         }
 
@@ -162,7 +162,7 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
             List<JsonObject> announcements = List.of(
                     createTestAnnouncementWithUUID("Single", "Single message", "Single header", "uuid-single")
             );
-            
+
             assertNotNull(announcements);
             assertEquals(1, announcements.size());
             assertEquals("Single", announcements.get(0).getString("title"));
@@ -175,13 +175,13 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
             List<JsonObject> announcements = new ArrayList<>();
             for (int i = 1; i <= 100; i++) {
                 announcements.add(createTestAnnouncementWithUUID(
-                        "Title " + i, 
-                        "Message " + i, 
+                        "Title " + i,
+                        "Message " + i,
                         "Header " + i,
                         "uuid-" + i
                 ));
             }
-            
+
             assertEquals(100, announcements.size());
             assertEquals("Title 1", announcements.get(0).getString("title"));
             assertEquals("Title 100", announcements.get(99).getString("title"));
@@ -198,18 +198,18 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         @DisplayName("Should create dialog with correct content")
         void shouldCreateDialogWithCorrectContent() {
             JsonObject announcement = createTestAnnouncementWithUUID(
-                    "Test Title", 
-                    "Test Message Content", 
+                    "Test Title",
+                    "Test Message Content",
                     "Test Header",
                     "test-uuid"
             );
-            
+
             // Simulate dialog creation
             String title = announcement.getString("title");
             String message = announcement.getString("message");
             String header = announcement.getString("header");
             String uuid = announcement.getString("uuid");
-            
+
             assertEquals("Test Title", title);
             assertEquals("Test Message Content", message);
             assertEquals("Test Header", header);
@@ -224,11 +224,11 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add("message", "Message content")
                     .add("uuid", "uuid-no-header")
                     .build();
-            
+
             String title = announcement.getString("title");
             String message = announcement.getString("message");
             String uuid = announcement.getString("uuid");
-            
+
             assertEquals("Title Only", title);
             assertEquals("Message content", message);
             assertEquals("uuid-no-header", uuid);
@@ -238,17 +238,17 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         @DisplayName("Should handle announcements with special characters")
         void shouldHandleAnnouncementsWithSpecialCharacters() {
             JsonObject announcement = createTestAnnouncementWithUUID(
-                    "Special: àáâãäåæçèéêë", 
-                    "Symbols: !@#$%^&*()_+-=[]{}|;':\",./<>? and Unicode: 🎉🚀✨", 
+                    "Special: àáâãäåæçèéêë",
+                    "Symbols: !@#$%^&*()_+-=[]{}|;':\",./<>? and Unicode: 🎉🚀✨",
                     "Header with émojis: 🌟",
                     "uuid-special-chars"
             );
-            
+
             String title = announcement.getString("title");
             String message = announcement.getString("message");
             String header = announcement.getString("header");
             String uuid = announcement.getString("uuid");
-            
+
             assertEquals("Special: àáâãäåæçèéêë", title);
             assertTrue(message.contains("🎉🚀✨"));
             assertTrue(header.contains("🌟"));
@@ -265,11 +265,11 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         void shouldMarkAnnouncementsAsDisplayedAfterShowing() {
             JsonObject announcement = createTestAnnouncementWithUUID("Test", "Test message", "Test header", "test-uuid");
             String uuid = announcement.getString("uuid");
-            
+
             assertFalse(hasAnnouncementBeenDisplayed(uuid));
-            
+
             markAnnouncementAsDisplayed(uuid);
-            
+
             assertTrue(hasAnnouncementBeenDisplayed(uuid));
         }
 
@@ -278,10 +278,10 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         void shouldGenerateUniqueUUIDsForDifferentAnnouncements() {
             JsonObject announcement1 = createTestAnnouncementWithUUID("First", "First message", "First header", "uuid-1");
             JsonObject announcement2 = createTestAnnouncementWithUUID("Second", "Second message", "Second header", "uuid-2");
-            
+
             String uuid1 = announcement1.getString("uuid");
             String uuid2 = announcement2.getString("uuid");
-            
+
             assertNotEquals(uuid1, uuid2);
         }
 
@@ -291,10 +291,10 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
             String testUUID = "consistent-uuid";
             JsonObject announcement1 = createTestAnnouncementWithUUID("Same", "Same message", "Same header", testUUID);
             JsonObject announcement2 = createTestAnnouncementWithUUID("Same", "Same message", "Same header", testUUID);
-            
+
             String uuid1 = announcement1.getString("uuid");
             String uuid2 = announcement2.getString("uuid");
-            
+
             assertEquals(uuid1, uuid2);
         }
     }
@@ -325,7 +325,7 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                             // No UUID field
                             .build())
                     .build();
-            
+
             assertDoesNotThrow(() -> {
                 List<JsonObject> unshownAnnouncements = collectUnshownAnnouncements(announcements);
                 assertEquals(2, unshownAnnouncements.size()); // Both should be included
@@ -339,7 +339,7 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     .add("title", "No UUID")
                     .add("message", "Message")
                     .build();
-            
+
             assertDoesNotThrow(() -> {
                 String uuid = getUUIDFromAnnouncement(announcement);
                 // Should return null for missing UUID
@@ -359,10 +359,10 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                     createTestAnnouncementWithUUID("First", "First message", "First header", "uuid-1"),
                     createTestAnnouncementWithUUID("Second", "Second message", "Second header", "uuid-2")
             );
-            
+
             // Simulate timing delays
             Thread.sleep(100);
-            
+
             assertEquals(2, announcements.size());
             assertEquals("uuid-1", announcements.get(0).getString("uuid"));
             assertEquals("uuid-2", announcements.get(1).getString("uuid"));
@@ -372,7 +372,7 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         @DisplayName("Should handle concurrent access safely")
         void shouldHandleConcurrentAccessSafely() throws InterruptedException, ExecutionException, TimeoutException {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
-            
+
             for (int i = 0; i < 10; i++) {
                 final int index = i;
                 CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -382,13 +382,13 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
                 }, testExecutor);
                 futures.add(future);
             }
-            
+
             CompletableFuture<Void> allFutures = CompletableFuture.allOf(
                     futures.toArray(new CompletableFuture[0])
             );
-            
+
             allFutures.get(5, TimeUnit.SECONDS);
-            
+
             // Verify all UUIDs were marked
             for (int i = 0; i < 10; i++) {
                 assertTrue(hasAnnouncementBeenDisplayed("concurrent-uuid-" + i));
@@ -418,7 +418,7 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
         if (announcements == null) {
             return new ArrayList<>();
         }
-        
+
         List<JsonObject> unshownAnnouncements = new ArrayList<>();
         for (int i = 0; i < announcements.size(); i++) {
             JsonObject announcement = announcements.getJsonObject(i);
@@ -441,4 +441,4 @@ class SpeleoDBAnnouncementSequentialDisplayTest {
     private void markAnnouncementAsDisplayed(String uuid) {
         displayedAnnouncements.put(uuid, true);
     }
-} 
+}
