@@ -14,8 +14,6 @@ import org.junit.jupiter.api.Test;
 import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
-import javafx.stage.Modality;
-import javafx.stage.Window;
 
 @DisplayName("macOS Dialog Behavior Guarded Tests")
 class MacOsDialogBehaviorTest {
@@ -27,7 +25,7 @@ class MacOsDialogBehaviorTest {
                 Platform.startup(() -> {});
                 Thread.sleep(100);
             }
-        } catch (Exception ignored) {
+        } catch (InterruptedException ignored) {
         }
     }
 
@@ -48,11 +46,6 @@ class MacOsDialogBehaviorTest {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Test", ButtonType.OK);
             // Use the same path our code uses: set properties via helper (simulate minimal)
             alert.setResizable(false);
-            Window owner = null; // in test environment, we may not have a real window
-            if (owner != null) {
-                alert.initOwner(owner);
-                alert.initModality(Modality.WINDOW_MODAL);
-            }
             assertFalse(alert.isResizable());
             // We cannot assert modality without an owner, but we can ensure creation succeeded
             assertNotNull(alert.getDialogPane());
@@ -62,5 +55,3 @@ class MacOsDialogBehaviorTest {
         assertTrue(latch.await(2, TimeUnit.SECONDS), "FX task timed out");
     }
 }
-
-

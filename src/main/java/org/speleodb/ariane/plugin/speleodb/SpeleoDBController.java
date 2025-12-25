@@ -90,6 +90,9 @@ import javafx.util.Duration;
  * Delegates server communication to SpeleoDBService.
  */
 public class SpeleoDBController implements Initializable {
+	// Centralized logger instance (MUST be initialized before 'instance')
+	private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
+    
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
     // Track scenes that already have the global event logger attached
@@ -177,13 +180,11 @@ public class SpeleoDBController implements Initializable {
 
     // Note: Constants moved to SpeleoDBConstants class
     
-    // Centralized logger instance
-    private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
-    
     // Thread-safe shutdown coordination
     private volatile boolean shutdownInProgress = false;
     private final Object shutdownLock = new Object();
     private Thread jvmShutdownHook;
+	private volatile boolean uncaughtHandlerInstalled = false;
 
     // Internal Controller Data
     private JsonObject currentProject = null;
@@ -325,7 +326,10 @@ public class SpeleoDBController implements Initializable {
      * SpeleoDBService initialization moved to initialize() method.
      */
     private SpeleoDBController() {
-        // Service initialization moved to initialize() to avoid 'this' escape
+		// Service initialization moved to initialize() to avoid 'this' escape
+		// Install shutdown safety as early as possible; both are idempotent
+		setupShutdownHook();
+		setupUncaughtExceptionHandler();
     }
     
     /**
@@ -745,17 +749,50 @@ public class SpeleoDBController implements Initializable {
      * This ensures project locks are always released regardless of how the application terminates.
      */
     private void setupShutdownHook() {
+		// Avoid double-registration if initialize() also calls this
+		if (jvmShutdownHook != null) {
+			logger.debug("JVM shutdown hook already installed; skipping duplicate install");
+			return;
+		}
         // JVM shutdown hook catches ALL termination scenarios on Windows
         jvmShutdownHook = new Thread(this::performShutdownCleanup, "SpeleoDB-ShutdownHook");
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
         logger.info("JVM shutdown hook installed - will catch all termination scenarios");
     }
+	
+	/**
+	 * Installs a default uncaught exception handler to perform cleanup on crashes.
+	 * Idempotent: will only install once.
+	 */
+	private void setupUncaughtExceptionHandler() {
+		if (uncaughtHandlerInstalled) {
+			return;
+		}
+		try {
+			Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+				try {
+					logger.error("Uncaught exception in thread: " + thread.getName(), throwable);
+				} catch (Throwable ignored) {
+					// Logging may be unavailable during shutdown/crash
+				}
+				try {
+					performShutdownCleanup();
+				} catch (Throwable ignored) {
+				}
+			});
+			uncaughtHandlerInstalled = true;
+			logger.debug("Default uncaught exception handler installed");
+		} catch (Throwable t) {
+			// Never fail application init due to handler installation
+			logger.debug("Failed to install default uncaught exception handler");
+		}
+	}
     
     /**
      * Performs the actual shutdown cleanup in a thread-safe manner.
      * This method is called by the JVM shutdown hook and ensures cleanup only happens once.
      */
-    private void performShutdownCleanup() {
+	public void performShutdownCleanup() {
         synchronized (shutdownLock) {
             if (shutdownInProgress) {
                 logger.debug("Shutdown cleanup already in progress, skipping duplicate call");

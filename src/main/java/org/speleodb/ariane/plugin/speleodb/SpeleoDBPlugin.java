@@ -182,6 +182,10 @@ public class SpeleoDBPlugin implements DataServerPlugin {
             logger.info("JVM shutdown hook will release the project lock.");
         }
         
+		// Proactively perform shutdown cleanup to release locks even if JVM is not terminated yet.
+		// This call is idempotent and will not conflict with the JVM shutdown hook.
+		controller.performShutdownCleanup();
+		
         // Cleanup resources to prevent shutdown hangs
         controller.cleanup();
         
