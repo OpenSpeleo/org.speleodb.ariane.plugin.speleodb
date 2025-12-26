@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -77,9 +78,12 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextAlignment;
+import javafx.scene.text.TextFlow;
 import javafx.scene.web.WebView;
 import javafx.stage.Modality;
 import javafx.stage.Window;
@@ -163,17 +167,19 @@ public class SpeleoDBController implements Initializable {
     @FXML
     private TextField uploadMessageTextField;
     @FXML
-    private TitledPane aboutTitlePane;
+    private TitledPane aboutSpeleoDBPane;
     @FXML
-    TitledPane actionsTitlePane;
+    TitledPane projectActionsPane;
     @FXML
-    private TitledPane projectsTitlePane;
+    private TitledPane projectsListingPane;
     @FXML
     private WebView aboutWebView;
     @FXML
     private Button resetButton;
     @FXML
     private Label versionLabel;
+	@FXML
+	private javafx.scene.layout.VBox lockStatusBox;
 
     // SpeleoDBService instance for handling server communication.
     private SpeleoDBService speleoDBService;
@@ -310,16 +316,6 @@ public class SpeleoDBController implements Initializable {
 
     }
 
-    /**
-     * Shows a confirmation modal using the centralized modal system.
-     *
-     * @param title the dialog title
-     * @param message the main message to display
-     * @param positiveText text for the positive button (e.g., "Yes")
-     * @param negativeText text for the negative button (e.g., "No")
-     * @return true if user clicked positive button, false otherwise
-     */
-    // Removed: generic confirmation for lock flows
 
     /**
      * Private constructor for singleton pattern.
@@ -667,19 +663,23 @@ public class SpeleoDBController implements Initializable {
      * Sets up default UI configurations.
      */
     private void setupUI() {
-        actionsTitlePane.setVisible(false);
-        projectsTitlePane.setVisible(false);
+        // Initialize all panes in their default state
+
+        projectActionsPane.setVisible(false);
+        projectsListingPane.setVisible(false);
         createNewProjectButton.setDisable(true); // Disabled until authenticated
         refreshProjectsButton.setDisable(true); // Disabled until authenticated
         serverProgressIndicator.setVisible(false);
-        connectionButton.setText(DIALOGS.BUTTON_CONNECT);
 
-        // Set prompt text for upload message field
-        uploadMessageTextField.setPromptText(DIALOGS.PROMPT_UPLOAD_MESSAGE);
+        // ====================== CONNECTION PANE ====================== //
+        connectionButton.setText(DIALOGS.BUTTON_CONNECT);
 
         // Initial state: CONNECT and SIGNUP buttons visible 50/50
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
+
         signupButton.setVisible(true);
+
+        // ====================== ABOUT PANE ====================== //
 
         // Use localhost URL when in debug mode, production URL otherwise
         aboutWebView.getEngine().load(URLS.WEBVIEW);
@@ -694,9 +694,16 @@ public class SpeleoDBController implements Initializable {
 
         // Ensure the About pane is expanded by default in the Accordion
         // This must be done after all UI setup to override Accordion's default behavior
-        Platform.runLater(() -> {
-            aboutTitlePane.setExpanded(true);
-        });
+        aboutSpeleoDBPane.setExpanded(true);
+
+        // ====================== PROJECT ACTIONS PANE ====================== //
+
+        // Set prompt text for upload message field
+        uploadMessageTextField.setPromptText(DIALOGS.PROMPT_UPLOAD_MESSAGE);
+
+        setupLockedStatusMessage();
+
+        // ====================== LOG PANE ====================== //
 
         // Configure TextArea without scrollbars using CSS
         pluginUILogArea.setWrapText(true);
@@ -787,6 +794,56 @@ public class SpeleoDBController implements Initializable {
 			logger.debug("Failed to install default uncaught exception handler");
 		}
 	}
+
+	/**
+	 * Shows the "locked" status message with icon under the Reload button
+	 * inside projectActionsPane.
+	 */
+	private void setupLockedStatusMessage() {
+		if (!Platform.isFxApplicationThread()) {
+			Platform.runLater(this::setupLockedStatusMessage);
+			return;
+		}
+
+		try {
+			if (lockStatusBox == null) {
+				return;
+			}
+
+			javafx.scene.image.ImageView icon = new javafx.scene.image.ImageView(
+				new javafx.scene.image.Image(
+					Objects.requireNonNull(getClass().getResourceAsStream("/images/icons/survey_locked.png"))
+				)
+			);
+			icon.setPreserveRatio(true);
+			icon.setFitHeight(60.0);
+
+			// Add 30px padding under the icon
+			javafx.scene.layout.VBox.setMargin(icon, new javafx.geometry.Insets(0, 0, 20, 0));
+
+			TextFlow textFlow = new TextFlow();
+			textFlow.setMaxWidth(Double.MAX_VALUE);
+			textFlow.setTextAlignment(TextAlignment.CENTER);
+
+			Text text = new Text(
+                "You are currently editing this project.\nClose Ariane to unlock the project."
+            );
+
+			text.setFill(Color.web("#ff0000"));
+			text.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-fill: #ff0000;");
+
+			// Wrap text to container width minus padding
+			text.wrappingWidthProperty().bind(lockStatusBox.widthProperty().subtract(32));
+
+            // Add text to text flow
+			textFlow.getChildren().setAll(text);
+            // Add icon and text flow to lock status box
+			lockStatusBox.getChildren().setAll(icon, textFlow);
+		} catch (Exception ignored) {
+			// Do not fail UI if resource missing
+		}
+	}
+
 
     /**
      * Performs the actual shutdown cleanup in a thread-safe manner.
@@ -1097,9 +1154,9 @@ public class SpeleoDBController implements Initializable {
                 savePreferences();
 
                 Platform.runLater(() -> {
-                    projectsTitlePane.setVisible(true);
-                    projectsTitlePane.setExpanded(true);
-                    aboutTitlePane.setExpanded(false);
+                    projectsListingPane.setVisible(true);
+                    projectsListingPane.setExpanded(true);
+                    aboutSpeleoDBPane.setExpanded(false);
                     createNewProjectButton.setDisable(false);
                     refreshProjectsButton.setDisable(false);
 
@@ -1160,8 +1217,8 @@ public class SpeleoDBController implements Initializable {
         javafx.scene.layout.GridPane.setColumnSpan(connectionButton, 1); // Span only 1 column (45%)
         signupButton.setVisible(true);
 
-        actionsTitlePane.setVisible(false);
-        projectsTitlePane.setVisible(false);
+        projectActionsPane.setVisible(false);
+        projectsListingPane.setVisible(false);
         createNewProjectButton.setDisable(true);
         refreshProjectsButton.setDisable(true);
 
@@ -1227,8 +1284,8 @@ public class SpeleoDBController implements Initializable {
             }
 
             // Titled panes for visual feedback
-            projectsTitlePane.setDisable(loading);
-            actionsTitlePane.setDisable(loading);
+            projectsListingPane.setDisable(loading);
+            projectActionsPane.setDisable(loading);
         });
     }
 
@@ -1977,15 +2034,15 @@ public class SpeleoDBController implements Initializable {
 
             if (hasWriteAccess) {
                 // Show actions pane for writable projects
-                actionsTitlePane.setVisible(true);
-                actionsTitlePane.setExpanded(true);
-                actionsTitlePane.setText("Actions on `" + projectName + "`.");
+                projectActionsPane.setVisible(true);
+                projectActionsPane.setExpanded(true);
+                projectActionsPane.setText("Project: `" + projectName + "`.");
                 uploadButton.setDisable(false);
                 currentProject = project;
             } else {
                 // Hide actions pane for read-only projects
-                actionsTitlePane.setVisible(false);
-                actionsTitlePane.setExpanded(false);
+                projectActionsPane.setVisible(false);
+                projectActionsPane.setExpanded(false);
                 uploadButton.setDisable(true);
                 currentProject = null; // Don't set current project for read-only
             }
@@ -2579,9 +2636,9 @@ public class SpeleoDBController implements Initializable {
             currentProject = null;
 
             // Update UI state
-            actionsTitlePane.setVisible(false);
-            actionsTitlePane.setExpanded(false);
-            projectsTitlePane.setExpanded(true);
+            projectActionsPane.setVisible(false);
+            projectActionsPane.setExpanded(false);
+            projectsListingPane.setExpanded(true);
 
             // Show success animation
             showSuccessAnimation("Lock Released");
@@ -2687,16 +2744,9 @@ public class SpeleoDBController implements Initializable {
             // Success: Set as current project and enable UI controls
             currentProject = project;
 
-            // // Update UI state for editing
-            // actionsTitlePane.setVisible(true);
-            // actionsTitlePane.setExpanded(true);
-            // actionsTitlePane.setText("Actions on `" + project.getString("name") + "`.");
-            // uploadButton.setDisable(false);
-            // unlock button removed
-
             // Show success animation
             Platform.runLater(() -> {
-                showSuccessAnimation("Lock Acquired");
+				showSuccessAnimation("Lock Acquired");
             });
             return true;
 
@@ -2730,7 +2780,7 @@ public class SpeleoDBController implements Initializable {
 
                 Platform.runLater(() -> {
                     if (failureReason.contains("read-only")) {
-                        showSuccessAnimation("Project opened (read-only)");
+						showSuccessAnimation("Project opened (read-only)");
                     } else {
                         showErrorAnimation("Lock not available");
                     }
