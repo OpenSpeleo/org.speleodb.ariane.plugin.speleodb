@@ -2018,6 +2018,66 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
+     * Waits for a TML file to be fully written by validating its ZIP structure.
+     * TML files are ZIP archives, so we poll until the file can be opened as a valid ZIP.
+     * An incomplete ZIP file will fail validation because it lacks proper structure.
+     * 
+     * @param file the TML/ZIP file to wait for
+     * @return true if the file is a valid ZIP and ready, false if timeout occurred
+     */
+    private boolean waitForFileStability(java.io.File file) {
+        if (file == null) {
+            return false;
+        }
+        
+        long startTime = System.currentTimeMillis();
+        
+        while (System.currentTimeMillis() - startTime < TIMINGS.FILE_STABILITY_TIMEOUT_MILLIS) {
+            try {
+                if (file.exists() && isValidZipFile(file)) {
+                    return true;
+                }  
+                // ZIP validation failed, file is still being written
+                Thread.sleep(TIMINGS.FILE_STABILITY_POLL_INTERVAL_MILLIS);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.warn("File stability wait interrupted");
+                return false;
+            }
+        }
+       
+        logger.warn("File validation timeout after " + TIMINGS.FILE_STABILITY_TIMEOUT_MILLIS + 
+                    "ms. File size: " + (file.exists() ? file.length() : 0) + " bytes");
+        return false;
+    }
+    
+    /**
+     * Checks if a file is a valid, complete ZIP archive.
+     * This works because ZIP files have a specific structure with an end-of-central-directory
+     * record that must be present for the file to be valid.
+     * 
+     * @param file the file to validate
+     * @return true if the file is a valid ZIP archive, false otherwise
+     */
+    private boolean isValidZipFile(java.io.File file) {
+        if (file == null || !file.exists()) {
+            return false;
+        }
+        
+        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(file)) {
+            // Successfully opened as ZIP - verify it has at least one entry
+            return zipFile.entries().hasMoreElements();
+        } catch (java.util.zip.ZipException e) {
+            // Invalid or incomplete ZIP structure
+            return false;
+        } catch (java.io.IOException e) {
+            // File I/O error (possibly still being written)
+            return false;
+        }
+    }
+    
+    /**
      * Downloads and loads a project with unified logic for both read-only and writable projects.
      *
      * @param project the project to download and load
@@ -2173,6 +2233,20 @@ public class SpeleoDBController implements Initializable {
                         SpeleoDBModals.showError(
                             DIALOGS.TITLE_PROJECT_NOT_SAVED,
                             "The survey file was not found on disk. Please save your project and try again."
+                        );
+                        setUILoadingState(false);
+                    });
+                    return;
+                }
+                
+                // Wait for the file to be fully written (avoid race condition with async save)
+                if (!waitForFileStability(sourceFile)) {
+                    Platform.runLater(() -> {
+                        showErrorAnimation("File not ready");
+                        SpeleoDBModals.showError(
+                            DIALOGS.TITLE_PROJECT_NOT_SAVED,
+                            "The survey file is not ready yet. The save operation may still be in progress.\n\n" +
+                            "Please wait a moment and try again, or manually save your project (CTRL+S/CMD+S) first."
                         );
                         setUILoadingState(false);
                     });
