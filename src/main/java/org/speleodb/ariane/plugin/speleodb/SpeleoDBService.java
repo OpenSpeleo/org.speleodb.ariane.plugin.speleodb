@@ -331,11 +331,12 @@ public class SpeleoDBService {
 
             // TODO: Improve Error management
 
-			// Keep only ARIANE projects
+			// Keep only ARIANE projects and exclude WEB_VIEWER permission
 			return projects.stream()
 					.filter(JsonObject.class::isInstance)
 					.map(JsonObject.class::cast)
 					.filter(project -> ProjectType.ARIANE.name().equals(project.getString(JSON_FIELDS.PROJECT_TYPE, "")))
+					.filter(project -> !JSON_FIELDS.PERMISSION_WEB_VIEWER.equals(project.getString(JSON_FIELDS.PERMISSION, "")))
 					.collect(Json::createArrayBuilder,
 							(builder, project) -> builder.add(project),
 							(b1, b2) -> {

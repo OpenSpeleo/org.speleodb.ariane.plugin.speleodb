@@ -486,6 +486,8 @@ public final class SpeleoDBConstants {
         public static final String MESSAGE = "message";
         public static final String NAME = "name";
         public static final String PASSWORD = "password";
+        public static final String PERMISSION = "permission";
+        public static final String PERMISSION_WEB_VIEWER = "WEB_VIEWER";
         public static final String PROJECT_TYPE = "type";
         public static final String SOFTWARE = "software";
         public static final String TITLE = "title";
