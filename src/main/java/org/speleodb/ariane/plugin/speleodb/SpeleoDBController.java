@@ -99,6 +99,12 @@ public class SpeleoDBController implements Initializable {
 
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
+    
+    // Latch to ensure FXML is fully initialized before UI operations can proceed.
+    // This prevents NullPointerExceptions when background threads try to access UI components
+    // before FXMLLoader has injected the @FXML fields.
+    private final CountDownLatch fxmlInitializedLatch = new CountDownLatch(1);
+    
     // Track scenes that already have the global event logger attached
     private final java.util.Set<javafx.scene.Scene> eventLoggedScenes =
             java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
@@ -768,8 +774,14 @@ public class SpeleoDBController implements Initializable {
     }
 
 	/**
-	 * Installs a default uncaught exception handler to perform cleanup on crashes.
+	 * Installs a default uncaught exception handler to log uncaught exceptions.
 	 * Idempotent: will only install once.
+	 * 
+	 * IMPORTANT: This handler should ONLY log exceptions, NOT perform shutdown cleanup.
+	 * The JVM shutdown hook handles cleanup when the application actually terminates.
+	 * Uncaught exceptions in JavaFX do not necessarily terminate the application,
+	 * so calling performShutdownCleanup() here would incorrectly release project locks
+	 * while the user is still working.
 	 */
 	private void setupUncaughtExceptionHandler() {
 		if (uncaughtHandlerInstalled) {
@@ -778,14 +790,30 @@ public class SpeleoDBController implements Initializable {
 		try {
 			Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
 				try {
-					logger.error("Uncaught exception in thread: " + thread.getName(), throwable);
+					logger.error("Uncaught exception in thread: " + thread.getName() + 
+						" - Exception: " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage(), throwable);
+					// Log stack trace for debugging
+					StringBuilder stackTrace = new StringBuilder("Stack trace:\n");
+					for (StackTraceElement element : throwable.getStackTrace()) {
+						stackTrace.append("\t").append(element.toString()).append("\n");
+					}
+					// Include cause chain
+					Throwable cause = throwable.getCause();
+					while (cause != null) {
+						stackTrace.append("Caused by: ").append(cause.getClass().getName())
+							.append(": ").append(cause.getMessage()).append("\n");
+						for (StackTraceElement element : cause.getStackTrace()) {
+							stackTrace.append("\t").append(element.toString()).append("\n");
+						}
+						cause = cause.getCause();
+					}
+					logger.error(stackTrace.toString());
 				} catch (Throwable ignored) {
 					// Logging may be unavailable during shutdown/crash
 				}
-				try {
-					performShutdownCleanup();
-				} catch (Throwable ignored) {
-				}
+				// NOTE: Do NOT call performShutdownCleanup() here!
+				// Uncaught exceptions don't mean the application is terminating.
+				// The JVM shutdown hook will handle cleanup when the app actually exits.
 			});
 			uncaughtHandlerInstalled = true;
 			logger.debug("Default uncaught exception handler installed");
@@ -947,6 +975,9 @@ public class SpeleoDBController implements Initializable {
             }
 
             logger.debug("SpeleoDBController initialization complete");
+            
+            // Signal that FXML is fully initialized - background threads waiting on this can now proceed
+            fxmlInitializedLatch.countDown();
         });
     }
 
@@ -1255,10 +1286,30 @@ public class SpeleoDBController implements Initializable {
     /**
      * Sets the loading state for the entire UI, disabling/enabling all interactive elements.
      * This provides comprehensive visual feedback during loading operations.
+     * 
+     * This method waits for FXML initialization to complete before accessing UI components,
+     * preventing NullPointerExceptions when called from background threads before the
+     * FXMLLoader has injected the @FXML fields.
      *
      * @param loading true to disable UI elements (loading state), false to enable them
      */
     private void setUILoadingState(boolean loading) {
+        // Wait for FXML to be fully initialized before accessing UI components.
+        // This is necessary because the singleton controller instance is created before
+        // FXML loading, so background threads might try to access UI components before
+        // they're injected by FXMLLoader.
+        try {
+            // Wait up to 10 seconds for FXML initialization - this should be more than enough
+            if (!fxmlInitializedLatch.await(10, TimeUnit.SECONDS)) {
+                logger.error("Timeout waiting for FXML initialization in setUILoadingState");
+                return;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while waiting for FXML initialization: " + e.getMessage());
+            return;
+        }
+        
         Platform.runLater(() -> {
             // Project-related controls
             projectListView.setDisable(loading);
