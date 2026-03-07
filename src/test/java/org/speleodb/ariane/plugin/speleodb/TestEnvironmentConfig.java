@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -352,6 +353,9 @@ public class TestEnvironmentConfig {
         while (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
+
+        // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
+        normalized = normalized.toLowerCase(Locale.ROOT);
 
         return normalized;
     }

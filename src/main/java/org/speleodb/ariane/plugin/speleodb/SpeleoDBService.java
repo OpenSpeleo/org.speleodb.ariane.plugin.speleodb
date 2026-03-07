@@ -16,6 +16,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.API;
@@ -118,6 +119,9 @@ public class SpeleoDBService {
         while (normalized.endsWith("/") && normalized.length() > 1) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
+
+        // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
+        normalized = normalized.toLowerCase(Locale.ROOT);
 
         return normalized;
     }

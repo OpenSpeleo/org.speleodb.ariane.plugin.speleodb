@@ -20,6 +20,7 @@ import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
@@ -2551,7 +2552,7 @@ public class SpeleoDBController implements Initializable {
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
         try {
-            String SDB_instance = instanceTextField.getText().trim();
+            String SDB_instance = instanceTextField.getText().trim().toLowerCase(Locale.ROOT);
             if (SDB_instance.isEmpty()) {
                 SDB_instance = PREFERENCES.DEFAULT_INSTANCE;
             }
@@ -3647,7 +3648,16 @@ public class SpeleoDBController implements Initializable {
      * @throws Exception if download fails
      */
     private byte[] downloadFile(String url) throws Exception {
-        URI uri = new URI(url);
+        URI originalUri = new URI(url);
+        URI uri = new URI(
+            originalUri.getScheme(),
+            originalUri.getUserInfo(),
+            originalUri.getHost().toLowerCase(Locale.ROOT),
+            originalUri.getPort(),
+            originalUri.getPath(),
+            originalUri.getQuery(),
+            originalUri.getFragment()
+        );
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .GET()
                 .timeout(java.time.Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))

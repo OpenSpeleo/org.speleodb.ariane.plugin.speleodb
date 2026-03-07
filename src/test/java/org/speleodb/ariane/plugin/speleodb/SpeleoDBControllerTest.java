@@ -150,7 +150,7 @@ class SpeleoDBControllerTest {
             String signupUrl = controllerLogic.generateSignupUrl();
 
             // Verify
-            assertThat(signupUrl).isEqualTo("https://www.speleoDB.org/signup/");
+            assertThat(signupUrl).isEqualTo("https://www.speleodb.org/signup/");
         }
 
         @Test
@@ -1334,7 +1334,7 @@ class SpeleoDBControllerTest {
         public String generateSignupUrl() {
             String actualInstance = instance.trim();
             if (actualInstance.isEmpty()) {
-                actualInstance = "www.speleoDB.org"; // DEFAULT_INSTANCE
+                actualInstance = "www.speleodb.org"; // DEFAULT_INSTANCE
             }
 
             String protocol = isDebugMode() ? "http" : "https";

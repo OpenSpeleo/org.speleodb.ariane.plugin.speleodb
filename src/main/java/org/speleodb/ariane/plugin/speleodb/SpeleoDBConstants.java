@@ -152,7 +152,7 @@ public final class SpeleoDBConstants {
         public static final String PREF_SUCCESS_GIF_INDEX = "SDB_SUCCESS_GIF_INDEX";
         public static final String PREF_SUPPRESS_SUCCESS_GIF = "SDB_SUPPRESS_SUCCESS_GIF";
         public static final String PREF_DISPLAYED_ANNOUNCEMENTS = "SDB_DISPLAYED_ANNOUNCEMENTS";
-        public static final String DEFAULT_INSTANCE = "www.speleoDB.org";
+        public static final String DEFAULT_INSTANCE = "www.speleodb.org";
 
         // Test preferences node path (without leading slash for Preferences.userRoot().node())
         public static final String TEST_PREFERENCES_NODE = "org/speleodb/ariane/plugin/speleodb/test";

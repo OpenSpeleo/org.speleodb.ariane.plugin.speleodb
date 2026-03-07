@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
@@ -423,6 +424,9 @@ public class SpeleoDBServiceTest {
             while (normalized.endsWith("/") && normalized.length() > 1) {
                 normalized = normalized.substring(0, normalized.length() - 1);
             }
+
+            // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
+            normalized = normalized.toLowerCase(Locale.ROOT);
 
             return normalized;
         }

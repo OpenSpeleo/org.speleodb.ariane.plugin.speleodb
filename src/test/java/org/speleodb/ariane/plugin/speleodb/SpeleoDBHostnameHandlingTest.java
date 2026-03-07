@@ -3,6 +3,7 @@ package org.speleodb.ariane.plugin.speleodb;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -260,7 +261,7 @@ class SpeleoDBHostnameHandlingTest {
 
     // Helper classes for testing
     private static class MockSpeleoDBController extends SpeleoDBController {
-        private String instanceValue = "www.speleoDB.org";
+        private String instanceValue = "www.speleodb.org";
 
         public MockSpeleoDBController() {
             super(true); // Use protected constructor for testing
@@ -323,6 +324,9 @@ class SpeleoDBHostnameHandlingTest {
             while (normalized.endsWith("/") && normalized.length() > 1) {
                 normalized = normalized.substring(0, normalized.length() - 1);
             }
+
+            // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
+            normalized = normalized.toLowerCase(Locale.ROOT);
 
             return normalized;
         }
