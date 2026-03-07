@@ -191,15 +191,15 @@ class SpeleoDBAnnouncementFilteringTest {
 
             JsonArray result = parseAnnouncementsFromResponse(jsonResponse);
 
-            // Should include announcement when date parsing fails (fail-safe)
-            assertEquals(1, result.size());
+            // Unparseable dates cause the announcement to be excluded
+            assertEquals(0, result.size());
         }
 
         @Test
         @DisplayName("Should handle date format correctly")
         void shouldHandleDateFormatCorrectly() {
-            // Test with a specific future date in YYYY-MM-DD format
-            String futureDate = "2025-12-31";
+            // Test with a dynamically computed future date in YYYY-MM-DD format
+            String futureDate = LocalDate.now().plusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE);
 
             String jsonResponse = createAnnouncementResponse(
                 createAnnouncement("Date Format Test", "Test Message", true, "ARIANE", futureDate, null)
@@ -462,10 +462,10 @@ class SpeleoDBAnnouncementFilteringTest {
                         if (expiresAt != null && !expiresAt.isEmpty()) {
                             try {
                                 LocalDate expiryDate = LocalDate.parse(expiresAt);
-                                return expiryDate.isAfter(today);
-                            } catch (Exception e) {
-                                // If parsing fails, include the announcement (fail-safe)
-                                return true;
+                                return expiryDate.isAfter(today) || expiryDate.isEqual(today);
+                            } catch (java.time.format.DateTimeParseException e) {
+                                // If parsing fails, exclude the announcement (matches production)
+                                return false;
                             }
                         }
                         // If no expiry date, include the announcement

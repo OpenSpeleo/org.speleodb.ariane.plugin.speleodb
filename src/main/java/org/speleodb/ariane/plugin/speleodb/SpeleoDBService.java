@@ -623,10 +623,10 @@ public class SpeleoDBService {
                                 java.time.LocalDate expiryDate = java.time.LocalDate.parse(expiresAt);
                                 java.time.LocalDate today = java.time.LocalDate.now();
                                 return (expiryDate.isAfter(today) || expiryDate.isEqual(today));
-                            } catch (java.time.format.DateTimeParseException e) {
-                                logger.warn("Failed to parse expires_at field: `" + expiresAt + "`.");
-                                return false;
-                            }
+                        } catch (java.time.format.DateTimeParseException e) {
+                            logger.warn("Failed to parse expires_at field: `" + expiresAt + "`.");
+                            return false;
+                        }
                         }
                         // If no expiry date, include the announcementz
                         return true;

@@ -11,6 +11,7 @@ import java.io.StringReader;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -202,6 +203,8 @@ class SpeleoDBAnnouncementAPITest {
         @Test
         @DisplayName("Should filter announcements correctly")
         void shouldFilterAnnouncementsCorrectly() {
+            String futureDateStr = LocalDate.now().plusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE);
+
             String responseWithMixedData = """
                 {
                     "data": [
@@ -210,7 +213,7 @@ class SpeleoDBAnnouncementAPITest {
                             "message": "Should be included",
                             "is_active": true,
                             "software": "ARIANE",
-                            "expiracy_date": "2025-12-31"
+                            "expiracy_date": "%s"
                         },
                         {
                             "title": "Inactive Announcement",
@@ -233,7 +236,7 @@ class SpeleoDBAnnouncementAPITest {
                         }
                     ]
                 }
-                """;
+                """.formatted(futureDateStr);
 
             // Test the filtering logic that would be applied in fetchAnnouncements
             assertDoesNotThrow(() -> {
@@ -252,9 +255,9 @@ class SpeleoDBAnnouncementAPITest {
                             if (expiresAt != null && !expiresAt.isEmpty()) {
                                 try {
                                     LocalDate expiryDate = LocalDate.parse(expiresAt);
-                                    return expiryDate.isAfter(today);
-                                } catch (Exception e) {
-                                    return true; // fail-safe
+                                    return expiryDate.isAfter(today) || expiryDate.isEqual(today);
+                                } catch (java.time.format.DateTimeParseException e) {
+                                    return false; // matches production
                                 }
                             }
                             return true;
@@ -535,6 +538,7 @@ class SpeleoDBAnnouncementAPITest {
     // Helper methods for testing
 
     private String createValidAnnouncementResponse() {
+        String futureDateStr = LocalDate.now().plusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE);
         return """
             {
                 "data": [
@@ -544,12 +548,12 @@ class SpeleoDBAnnouncementAPITest {
                         "header": "Getting Started",
                         "is_active": true,
                         "software": "ARIANE",
-                        "expiracy_date": "2025-12-31",
+                        "expiracy_date": "%s",
                         "version": null
                     }
                 ]
             }
-            """;
+            """.formatted(futureDateStr);
     }
 
     private String createEmptyAnnouncementResponse() {
