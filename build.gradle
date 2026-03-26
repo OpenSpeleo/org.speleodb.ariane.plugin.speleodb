@@ -155,7 +155,15 @@ tasks.register('enableTestMode') {
 // Configure test task to ensure proper ordering
 test {
     useJUnitPlatform()
-    dependsOn generateReleaseVersion, enableTestMode, compileJava, compileTestJava
+    dependsOn generateReleaseVersion, enableTestMode
+}
+
+// When the test task is in the execution graph, force recompilation after enableTestMode
+// so SpeleoDBConstants.TEST_MODE = true is picked up by the compiler.
+gradle.taskGraph.whenReady { graph ->
+    if (graph.hasTask(tasks.named('test').get())) {
+        compileJava.outputs.upToDateWhen { false }
+    }
 }
 
 // Update the check task - only enable test mode when running checks/tests

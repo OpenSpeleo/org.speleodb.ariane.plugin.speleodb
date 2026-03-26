@@ -49,13 +49,6 @@ class SpeleoDBServiceAdvancedTest {
             assertThat(expectedPath.toString()).endsWith(".ariane" + java.io.File.separator + "speleodb" + java.io.File.separator + "projects" + java.io.File.separator + "test-123.tml");
         }
 
-        @Test
-        @DisplayName("Should handle updateFileSpeleoDBId method")
-        void shouldHandleUpdateFileSpeleoDBIdMethod() {
-            // This method is currently a TODO/stub, but we test it doesn't throw
-            assertThatCode(() -> service.updateFileSpeleoDBId("test-id"))
-                .doesNotThrowAnyException();
-        }
     }
 
     @Nested

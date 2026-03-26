@@ -3,7 +3,6 @@ package org.speleodb.ariane.plugin.speleodb;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -77,22 +76,12 @@ public class TestFixtures {
     }
 
     /**
-     * Calculate SHA-256 checksum of a file
+     * Calculate SHA-256 checksum of a file.
+     * Delegates to SpeleoDBService.calculateSHA256 to avoid code duplication.
      */
     public static String calculateChecksum(Path filePath) throws IOException, NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] fileBytes = Files.readAllBytes(filePath);
-        byte[] hashBytes = digest.digest(fileBytes);
-
-        StringBuilder hexString = new StringBuilder();
-        for (byte b : hashBytes) {
-            String hex = Integer.toHexString(0xff & b);
-            if (hex.length() == 1) {
-                hexString.append('0');
-            }
-            hexString.append(hex);
-        }
-        return hexString.toString();
+        return SpeleoDBService.calculateSHA256(fileBytes);
     }
 
     /**

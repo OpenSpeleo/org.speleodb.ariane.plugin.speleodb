@@ -130,23 +130,8 @@ class SpeleoDBServiceSimpleTest {
     }
 
     @Nested
-    @DisplayName("updateFileSpeleoDBId Method")
-    class UpdateFileSpeleoDBIdMethodTests {
-
-        @Test
-        @DisplayName("Should handle updateFileSpeleoDBId without throwing exceptions")
-        void shouldHandleUpdateFileSpeleoDBIdWithoutThrowingExceptions() {
-            // This method is currently a TODO stub, but should not throw exceptions
-            // We can't test the actual implementation since it doesn't exist yet
-
-            // Test that calling the method doesn't crash
-            assertThatCode(() -> {
-                // We can't actually create a SpeleoDBService instance without a controller
-                // But we can test the concept of the method signature
-                String projectId = "test-project-123";
-                assertThat(projectId).isNotNull().isNotEmpty();
-            }).doesNotThrowAnyException();
-        }
+    @DisplayName("Project ID Validation")
+    class ProjectIdValidationTests {
 
         @Test
         @DisplayName("Should validate project ID patterns")

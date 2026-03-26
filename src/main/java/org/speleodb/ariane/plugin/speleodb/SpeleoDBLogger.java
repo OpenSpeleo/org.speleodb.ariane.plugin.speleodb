@@ -424,10 +424,15 @@ public final class SpeleoDBLogger {
 
             // Clear UI controller reference FIRST to prevent new UI logging attempts
             uiController = null;
-            shutdownCalled = true;
 
-            // Log shutdown message (will only go to file now)
-            info(LOG_SHUTDOWN_MESSAGE);
+            // Write shutdown message to file BEFORE setting the flag so it goes to the log file
+            if (logWriter != null) {
+                String formattedMessage = formatLogMessage(LOG_LEVEL_INFO, LOG_SHUTDOWN_MESSAGE);
+                logWriter.print(formattedMessage);
+                logWriter.flush();
+            }
+
+            shutdownCalled = true;
 
             if (logWriter != null) {
                 logWriter.close();

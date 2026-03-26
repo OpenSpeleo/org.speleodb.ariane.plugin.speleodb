@@ -25,7 +25,12 @@ class MacOsDialogBehaviorTest {
                 Platform.startup(() -> {});
                 Thread.sleep(100);
             }
-        } catch (InterruptedException ignored) {
+        } catch (IllegalStateException e) {
+            if (!e.getMessage().contains("Toolkit already initialized")) {
+                throw e;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

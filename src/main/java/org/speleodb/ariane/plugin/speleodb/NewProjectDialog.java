@@ -44,6 +44,8 @@ import javafx.scene.text.FontWeight;
  */
 public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
 
+    private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
+
     // Cache for country data to avoid repeated file loading
     private static volatile Map<String, String> cachedCountries = null;
     private static final Object countryLoadLock = new Object();
@@ -76,7 +78,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             try {
                 loadCountriesFromJson();
             } catch (IOException e) {
-                System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
+                logger.warn(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
             }
         });
     }
@@ -91,7 +93,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             try {
                 loadCountriesFromJson(); // Will return immediately if already loaded
             } catch (IOException e) {
-                System.err.println(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
+                logger.warn(MESSAGES.ERROR_PRE_LOADING_COUNTRIES + e.getMessage());
             }
         });
     }
@@ -129,7 +131,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
             }
 
             cachedCountries = countryMap;
-            System.out.println(String.format(MESSAGES.COUNTRIES_CACHED_SUCCESS, cachedCountries.size()));
+            logger.info(String.format(MESSAGES.COUNTRIES_CACHED_SUCCESS, cachedCountries.size()));
         }
     }
 
@@ -283,10 +285,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
                     loadCountriesFromJson();
                     Platform.runLater(() -> populateCountryComboBox(cachedCountries));
                 } catch (IOException e) {
-                    Platform.runLater(() -> {
-                        System.err.println(MESSAGES.ERROR_LOADING_COUNTRIES + e.getMessage());
-                        // Could show error to user here if needed
-                    });
+                    logger.warn(MESSAGES.ERROR_LOADING_COUNTRIES + e.getMessage());
                 }
             });
         }
@@ -304,7 +303,7 @@ public class NewProjectDialog extends Dialog<NewProjectDialog.ProjectData> {
         // Re-validate in case user typed something before countries loaded
         validateCountrySelection();
 
-        System.out.println("Loaded " + countries.size() + " countries into combo box" +
+        logger.debug("Loaded " + countries.size() + " countries into combo box" +
                 (cachedCountries != null ? " (from cache)" : " (direct load)"));
     }
 

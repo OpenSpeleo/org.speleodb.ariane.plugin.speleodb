@@ -52,12 +52,24 @@ class SpeleoDBImportFlowTest {
         // Use a fresh controller instance via protected constructor for isolation
         controller = new SpeleoDBController(true);
 
-        // Minimal UI nodes to prevent NPEs
+        // Stub UI nodes to prevent NPEs when setUILoadingState runs
         progress = new ProgressIndicator();
         uploadBtn = new Button();
 
         setPrivateField(controller, "serverProgressIndicator", progress);
         setPrivateField(controller, "uploadButton", uploadBtn);
+        setPrivateField(controller, "projectListView", new javafx.scene.control.ListView<>());
+        setPrivateField(controller, "createNewProjectButton", new Button());
+        setPrivateField(controller, "refreshProjectsButton", new Button());
+        setPrivateField(controller, "sortByNameButton", new Button());
+        setPrivateField(controller, "sortByDateButton", new Button());
+        setPrivateField(controller, "projectsListingPane", new javafx.scene.control.TitledPane());
+        setPrivateField(controller, "projectActionsPane", new javafx.scene.control.TitledPane());
+
+        // Count down the FXML latch so setUILoadingState doesn't block for 10 seconds
+        java.util.concurrent.CountDownLatch fxmlLatch =
+                (java.util.concurrent.CountDownLatch) getPrivateField(controller, "fxmlInitializedLatch");
+        fxmlLatch.countDown();
 
         // Assign a test plugin and ensure LOAD events set a dummy survey in tests
         testPlugin = new SpeleoDBPlugin();
@@ -123,6 +135,10 @@ class SpeleoDBImportFlowTest {
         Method method = SpeleoDBController.class.getDeclaredMethod("performImportUploadAndLoad", File.class, String.class);
         method.setAccessible(true);
         method.invoke(controller, tempTml, "test message");
+
+        assertThat(loadedLatch.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            .as("Load should complete within 5 seconds")
+            .isTrue();
     }
 
     @Test
@@ -170,5 +186,11 @@ class SpeleoDBImportFlowTest {
         Field f = target.getClass().getDeclaredField(fieldName);
         f.setAccessible(true);
         f.set(target, value);
+    }
+
+    private static Object getPrivateField(Object target, String fieldName) throws Exception {
+        Field f = target.getClass().getDeclaredField(fieldName);
+        f.setAccessible(true);
+        return f.get(target);
     }
 }

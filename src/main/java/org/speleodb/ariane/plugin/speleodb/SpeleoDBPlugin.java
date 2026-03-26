@@ -112,8 +112,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
 
             return root;
         } catch (IOException e) {
-            System.err.println("Error loading FXML for SpeleoDB UI: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Error loading FXML for SpeleoDB UI: " + e.getMessage(), e);
             return null;
         }
     }
@@ -149,7 +148,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                                     (nodeId != null ? ", id=" + nodeId : "") +
                                     (text != null ? ", text=\"" + text + "\"" : "") +
                                     ", source=" + source);
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        logger.debug("FX event logging error: " + e.getMessage());
                     }
                 });
             }
@@ -197,7 +197,7 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                 executorService.shutdownNow();
                 // Wait briefly for tasks to respond to being cancelled
                 if (!executorService.awaitTermination(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                    System.err.println("SpeleoDB executor did not terminate cleanly");
+                    logger.warn("SpeleoDB executor did not terminate cleanly");
                 }
             }
         } catch (InterruptedException ie) {
@@ -225,7 +225,8 @@ public class SpeleoDBPlugin implements DataServerPlugin {
                     ((javafx.scene.control.Button) node).fire();
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logger.debug("Host save button lookup/fire failed: " + e.getMessage());
         }
 
         // Also trigger host save via command property as a fallback

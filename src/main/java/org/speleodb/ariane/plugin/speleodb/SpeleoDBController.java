@@ -95,8 +95,8 @@ import javafx.util.Duration;
  * Delegates server communication to SpeleoDBService.
  */
 public class SpeleoDBController implements Initializable {
-	// Centralized logger instance (MUST be initialized before 'instance')
-	private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
+    // Centralized logger instance (MUST be initialized before 'instance')
+    private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
 
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
@@ -185,8 +185,8 @@ public class SpeleoDBController implements Initializable {
     private Button resetButton;
     @FXML
     private Label versionLabel;
-	@FXML
-	private javafx.scene.layout.VBox lockStatusBox;
+    @FXML
+    private javafx.scene.layout.VBox lockStatusBox;
 
     // SpeleoDBService instance for handling server communication.
     private SpeleoDBService speleoDBService;
@@ -197,10 +197,10 @@ public class SpeleoDBController implements Initializable {
     private volatile boolean shutdownInProgress = false;
     private final Object shutdownLock = new Object();
     private Thread jvmShutdownHook;
-	private volatile boolean uncaughtHandlerInstalled = false;
+    private volatile boolean uncaughtHandlerInstalled = false;
 
     // Internal Controller Data
-    private JsonObject currentProject = null;
+    private volatile JsonObject currentProject = null;
 
     // Sorting state
     private SortMode currentSortMode = SortMode.BY_NAME; // Default to sort by name
@@ -254,7 +254,9 @@ public class SpeleoDBController implements Initializable {
                         // Only log in the nested call - end of routine
                         logger.info("Project loaded successfully, triggering redraw");
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ex) {
+                    logger.debug("Redraw scheduling error: " + ex.getMessage());
+                }
             })
         );
         delay.play();
@@ -329,10 +331,10 @@ public class SpeleoDBController implements Initializable {
      * SpeleoDBService initialization moved to initialize() method.
      */
     private SpeleoDBController() {
-		// Service initialization moved to initialize() to avoid 'this' escape
-		// Install shutdown safety as early as possible; both are idempotent
-		setupShutdownHook();
-		setupUncaughtExceptionHandler();
+        // Service initialization moved to initialize() to avoid 'this' escape
+        // Install shutdown safety as early as possible; both are idempotent
+        setupShutdownHook();
+        setupUncaughtExceptionHandler();
     }
 
     /**
@@ -397,25 +399,24 @@ public class SpeleoDBController implements Initializable {
         parentPlugin.executorService.execute(() -> {
             try {
 
-                String SDB_projectId = project.getString("id");
+                String sdbProjectId = project.getString("id");
 
                 CaveSurveyInterface survey = parentPlugin.getSurvey();
                 if (survey != null) {
-                    String SDB_mainCaveFileId = survey.getExtraData();
+                    String sdbMainCaveFileId = survey.getExtraData();
 
 
-                    if (SDB_mainCaveFileId == null || SDB_mainCaveFileId.isEmpty()) {
-                        logger.debug("Adding SpeleoDB ID: " + SDB_projectId);
-                        speleoDBService.updateFileSpeleoDBId(SDB_projectId);
-                        survey.setExtraData(SDB_projectId);
+                    if (sdbMainCaveFileId == null || sdbMainCaveFileId.isEmpty()) {
+                        logger.debug("Adding SpeleoDB ID: " + sdbProjectId);
+                        survey.setExtraData(sdbProjectId);
                         return;
                     }
 
-                    if (!SDB_mainCaveFileId.equals(SDB_projectId)) {
+                    if (!sdbMainCaveFileId.equals(sdbProjectId)) {
                         logger.info("Incoherent File ID detected.");
-                        logger.info("\t- Previous Value: " + SDB_mainCaveFileId);
-                        logger.info("\t- New Value: " + SDB_projectId);
-                        survey.setExtraData(SDB_projectId);
+                        logger.info("\t- Previous Value: " + sdbMainCaveFileId);
+                        logger.info("\t- New Value: " + sdbProjectId);
+                        survey.setExtraData(sdbProjectId);
                         logger.info("SpeleoDB ID updated successfully.");
                     }
                 }
@@ -763,122 +764,122 @@ public class SpeleoDBController implements Initializable {
      * This ensures project locks are always released regardless of how the application terminates.
      */
     private void setupShutdownHook() {
-		// Avoid double-registration if initialize() also calls this
-		if (jvmShutdownHook != null) {
-			logger.debug("JVM shutdown hook already installed; skipping duplicate install");
-			return;
-		}
+        // Avoid double-registration if initialize() also calls this
+        if (jvmShutdownHook != null) {
+            logger.debug("JVM shutdown hook already installed; skipping duplicate install");
+            return;
+        }
         // JVM shutdown hook catches ALL termination scenarios on Windows
         jvmShutdownHook = new Thread(this::performShutdownCleanup, "SpeleoDB-ShutdownHook");
         Runtime.getRuntime().addShutdownHook(jvmShutdownHook);
         logger.info("JVM shutdown hook installed - will catch all termination scenarios");
     }
 
-	/**
-	 * Installs a default uncaught exception handler to log uncaught exceptions.
-	 * Idempotent: will only install once.
-	 * 
-	 * IMPORTANT: This handler should ONLY log exceptions, NOT perform shutdown cleanup.
-	 * The JVM shutdown hook handles cleanup when the application actually terminates.
-	 * Uncaught exceptions in JavaFX do not necessarily terminate the application,
-	 * so calling performShutdownCleanup() here would incorrectly release project locks
-	 * while the user is still working.
-	 */
-	private void setupUncaughtExceptionHandler() {
-		if (uncaughtHandlerInstalled) {
-			return;
-		}
-		try {
-			Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-				try {
-					logger.error("Uncaught exception in thread: " + thread.getName() + 
-						" - Exception: " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage(), throwable);
-					// Log stack trace for debugging
-					StringBuilder stackTrace = new StringBuilder("Stack trace:\n");
-					for (StackTraceElement element : throwable.getStackTrace()) {
-						stackTrace.append("\t").append(element.toString()).append("\n");
-					}
-					// Include cause chain
-					Throwable cause = throwable.getCause();
-					while (cause != null) {
-						stackTrace.append("Caused by: ").append(cause.getClass().getName())
-							.append(": ").append(cause.getMessage()).append("\n");
-						for (StackTraceElement element : cause.getStackTrace()) {
-							stackTrace.append("\t").append(element.toString()).append("\n");
-						}
-						cause = cause.getCause();
-					}
-					logger.error(stackTrace.toString());
-				} catch (Throwable ignored) {
-					// Logging may be unavailable during shutdown/crash
-				}
-				// NOTE: Do NOT call performShutdownCleanup() here!
-				// Uncaught exceptions don't mean the application is terminating.
-				// The JVM shutdown hook will handle cleanup when the app actually exits.
-			});
-			uncaughtHandlerInstalled = true;
-			logger.debug("Default uncaught exception handler installed");
-		} catch (Throwable t) {
-			// Never fail application init due to handler installation
-			logger.debug("Failed to install default uncaught exception handler");
-		}
-	}
+    /**
+     * Installs a default uncaught exception handler to log uncaught exceptions.
+     * Idempotent: will only install once.
+     * 
+     * IMPORTANT: This handler should ONLY log exceptions, NOT perform shutdown cleanup.
+     * The JVM shutdown hook handles cleanup when the application actually terminates.
+     * Uncaught exceptions in JavaFX do not necessarily terminate the application,
+     * so calling performShutdownCleanup() here would incorrectly release project locks
+     * while the user is still working.
+     */
+    private void setupUncaughtExceptionHandler() {
+        if (uncaughtHandlerInstalled) {
+            return;
+        }
+        try {
+            Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+                try {
+                    logger.error("Uncaught exception in thread: " + thread.getName() + 
+                        " - Exception: " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage(), throwable);
+                    // Log stack trace for debugging
+                    StringBuilder stackTrace = new StringBuilder("Stack trace:\n");
+                    for (StackTraceElement element : throwable.getStackTrace()) {
+                        stackTrace.append("\t").append(element.toString()).append("\n");
+                    }
+                    // Include cause chain
+                    Throwable cause = throwable.getCause();
+                    while (cause != null) {
+                        stackTrace.append("Caused by: ").append(cause.getClass().getName())
+                            .append(": ").append(cause.getMessage()).append("\n");
+                        for (StackTraceElement element : cause.getStackTrace()) {
+                            stackTrace.append("\t").append(element.toString()).append("\n");
+                        }
+                        cause = cause.getCause();
+                    }
+                    logger.error(stackTrace.toString());
+                } catch (Throwable ignored) {
+                    // Logging may be unavailable during shutdown/crash
+                }
+                // NOTE: Do NOT call performShutdownCleanup() here!
+                // Uncaught exceptions don't mean the application is terminating.
+                // The JVM shutdown hook will handle cleanup when the app actually exits.
+            });
+            uncaughtHandlerInstalled = true;
+            logger.debug("Default uncaught exception handler installed");
+        } catch (Throwable t) {
+            // Never fail application init due to handler installation
+            logger.debug("Failed to install default uncaught exception handler");
+        }
+    }
 
-	/**
-	 * Shows the "locked" status message with icon under the Reload button
-	 * inside projectActionsPane.
-	 */
-	private void setupLockedStatusMessage() {
-		if (!Platform.isFxApplicationThread()) {
-			Platform.runLater(this::setupLockedStatusMessage);
-			return;
-		}
+    /**
+     * Shows the "locked" status message with icon under the Reload button
+     * inside projectActionsPane.
+     */
+    private void setupLockedStatusMessage() {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(this::setupLockedStatusMessage);
+            return;
+        }
 
-		try {
-			if (lockStatusBox == null) {
-				return;
-			}
+        try {
+            if (lockStatusBox == null) {
+                return;
+            }
 
-			javafx.scene.image.ImageView icon = new javafx.scene.image.ImageView(
-				new javafx.scene.image.Image(
-					Objects.requireNonNull(getClass().getResourceAsStream("/images/icons/survey_locked.png"))
-				)
-			);
-			icon.setPreserveRatio(true);
-			icon.setFitHeight(60.0);
+            javafx.scene.image.ImageView icon = new javafx.scene.image.ImageView(
+                new javafx.scene.image.Image(
+                    Objects.requireNonNull(getClass().getResourceAsStream("/images/icons/survey_locked.png"))
+                )
+            );
+            icon.setPreserveRatio(true);
+            icon.setFitHeight(60.0);
 
-			// Add 30px padding under the icon
-			javafx.scene.layout.VBox.setMargin(icon, new javafx.geometry.Insets(0, 0, 20, 0));
+            // Add 30px padding under the icon
+            javafx.scene.layout.VBox.setMargin(icon, new javafx.geometry.Insets(0, 0, 20, 0));
 
-			TextFlow textFlow = new TextFlow();
-			textFlow.setMaxWidth(Double.MAX_VALUE);
-			textFlow.setTextAlignment(TextAlignment.CENTER);
+            TextFlow textFlow = new TextFlow();
+            textFlow.setMaxWidth(Double.MAX_VALUE);
+            textFlow.setTextAlignment(TextAlignment.CENTER);
 
-			Text text = new Text(
+            Text text = new Text(
                 "You are currently editing this project.\nClose Ariane to unlock the project."
             );
 
-			text.setFill(Color.web("#ff0000"));
-			text.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-fill: #ff0000;");
+            text.setFill(Color.web("#ff0000"));
+            text.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-fill: #ff0000;");
 
-			// Wrap text to container width minus padding
-			text.wrappingWidthProperty().bind(lockStatusBox.widthProperty().subtract(32));
+            // Wrap text to container width minus padding
+            text.wrappingWidthProperty().bind(lockStatusBox.widthProperty().subtract(32));
 
             // Add text to text flow
-			textFlow.getChildren().setAll(text);
+            textFlow.getChildren().setAll(text);
             // Add icon and text flow to lock status box
-			lockStatusBox.getChildren().setAll(icon, textFlow);
-		} catch (Exception ignored) {
-			// Do not fail UI if resource missing
-		}
-	}
+            lockStatusBox.getChildren().setAll(icon, textFlow);
+        } catch (Exception e) {
+            logger.debug("Lock status UI setup skipped (resource may be missing): " + e.getMessage());
+        }
+    }
 
 
     /**
      * Performs the actual shutdown cleanup in a thread-safe manner.
      * This method is called by the JVM shutdown hook and ensures cleanup only happens once.
      */
-	public void performShutdownCleanup() {
+    public void performShutdownCleanup() {
         synchronized (shutdownLock) {
             if (shutdownInProgress) {
                 logger.debug("Shutdown cleanup already in progress, skipping duplicate call");
@@ -970,7 +971,8 @@ public class SpeleoDBController implements Initializable {
                                 attachGlobalEventLogger(newScene);
                             }
                         }
-                    } catch (Exception ignored) {
+                    } catch (Exception e) {
+                        logger.debug("Scene listener initialization error: " + e.getMessage());
                     }
                 });
             }
@@ -1019,7 +1021,7 @@ public class SpeleoDBController implements Initializable {
                 Files.createDirectories(sdbProjects);
             }
         } catch (IOException e) {
-            System.err.println("Impossible to create SDB projects directory: " + e.getMessage());
+            logger.error("Impossible to create SDB projects directory: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
@@ -1074,7 +1076,8 @@ public class SpeleoDBController implements Initializable {
                 if (path != null && !path.isEmpty()) sb.append(", path=").append(path);
                 sb.append(", source=").append(source);
                 logger.info(sb.toString());
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                logger.debug("FX event logging error: " + e.getMessage());
             }
         });
 
@@ -1086,9 +1089,12 @@ public class SpeleoDBController implements Initializable {
                     if (btn != null) {
                         logger.info("SCAN: CENTER VIEW present in scene with id='" + btn.getId() + "'");
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    logger.debug("CENTER VIEW scan error: " + e.getMessage());
+                }
             });
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logger.debug("Layout listener setup error: " + e.getMessage());
         }
     }
 
@@ -1127,7 +1133,7 @@ public class SpeleoDBController implements Initializable {
         String email = emailTextField.getText();
         String password = passwordPasswordField.getText();
         String oauthToken = oauthtokenPasswordField.getText();
-        String SDB_instance = instanceTextField.getText();
+        String instanceUrl = instanceTextField.getText();
 
         // Validate credentials presence
         boolean hasOAuthToken = oauthToken != null && !oauthToken.trim().isEmpty();
@@ -1169,7 +1175,7 @@ public class SpeleoDBController implements Initializable {
             return;
         }
 
-        final String targetInstance = (SDB_instance != null && !SDB_instance.trim().isEmpty()) ? SDB_instance.trim() : PREFERENCES.DEFAULT_INSTANCE;
+        final String targetInstance = (instanceUrl != null && !instanceUrl.trim().isEmpty()) ? instanceUrl.trim() : PREFERENCES.DEFAULT_INSTANCE;
 
         logger.info("Connecting to " + targetInstance);
 
@@ -1229,10 +1235,23 @@ public class SpeleoDBController implements Initializable {
 
     /**
      * Disconnects from SpeleoDB and updates the UI state.
-     * Clears the current project, updates button states, and hides project-related UI elements.
+     * Releases any active project lock before logout, then clears the current project,
+     * updates button states, and hides project-related UI elements.
      */
     private void disconnectFromSpeleoDB() {
-        String SDB_instance = speleoDBService != null ? speleoDBService.getSDBInstance() : "SpeleoDB";
+        String disconnectedInstance = speleoDBService != null ? speleoDBService.getSDBInstance() : "SpeleoDB";
+
+        // Release any active project lock BEFORE logout clears the auth token
+        if (hasActiveProjectLock() && speleoDBService != null) {
+            String projectName = getCurrentProjectName();
+            logger.info("Releasing active project lock before disconnect: " + projectName);
+            LockReleaseResult result = releaseProjectLock(currentProject, "disconnect");
+            if (result.isReleased()) {
+                logger.info("Project lock released successfully before disconnect");
+            } else {
+                logger.warn("Failed to release project lock before disconnect: " + result.getMessage());
+            }
+        }
 
         if (speleoDBService != null) {
             speleoDBService.logout();
@@ -1266,7 +1285,7 @@ public class SpeleoDBController implements Initializable {
         passwordPasswordField.clear();
         oauthtokenPasswordField.clear();
 
-        logger.info("Disconnected from " + SDB_instance + " and cleared password/OAuth token");
+        logger.info("Disconnected from " + disconnectedInstance + " and cleared password/OAuth token");
     }
 
     /**
@@ -1923,14 +1942,14 @@ public class SpeleoDBController implements Initializable {
         }
     }
 
-    private void loadProject(JsonObject project, Path tml_filepath, String projectName, boolean hasWriteAccess) {
-        if (Files.exists(tml_filepath)) {
+    private void loadProject(JsonObject project, Path tmlFilepath, String projectName, boolean hasWriteAccess) {
+        if (Files.exists(tmlFilepath)) {
             // Load the project asynchronously to keep UI responsive
             String loadingMessage = hasWriteAccess ? "Loading project file ..." : "Loading read-only project file...";
             logger.info(loadingMessage);
 
             // Load survey asynchronously in background without blocking UI
-            loadSurveyAsync(tml_filepath.toFile(),
+            loadSurveyAsync(tmlFilepath.toFile(),
                 // Success callback
                 () -> {
                     Platform.runLater(() -> {
@@ -1967,7 +1986,7 @@ public class SpeleoDBController implements Initializable {
                     });
                 });
         } else {
-            logger.info("Downloaded file not found: " + tml_filepath);
+            logger.info("Downloaded file not found: " + tmlFilepath);
             Platform.runLater(() -> {
                 showErrorAnimation("Failed to download project file");
                 setUILoadingState(false);
@@ -2058,7 +2077,8 @@ public class SpeleoDBController implements Initializable {
                     if (action != null) {
                         action.run();
                     }
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    logger.debug("Host save accelerator invocation error: " + e.getMessage());
                 } finally {
                     latch.countDown();
                 }
@@ -2164,10 +2184,10 @@ public class SpeleoDBController implements Initializable {
         try {
             // Download project
             logger.info("Downloading project: " + projectName);
-            Path tml_filepath = speleoDBService.downloadProject(project);
+            Path tmlFilepath = speleoDBService.downloadProject(project);
 
             Platform.runLater(() -> {
-                loadProject(project, tml_filepath, projectName, hasWriteAccess);
+                loadProject(project, tmlFilepath, projectName, hasWriteAccess);
                 setUILoadingState(false);
             });
 
@@ -2366,7 +2386,7 @@ public class SpeleoDBController implements Initializable {
      */
     @FXML
     public void onUploadSpeleoDB(ActionEvent actionEvent) throws IOException, URISyntaxException, InterruptedException {
-        String message = uploadMessageTextField.getText();
+        String message = uploadMessageTextField.getText().strip();
         if (message.isEmpty()) {
             logger.info(MESSAGES.UPLOAD_MESSAGE_EMPTY);
             SpeleoDBModals.showError(DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, MESSAGES.UPLOAD_MESSAGE_EMPTY);
@@ -2552,13 +2572,13 @@ public class SpeleoDBController implements Initializable {
 
     public void onSignupSpeleoDB(ActionEvent actionEvent) {
         try {
-            String SDB_instance = instanceTextField.getText().trim().toLowerCase(Locale.ROOT);
-            if (SDB_instance.isEmpty()) {
-                SDB_instance = PREFERENCES.DEFAULT_INSTANCE;
+            String signupInstance = instanceTextField.getText().trim().toLowerCase(Locale.ROOT);
+            if (signupInstance.isEmpty()) {
+                signupInstance = PREFERENCES.DEFAULT_INSTANCE;
             }
 
             String protocol = isDebugMode() ? "http" : "https";
-            String signupUrl = protocol + "://" + SDB_instance + "/signup/";
+            String signupUrl = protocol + "://" + signupInstance + "/signup/";
 
             java.awt.Desktop.getDesktop().browse(new java.net.URI(signupUrl));
             logger.info("Opening signup page: " + signupUrl);
@@ -2761,13 +2781,12 @@ public class SpeleoDBController implements Initializable {
             // Success: Clear current project and update UI
             currentProject = null;
 
-            // Update UI state
-            projectActionsPane.setVisible(false);
-            projectActionsPane.setExpanded(false);
-            projectsListingPane.setExpanded(true);
-
-            // Show success animation
-            showSuccessAnimation("Lock Released");
+            Platform.runLater(() -> {
+                projectActionsPane.setVisible(false);
+                projectActionsPane.setExpanded(false);
+                projectsListingPane.setExpanded(true);
+                showSuccessAnimation("Lock Released");
+            });
 
             return LockReleaseResult.success(project, "Lock Released");
 
@@ -2872,7 +2891,7 @@ public class SpeleoDBController implements Initializable {
 
             // Show success animation
             Platform.runLater(() -> {
-				showSuccessAnimation("Lock Acquired");
+                showSuccessAnimation("Lock Acquired");
             });
             return true;
 
@@ -2906,7 +2925,7 @@ public class SpeleoDBController implements Initializable {
 
                 Platform.runLater(() -> {
                     if (failureReason.contains("read-only")) {
-						showSuccessAnimation("Project opened (read-only)");
+                        showSuccessAnimation("Project opened (read-only)");
                     } else {
                         showErrorAnimation("Lock not available");
                     }
@@ -3106,8 +3125,8 @@ public class SpeleoDBController implements Initializable {
                 }
                 return;
             }
-        } catch (Exception ignored) {
-            // Fallback to showing dialog if preferences fail
+        } catch (Exception e) {
+            logger.debug("Preferences read failed, falling back to dialog: " + e.getMessage());
         }
 
         String randomGifPath = getRandomSuccessGif();

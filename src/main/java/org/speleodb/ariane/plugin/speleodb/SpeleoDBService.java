@@ -18,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.API;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.HEADERS;
@@ -27,7 +28,6 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ProjectType;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.VALIDATION;
 
 import jakarta.json.Json;
 import jakarta.json.JsonArray;
@@ -40,21 +40,20 @@ import jakarta.json.JsonReader;
  * Uses the centralized SpeleoDBLogger directly.
  */
 public class SpeleoDBService {
-    private final SpeleoDBController controller;
     private String authToken = "";
-    private String SDB_instance = "";
-    private HttpClient http_client = null;
+    private String sdbInstance = "";
+    private HttpClient httpClient = null;
 
     // Centralized logger instance - used directly without wrapper methods
     private static final SpeleoDBLogger logger = SpeleoDBLogger.getInstance();
 
     public SpeleoDBService(SpeleoDBController controller) {
-        this.controller = controller;
+        // Controller parameter retained for API compatibility; not currently used by the service
     }
 
     /**
      * Gets the current SpeleoDB instance address.
-     * This allows controlled access to the private `SDB_instance` field.
+     * This allows controlled access to the private `sdbInstance` field.
      *
      * @return the SpeleoDB instance address, or an empty string if not authenticated.
      * @throws IllegalStateException if not authenticated.
@@ -63,30 +62,31 @@ public class SpeleoDBService {
         if (!isAuthenticated()) {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED);
         }
-        return SDB_instance;
+        return sdbInstance;
     }
 
     /**
      * Sets the current SpeleoDB instance address.
-     * This allows controlled access to the private `SDB_instance` field.
-     * Supports URLs with or without protocol prefixes and optional trailing slashes.
      *
      * @param instanceUrl the SpeleoDB instance URL.
      */
     private void setSDBInstance(String instanceUrl) {
-        // Normalize the input URL by removing protocol prefixes and trailing slashes
-        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
+        sdbInstance = resolveInstanceUrl(instanceUrl);
+    }
 
-        // Regex to match localhost, private IP ranges, or loopback addresses.
-        String localPattern = NETWORK.LOCAL_PATTERN;
-
-        if (Pattern.compile(localPattern).matcher(normalizedUrl).find()) {
-            // For local addresses and IPs, use http://
-            SDB_instance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
-        } else {
-            // For non-local addresses, use https://
-            SDB_instance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
+    /**
+     * Resolves a raw instance URL into a full URL with the appropriate protocol.
+     * Normalizes the URL and applies http:// for local addresses, https:// for remote.
+     *
+     * @param rawUrl the raw instance URL from user input
+     * @return full URL with protocol prefix (e.g., "https://www.speleodb.org")
+     */
+    private String resolveInstanceUrl(String rawUrl) {
+        String normalizedUrl = normalizeInstanceUrl(rawUrl);
+        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
+            return NETWORK.HTTP_PROTOCOL + normalizedUrl;
         }
+        return NETWORK.HTTPS_PROTOCOL + normalizedUrl;
     }
 
     /**
@@ -129,19 +129,18 @@ public class SpeleoDBService {
     /* ===================== AUTHENTICATION MANAGEMENT ===================== */
 
     /**
-     * Creates an HTTP client with the appropriate protocol version and reliability settings.
-     * Uses HTTP/1.1 for both HTTP and HTTPS connections for better compatibility and to avoid
-     * potential HTTP/2 connection hanging issues with remote servers.
-     * Enhanced with proper timeouts and connection management for reliability.
+     * Creates an HTTP client with the appropriate protocol version and reliability settings
+     * based on the given instance URL.
      *
-     * @return HttpClient configured with HTTP/1.1 and reliability settings
+     * @param instanceUrl the full instance URL (including protocol) to determine HTTP version
+     * @return HttpClient configured with appropriate HTTP version and reliability settings
      */
-    private HttpClient createHttpClient() {
+    private HttpClient createHttpClientForInstance(String instanceUrl) {
         HttpClient.Builder builder = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))  // Generous timeout for reliability
-                .followRedirects(HttpClient.Redirect.NORMAL);  // Handle redirects automatically
+                .connectTimeout(Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))
+                .followRedirects(HttpClient.Redirect.NORMAL);
 
-        if (SDB_instance.startsWith(NETWORK.HTTP_PROTOCOL)) {
+        if (instanceUrl.startsWith(NETWORK.HTTP_PROTOCOL)) {
             builder = builder.version(HttpClient.Version.HTTP_1_1);
         } else {
             builder = builder.version(HttpClient.Version.HTTP_2);
@@ -151,15 +150,31 @@ public class SpeleoDBService {
     }
 
     /**
+     * Creates an HTTP client using the current authenticated sdbInstance.
+     *
+     * @return HttpClient configured for the current sdbInstance
+     */
+    private HttpClient createHttpClient() {
+        return createHttpClientForInstance(sdbInstance);
+    }
+
+    /**
      * Parses the authentication token from the JSON response.
      *
      * @param responseBody the response body containing the JSON data.
      * @return the authentication token.
+     * @throws IllegalArgumentException if the response does not contain a valid token.
      */
     private String parseAuthToken(String responseBody) {
-        int tokenStart = responseBody.indexOf(VALIDATION.TOKEN_JSON_START) + VALIDATION.TOKEN_JSON_START_LENGTH;
-        int tokenEnd = responseBody.indexOf("\"", tokenStart);
-        return responseBody.substring(tokenStart, tokenEnd);
+        try (JsonReader reader = Json.createReader(new StringReader(responseBody))) {
+            JsonObject json = reader.readObject();
+            if (!json.containsKey(JSON_FIELDS.TOKEN)) {
+                throw new IllegalArgumentException("Response does not contain a token field");
+            }
+            return json.getString(JSON_FIELDS.TOKEN);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to parse auth token from response: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -173,9 +188,9 @@ public class SpeleoDBService {
      */
     public void authenticate(String email, String password, String oAuthToken, String instanceUrl) throws Exception {
         setSDBInstance(instanceUrl);
-        http_client = createHttpClient(); // Create the HTTP client after setting the instance URL
+        httpClient = createHttpClient(); // Create the HTTP client after setting the instance URL
 
-        URI uri = new URI(SDB_instance + API.AUTH_TOKEN_ENDPOINT);
+        URI uri = new URI(sdbInstance + API.AUTH_TOKEN_ENDPOINT);
         HttpRequest request;
 
         if (oAuthToken != null && !oAuthToken.isEmpty()) {
@@ -201,23 +216,23 @@ public class SpeleoDBService {
                     .build();
         }
 
-        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.OK) {
             authToken = parseAuthToken(response.body());
         } else {
-            logout(); // Ensure we clears the `SDB_instance`
+            logout(); // Ensure we clears the `sdbInstance`
             throw new Exception(MESSAGES.AUTH_FAILED_STATUS + response.statusCode());
         }
     }
 
     /**
-     * Logs the user out by clearing the authentication token and the SDB_instance
+     * Logs the user out by clearing the authentication token and the sdbInstance
      */
     public void logout() {
         authToken = "";
-        SDB_instance = "";
-        http_client = null;  // Clear cached HTTP client on logout
+        sdbInstance = "";
+        httpClient = null;  // Clear cached HTTP client on logout
     }
 
     /**
@@ -226,7 +241,7 @@ public class SpeleoDBService {
      * @return true if authenticated, false otherwise.
      */
     public boolean isAuthenticated() {
-        return !authToken.isEmpty() && !SDB_instance.isEmpty();
+        return !authToken.isEmpty() && !sdbInstance.isEmpty();
     }
 
     /* ========================= PROJECT MANAGEMENT ======================== */
@@ -250,7 +265,7 @@ public class SpeleoDBService {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED_SHORT);
         }
 
-        var uri = new URI(SDB_instance + API.PROJECTS_ENDPOINT);
+        var uri = new URI(sdbInstance + API.PROJECTS_ENDPOINT);
 
         // Build JSON payload
         var jsonBuilder = Json.createObjectBuilder()
@@ -277,7 +292,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.CREATED) {
             // Successfully created, parse and return the project data
@@ -314,7 +329,7 @@ public class SpeleoDBService {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED_SHORT);
         }
 
-        var uri = new URI(SDB_instance + API.PROJECTS_ENDPOINT);
+        var uri = new URI(sdbInstance + API.PROJECTS_ENDPOINT);
 
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .GET()
@@ -323,32 +338,22 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception(MESSAGES.PROJECT_LIST_FAILED_STATUS + response.statusCode());
         }
 
-		try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-			JsonObject responseObject = reader.readObject();
-			JsonArray projects = responseObject.getJsonArray(JSON_FIELDS.DATA);
+        try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
+            JsonObject responseObject = reader.readObject();
+            JsonArray projects = responseObject.getJsonArray(JSON_FIELDS.DATA);
 
-            // TODO: Improve Error management
-
-			// Keep only ARIANE projects and exclude WEB_VIEWER permission
-			return projects.stream()
-					.filter(JsonObject.class::isInstance)
-					.map(JsonObject.class::cast)
-					.filter(project -> ProjectType.ARIANE.name().equals(project.getString(JSON_FIELDS.PROJECT_TYPE, "")))
-					.filter(project -> !JSON_FIELDS.PERMISSION_WEB_VIEWER.equals(project.getString(JSON_FIELDS.PERMISSION, "")))
-					.collect(Json::createArrayBuilder,
-							(builder, project) -> builder.add(project),
-							(b1, b2) -> {
-								// Sequential collection only
-								throw new UnsupportedOperationException("Parallel processing not supported");
-							})
-					.build();
-		}
+            return collectToJsonArray(projects.stream()
+                    .filter(JsonObject.class::isInstance)
+                    .map(JsonObject.class::cast)
+                    .filter(project -> ProjectType.ARIANE.name().equals(project.getString(JSON_FIELDS.PROJECT_TYPE, "")))
+                    .filter(project -> !JSON_FIELDS.PERMISSION_WEB_VIEWER.equals(project.getString(JSON_FIELDS.PERMISSION, ""))));
+        }
     }
 
     // -------------------------- Project Upload --------------------------- //
@@ -365,14 +370,19 @@ public class SpeleoDBService {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED_SHORT);
         }
 
+        String sanitizedMessage = (message != null) ? message.strip() : "";
+        if (sanitizedMessage.isEmpty()) {
+            throw new IllegalArgumentException("Upload message cannot be empty");
+        }
+
         // TODO: Ensure MUTEX is owned before upload - either statically but maybe preferably by calling API.
-        String SDB_projectId = project.getString(JSON_FIELDS.ID);
-        Path tmp_filepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
+        String sdbProjectId = project.getString(JSON_FIELDS.ID);
+        Path tmpFilepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + sdbProjectId + PATHS.TML_FILE_EXTENSION);
 
         // Check if the TML file is the same as the empty project template
-        if (Files.exists(tmp_filepath)) {
+        if (Files.exists(tmpFilepath)) {
             try {
-                byte[] fileData = Files.readAllBytes(tmp_filepath);
+                byte[] fileData = Files.readAllBytes(tmpFilepath);
                 String fileHash = calculateSHA256(fileData);
 
                 String emptyTemplateHash = getEmptyTemplateSHA256();
@@ -386,13 +396,13 @@ public class SpeleoDBService {
         }
 
         URI uri = new URI(
-            SDB_instance + API.PROJECTS_ENDPOINT +
-            SDB_projectId + API.UPLOAD_ARIANE_TML_PATH
+            sdbInstance + API.PROJECTS_ENDPOINT +
+            sdbProjectId + API.UPLOAD_ARIANE_TML_PATH
         );
 
         HTTPRequestMultipartBody multipartBody = new HTTPRequestMultipartBody.Builder()
-                .addPart(JSON_FIELDS.MESSAGE, message)
-                .addPart(JSON_FIELDS.FILE_KEY, tmp_filepath.toFile(), null, SDB_projectId + PATHS.TML_FILE_EXTENSION)
+                .addPart(JSON_FIELDS.MESSAGE, sanitizedMessage)
+                .addPart(JSON_FIELDS.FILE_KEY, tmpFilepath.toFile(), null, sdbProjectId + PATHS.TML_FILE_EXTENSION)
                 .build();
 
         HttpRequest request = HttpRequest.newBuilder(uri)
@@ -402,7 +412,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
         int status = response.statusCode();
         if (status == HTTP_STATUS.OK) {
@@ -431,11 +441,11 @@ public class SpeleoDBService {
             throw new IllegalStateException(MESSAGES.USER_NOT_AUTHENTICATED_SHORT);
         }
 
-        String SDB_projectId = project.getString(JSON_FIELDS.ID);
+        String sdbProjectId = project.getString(JSON_FIELDS.ID);
 
         URI uri = new URI(
-                SDB_instance + API.PROJECTS_ENDPOINT +
-                SDB_projectId + API.DOWNLOAD_ARIANE_TML_PATH
+                sdbInstance + API.PROJECTS_ENDPOINT +
+                sdbProjectId + API.DOWNLOAD_ARIANE_TML_PATH
         );
 
         var request = HttpRequest.newBuilder(uri)
@@ -445,20 +455,20 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))  // Longer timeout for downloads
                 .build();
 
-        HttpResponse<byte[]> response = http_client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
 
-        Path tml_filepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + SDB_projectId + PATHS.TML_FILE_EXTENSION);
+        Path tmlFilepath = Paths.get(PATHS.SDB_PROJECT_DIR + File.separator + sdbProjectId + PATHS.TML_FILE_EXTENSION);
 
         switch (response.statusCode()) {
             case HTTP_STATUS.OK -> {
                 // Successful download - save the file
-                Files.write(tml_filepath, response.body(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                return tml_filepath;
+                Files.write(tmlFilepath, response.body(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                return tmlFilepath;
             }
             case HTTP_STATUS.UNPROCESSABLE_ENTITY -> {
                 // HTTP 422: Project exists but is empty - create empty TML file.
                 logger.info(MESSAGES.PROJECT_DOWNLOAD_404_EMPTY);
-                return createEmptyTmlFileFromTemplate(SDB_projectId, project.getString(JSON_FIELDS.NAME, "Unknown Project"));
+                return createEmptyTmlFileFromTemplate(sdbProjectId, project.getString(JSON_FIELDS.NAME, "Unknown Project"));
             }
             default -> {
                 String errorMessage = "Unexpected HTTP status code during project download: " + response.statusCode() +
@@ -513,7 +523,7 @@ public class SpeleoDBService {
      * @throws InterruptedException     if the request is interrupted.
      */
     public boolean acquireOrRefreshProjectMutex(JsonObject project) throws URISyntaxException, IOException, InterruptedException {
-        var uri = new URI(SDB_instance + API.PROJECTS_ENDPOINT + project.getString(JSON_FIELDS.ID) + API.ACQUIRE_LOCK_PATH);
+        var uri = new URI(sdbInstance + API.PROJECTS_ENDPOINT + project.getString(JSON_FIELDS.ID) + API.ACQUIRE_LOCK_PATH);
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(""))
@@ -522,7 +532,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         // TODO: Add error management
         return (response.statusCode() == HTTP_STATUS.OK);
@@ -538,7 +548,7 @@ public class SpeleoDBService {
      * @throws URISyntaxException       if the URI is malformed.
      */
     public boolean releaseProjectMutex(JsonObject project) throws IOException, InterruptedException, URISyntaxException {
-        var uri = new URI(SDB_instance + API.PROJECTS_ENDPOINT + project.getString(JSON_FIELDS.ID) + API.RELEASE_LOCK_PATH);
+        var uri = new URI(sdbInstance + API.PROJECTS_ENDPOINT + project.getString(JSON_FIELDS.ID) + API.RELEASE_LOCK_PATH);
 
         var request = HttpRequest.newBuilder(uri).
                 POST(HttpRequest.BodyPublishers.ofString(""))
@@ -547,23 +557,10 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))  // Add request timeout
                 .build();
 
-        HttpResponse<String> response = http_client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         // TODO: Add error management
         return (response.statusCode() == HTTP_STATUS.OK);
-    }
-
-    /**
-     * Updates the file's SpeleoDB ID to match the provided project ID.
-     *
-     * @param sdbProjectId the SpeleoDB project ID to set.
-     */
-    public void updateFileSpeleoDBId(String sdbProjectId) {
-        // This method delegates to the plugin's functionality
-        if (controller != null && controller.parentPlugin != null) {
-            // The parentPlugin should have a method to update the SpeleoDB ID
-            // This is typically used to set metadata in the cave survey file
-        }
     }
 
     /* ========================= PUBLIC ANNOUNCEMENTS ======================== */
@@ -577,16 +574,7 @@ public class SpeleoDBService {
      * @throws Exception if the request fails
      */
     public JsonArray fetchAnnouncements(String instanceUrl) throws Exception {
-        // Set up instance URL for this request (without requiring authentication)
-        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
-        String tempInstance;
-        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
-            // For local addresses and IPs, use http://
-            tempInstance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
-        } else {
-            // For non-local addresses, use https://
-            tempInstance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
-        }
+        String tempInstance = resolveInstanceUrl(instanceUrl);
 
         URI uri = new URI(tempInstance + API.ANNOUNCEMENTS_ENDPOINT);
 
@@ -596,7 +584,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))
                 .build();
 
-        HttpResponse<String> response = createHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = createHttpClientForInstance(tempInstance).send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception("Failed to fetch announcements with status code: " + response.statusCode());
@@ -608,46 +596,32 @@ public class SpeleoDBService {
 
             // Note: We'll get current date inside the filter for date comparison
 
-            // Filter for active ARIANE announcements with additional conditions
-            return announcements.stream()
+            return collectToJsonArray(announcements.stream()
                     .filter(JsonObject.class::isInstance)
                     .map(JsonObject.class::cast)
                     .filter(announcement -> announcement.getBoolean(JSON_FIELDS.IS_ACTIVE, false))
                     .filter(announcement -> "ARIANE".equals(announcement.getString(JSON_FIELDS.SOFTWARE, "")))
                     .filter(announcement -> {
-                        // Check expiry date if present
                         String expiresAt = announcement.getString(JSON_FIELDS.EXPIRES_AT, null);
                         if (expiresAt != null && !expiresAt.isEmpty()) {
                             try {
-                                // Parse as LocalDate (date-only format like "2025-06-23")
                                 java.time.LocalDate expiryDate = java.time.LocalDate.parse(expiresAt);
                                 java.time.LocalDate today = java.time.LocalDate.now();
-                                return (expiryDate.isAfter(today) || expiryDate.isEqual(today));
-                        } catch (java.time.format.DateTimeParseException e) {
-                            logger.warn("Failed to parse expires_at field: `" + expiresAt + "`.");
-                            return false;
+                                return !expiryDate.isBefore(today);
+                            } catch (java.time.format.DateTimeParseException e) {
+                                logger.warn("Failed to parse expires_at field: `" + expiresAt + "`.");
+                                return false;
+                            }
                         }
-                        }
-                        // If no expiry date, include the announcementz
                         return true;
                     })
                     .filter(announcement -> {
-                        // Check version match if present
                         String announcementVersion = announcement.getString(JSON_FIELDS.VERSION, null);
                         if (announcementVersion != null && !announcementVersion.isEmpty()) {
-                            // Only show if version exactly matches the built version
                             return announcementVersion.equals(SpeleoDBConstants.VERSION);
                         }
-                        // If no version specified, include the announcement
                         return true;
-                    })
-                    .collect(Json::createArrayBuilder,
-                            (builder, announcement) -> builder.add(announcement),
-                            (builder1, builder2) -> {
-                                // This combiner is for parallel streams, but we're using sequential
-                                throw new UnsupportedOperationException("Parallel processing not supported");
-                            })
-                    .build();
+                    }));
         }
     }
 
@@ -662,16 +636,7 @@ public class SpeleoDBService {
      * @throws Exception if the request fails
      */
     public JsonArray fetchPluginReleases(String instanceUrl) throws Exception {
-        // Set up instance URL for this request (without requiring authentication)
-        String normalizedUrl = normalizeInstanceUrl(instanceUrl);
-        String tempInstance;
-        if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
-            // For local addresses and IPs, use http://
-            tempInstance = NETWORK.HTTP_PROTOCOL + normalizedUrl;
-        } else {
-            // For non-local addresses, use https://
-            tempInstance = NETWORK.HTTPS_PROTOCOL + normalizedUrl;
-        }
+        String tempInstance = resolveInstanceUrl(instanceUrl);
 
         URI uri = new URI(tempInstance + API.PLUGIN_RELEASES_ENDPOINT);
 
@@ -681,7 +646,7 @@ public class SpeleoDBService {
                 .timeout(Duration.ofSeconds(NETWORK.REQUEST_TIMEOUT_SECONDS))
                 .build();
 
-        HttpResponse<String> response = createHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = createHttpClientForInstance(tempInstance).send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
             throw new Exception("Failed to fetch plugin releases with status code: " + response.statusCode());
@@ -691,52 +656,54 @@ public class SpeleoDBService {
             JsonObject responseObject = reader.readObject();
             JsonArray releases = responseObject.getJsonArray(JSON_FIELDS.DATA);
 
-            // Filter for ARIANE releases that are compatible with current software version
-            return releases.stream()
+            return collectToJsonArray(releases.stream()
                     .filter(JsonObject.class::isInstance)
                     .map(JsonObject.class::cast)
                     .filter(release -> SpeleoDBConstants.ARIANE_SOFTWARE_NAME.equals(release.getString(JSON_FIELDS.SOFTWARE, "")))
                     .filter(release -> {
-                        // Check if current Ariane version is within the release's version bounds
                         String minVersion = release.getString(JSON_FIELDS.MIN_SOFTWARE_VERSION, null);
                         String maxVersion = release.getString(JSON_FIELDS.MAX_SOFTWARE_VERSION, null);
                         String currentVersion = SpeleoDBConstants.ARIANE_VERSION;
 
-                        // If current version is empty, skip all releases (can't determine compatibility)
                         if (currentVersion.isEmpty()) {
                             return false;
                         }
-
-                        // If no version bounds specified, include the release
                         if (minVersion == null && maxVersion == null) {
                             return true;
                         }
-
-                        // Check minimum version (current >= min)
                         if (minVersion != null && SpeleoDBController.compareVersions(currentVersion, minVersion) < 0) {
                             return false;
                         }
-
                         return !(maxVersion != null && SpeleoDBController.compareVersions(currentVersion, maxVersion) > 0);
-                    })
-                    .collect(Json::createArrayBuilder,
-                            (builder, release) -> builder.add(release),
-                            (builder1, builder2) -> {
-                                // This combiner is for parallel streams, but we're using sequential
-                                throw new UnsupportedOperationException("Parallel processing not supported");
-                            })
-                    .build();
+                    }));
         }
+    }
+
+    /* ========================= UTILITIES ======================== */
+
+    /**
+     * Collects a stream of JsonObjects into a JsonArray (sequential only).
+     *
+     * @param stream the stream of JsonObject to collect
+     * @return a JsonArray built from the stream elements
+     */
+    private static JsonArray collectToJsonArray(Stream<JsonObject> stream) {
+        return stream.collect(
+                Json::createArrayBuilder,
+                (builder, item) -> builder.add(item),
+                (b1, b2) -> { throw new UnsupportedOperationException("Parallel processing not supported"); }
+        ).build();
     }
 
     /**
      * Calculates the SHA256 hash of the given file data.
+     * Package-private to allow reuse in tests.
      *
      * @param fileData the file data to hash
      * @return the SHA256 hash as a lowercase hex string
      * @throws RuntimeException if SHA-256 algorithm is not available
      */
-    private String calculateSHA256(byte[] fileData) {
+    static String calculateSHA256(byte[] fileData) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashBytes = digest.digest(fileData);

@@ -84,59 +84,29 @@ public class SpeleoDBModals {
             throw new IllegalStateException("Must be called on JavaFX Application Thread");
         }
 
-        // Always create a fresh Alert instance to avoid carrying over window state
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setResizable(false);
-        Window owner = findOwnerWindow();
-        if (owner != null) {
-            alert.initOwner(owner);
-            alert.initModality(Modality.WINDOW_MODAL);
-        }
+        Alert alert = createBaseAlert(Alert.AlertType.CONFIRMATION, title);
 
-        // Configure the modal
-        alert.setTitle(title);
-        alert.setHeaderText(null); // Clean Material Design look
-        alert.setContentText(null); // We'll use custom content
-
-        // Create custom content with Material Design styling
         VBox content = new VBox(16);
         content.setPadding(new Insets(24));
         content.getStyleClass().add("material-dialog-content-simple");
 
-        // Message label with Material Design typography
         Label messageLabel = new Label(message);
         messageLabel.getStyleClass().add("material-dialog-message");
         messageLabel.setWrapText(true);
         messageLabel.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        messageLabel.setMaxWidth(450); // Maximum width to prevent overly wide confirmation dialogs
-        messageLabel.setMinHeight(Region.USE_PREF_SIZE); // Prevent text truncation
+        messageLabel.setMaxWidth(450);
+        messageLabel.setMinHeight(Region.USE_PREF_SIZE);
 
         content.getChildren().add(messageLabel);
-
-        // Set the custom content
         alert.getDialogPane().setContent(content);
 
-        // Apply dynamic Material Design styling for confirmation dialogs
         DialogPane dialogPane = alert.getDialogPane();
-        dialogPane.setMinWidth(550); // Ensure enough space for two wide buttons
-        dialogPane.setPrefWidth(600); // Comfortable preferred width
-        dialogPane.setMaxWidth(750); // Allow even wider if needed
-        dialogPane.setMinHeight(160); // Increased to account for custom button area
+        dialogPane.setMinWidth(550);
+        dialogPane.setPrefWidth(600);
+        dialogPane.setMaxWidth(750);
+        dialogPane.setMinHeight(160);
         dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
-        dialogPane.setStyle(
-            "-fx-background-color: white; " +
-            "-fx-background-radius: 8; " +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);"
-        );
-
-        // Remove default header styling
-        Node headerPanel = dialogPane.lookup(".header-panel");
-        if (headerPanel != null) {
-            headerPanel.setStyle(
-                "-fx-background-color: transparent; " +
-                "-fx-padding: 0;"
-            );
-        }
+        applySimpleDialogStyle(dialogPane);
 
         // Set button types - using JavaFX's built-in system for reliability
         ButtonType positiveButton = new ButtonType(positiveText, ButtonBar.ButtonData.OK_DONE);
@@ -196,76 +166,7 @@ public class SpeleoDBModals {
      * @param message the error message
      */
     public static void showError(String title, String message) {
-        if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> showError(title, message));
-            return;
-        }
-
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setResizable(false);
-        Window owner = findOwnerWindow();
-        if (owner != null) {
-            alert.initOwner(owner);
-            alert.initModality(Modality.WINDOW_MODAL);
-        }
-        alert.setTitle(title);
-        alert.setHeaderText(null); // Clean Material Design look
-        alert.setContentText(null); // We'll use custom content
-
-        // Create custom content with Material Design styling
-        VBox content = new VBox(16);
-        content.setPadding(new Insets(24));
-        content.getStyleClass().add("material-dialog-content-simple");
-
-        // Message label with Material Design typography
-        Label messageLabel = new Label(message);
-        messageLabel.getStyleClass().add("material-dialog-message");
-        messageLabel.setWrapText(true);
-        messageLabel.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        messageLabel.setMaxWidth(500); // Maximum width to prevent overly wide dialogs
-        messageLabel.setMinHeight(Region.USE_PREF_SIZE); // Prevent text truncation
-
-        content.getChildren().add(messageLabel);
-
-        // Set the custom content
-        alert.getDialogPane().setContent(content);
-
-        // Apply dynamic Material Design styling for error dialogs
-        DialogPane dialogPane = alert.getDialogPane();
-        dialogPane.setMinWidth(280); // Minimum to prevent button clipping
-        dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        dialogPane.setMaxWidth(550); // Maximum to prevent overly wide dialogs
-        dialogPane.setMinHeight(160); // Increased to account for custom button area
-        dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
-        dialogPane.setStyle(
-            "-fx-background-color: white; " +
-            "-fx-background-radius: 8; " +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);"
-        );
-
-        // Remove default header styling
-        Node headerPanel = dialogPane.lookup(".header-panel");
-        if (headerPanel != null) {
-            headerPanel.setStyle(
-                "-fx-background-color: transparent; " +
-                "-fx-padding: 0;"
-            );
-        }
-
-        // Set button type - using JavaFX's built-in system
-        ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
-        alert.getButtonTypes().setAll(okButton);
-
-        // Apply proper button styling and centering
-        Platform.runLater(() -> {
-            Button btn = (Button) alert.getDialogPane().lookupButton(okButton);
-            if (btn != null) {
-                applyIdenticalButton(btn, MATERIAL_COLORS.ERROR, MATERIAL_COLORS.ERROR_DARK, 140);
-            }
-            applyCenteredButtonBar(alert.getDialogPane());
-        });
-
-        alert.showAndWait();
+        showSimpleAlert(Alert.AlertType.ERROR, title, message, MATERIAL_COLORS.ERROR, MATERIAL_COLORS.ERROR_DARK);
     }
 
     /**
@@ -275,71 +176,50 @@ public class SpeleoDBModals {
      * @param message the warning message
      */
     public static void showWarning(String title, String message) {
+        showSimpleAlert(Alert.AlertType.WARNING, title, message, MATERIAL_COLORS.WARNING, MATERIAL_COLORS.WARNING_DARK);
+    }
+
+    /**
+     * Shared implementation for simple single-button alert dialogs (error, warning).
+     */
+    private static void showSimpleAlert(Alert.AlertType type, String title, String message,
+                                        String color, String colorDark) {
         if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> showWarning(title, message));
+            Platform.runLater(() -> showSimpleAlert(type, title, message, color, colorDark));
             return;
         }
 
-        Alert alert = new Alert(Alert.AlertType.WARNING);
-        alert.setResizable(false);
-        Window owner = findOwnerWindow();
-        if (owner != null) {
-            alert.initOwner(owner);
-            alert.initModality(Modality.WINDOW_MODAL);
-        }
-        alert.setTitle(title);
-        alert.setHeaderText(null); // Clean Material Design look
-        alert.setContentText(null); // We'll use custom content
+        Alert alert = createBaseAlert(type, title);
 
-        // Create custom content with Material Design styling
         VBox content = new VBox(16);
         content.setPadding(new Insets(24));
         content.getStyleClass().add("material-dialog-content-simple");
 
-        // Message label with Material Design typography
         Label messageLabel = new Label(message);
         messageLabel.getStyleClass().add("material-dialog-message");
         messageLabel.setWrapText(true);
         messageLabel.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        messageLabel.setMaxWidth(500); // Maximum width to prevent overly wide dialogs
-        messageLabel.setMinHeight(Region.USE_PREF_SIZE); // Prevent text truncation
+        messageLabel.setMaxWidth(500);
+        messageLabel.setMinHeight(Region.USE_PREF_SIZE);
 
         content.getChildren().add(messageLabel);
-
-        // Set the custom content
         alert.getDialogPane().setContent(content);
 
-        // Apply dynamic Material Design styling for warning dialogs
         DialogPane dialogPane = alert.getDialogPane();
-        dialogPane.setMinWidth(280); // Minimum to prevent button clipping
+        dialogPane.setMinWidth(280);
         dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
-        dialogPane.setMaxWidth(550); // Maximum to prevent overly wide dialogs
-        dialogPane.setMinHeight(160); // Increased to account for custom button area
+        dialogPane.setMaxWidth(550);
+        dialogPane.setMinHeight(160);
         dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
-        dialogPane.setStyle(
-            "-fx-background-color: white; " +
-            "-fx-background-radius: 8; " +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);"
-        );
+        applySimpleDialogStyle(dialogPane);
 
-        // Remove default header styling
-        Node headerPanel = dialogPane.lookup(".header-panel");
-        if (headerPanel != null) {
-            headerPanel.setStyle(
-                "-fx-background-color: transparent; " +
-                "-fx-padding: 0;"
-            );
-        }
-
-        // Set button type - using JavaFX's built-in system
         ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
         alert.getButtonTypes().setAll(okButton);
 
-        // Apply proper button styling and centering
         Platform.runLater(() -> {
             Button btn = (Button) alert.getDialogPane().lookupButton(okButton);
             if (btn != null) {
-                applyIdenticalButton(btn, MATERIAL_COLORS.WARNING, MATERIAL_COLORS.WARNING_DARK, 140);
+                applyIdenticalButton(btn, color, colorDark, 140);
             }
             applyCenteredButtonBar(alert.getDialogPane());
         });
@@ -429,21 +309,7 @@ public class SpeleoDBModals {
         dialogPane.setMinHeight(180); // Reasonable height for input dialog
         dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
 
-        // Apply Material Design styling (but don't let it override our size constraints)
-        dialogPane.setStyle(
-            "-fx-background-color: white; " +
-            "-fx-background-radius: 8; " +
-            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);"
-        );
-
-        // Remove default header styling
-        Node headerPanel = dialogPane.lookup(".header-panel");
-        if (headerPanel != null) {
-            headerPanel.setStyle(
-                "-fx-background-color: transparent; " +
-                "-fx-padding: 0;"
-            );
-        }
+        applySimpleDialogStyle(dialogPane);
 
         // Add buttons using JavaFX's built-in system
         ButtonType saveButton = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
@@ -464,8 +330,9 @@ public class SpeleoDBModals {
             Button cancelBtn = (Button) dialog.getDialogPane().lookupButton(cancelButton);
 
             if (saveBtn != null && cancelBtn != null) {
-                // Make buttons identical size - use larger text width
-                String longerText = "Save".length() > "Cancel".length() ? "Save" : "Cancel";
+                String saveText = saveBtn.getText();
+                String cancelText = cancelBtn.getText();
+                String longerText = saveText.length() >= cancelText.length() ? saveText : cancelText;
                 double maxTextWidth = calculateTextWidth(longerText, true);
                 int buttonWidth = Math.max(140, (int)(maxTextWidth + 50));
 
@@ -499,7 +366,7 @@ public class SpeleoDBModals {
     /**
      * Shows a save modal dialog when Ctrl+S / Cmd+S is pressed.
      */
-    public static void showSaveModal(String projectName, Consumer<String> upload_callback, AnchorPane speleoDBAnchorPane) {
+    public static void showSaveModal(String projectName, Consumer<String> uploadCallback, AnchorPane speleoDBAnchorPane) {
 
         SpeleoDBModals.showInputDialog(
             "Save Project on SpeleoDB",
@@ -507,12 +374,13 @@ public class SpeleoDBModals {
             "What did you change?",
             "", // Empty default value
             message -> {
-                if (message.trim().isEmpty()) {
+                String stripped = message.strip();
+                if (stripped.isEmpty()) {
                     logger.info(MESSAGES.UPLOAD_MESSAGE_EMPTY);
                     SpeleoDBModals.showError(DIALOGS.TITLE_UPLOAD_MESSAGE_REQUIRED, MESSAGES.UPLOAD_MESSAGE_EMPTY);
                     SpeleoDBTooltips.showError();
                 } else {
-                    upload_callback.accept(message.trim());
+                    uploadCallback.accept(stripped);
                 }
             },
             () -> {
@@ -674,7 +542,8 @@ public class SpeleoDBModals {
                     try {
                         java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SpeleoDBController.class);
                         prefs.putBoolean(SpeleoDBConstants.PREFERENCES.PREF_SUPPRESS_SUCCESS_GIF, true);
-                    } catch (Exception ignored) {
+                    } catch (Exception ex) {
+                        logger.debug("Failed to save GIF suppression preference: " + ex.getMessage());
                     }
                 }
                 if (onClose != null) {
@@ -745,10 +614,6 @@ public class SpeleoDBModals {
             });
         }
 
-        if (owner != null) {
-            dialog.initOwner(owner);
-        }
-
         dialog.showAndWait();
     }
 
@@ -792,19 +657,11 @@ public class SpeleoDBModals {
             return;
         }
 
-        Alert alert = new Alert(type);
-        alert.setResizable(false);
-        Window owner = findOwnerWindow();
-        if (owner != null) {
-            alert.initOwner(owner);
-            alert.initModality(Modality.WINDOW_MODAL);
-        }
-        alert.setTitle(title);
-        alert.setHeaderText(null);
+        Alert alert = createBaseAlert(type, title);
 
         DialogPane dialogPane = alert.getDialogPane();
 
-        // Apply standard Material Design styling first (same as original)
+        // Apply standard Material Design styling first, then override widths
         applyMaterialDesignStyling(dialogPane);
 
         // Then override just the width dimensions for long content
@@ -852,15 +709,7 @@ public class SpeleoDBModals {
             return;
         }
 
-        Alert alert = new Alert(type);
-        alert.setResizable(false);
-        Window owner = findOwnerWindow();
-        if (owner != null) {
-            alert.initOwner(owner);
-            alert.initModality(Modality.WINDOW_MODAL);
-        }
-        alert.setTitle(title);
-        alert.setHeaderText(null);
+        Alert alert = createBaseAlert(type, title);
 
         DialogPane dialogPane = alert.getDialogPane();
         applyMaterialDesignStyling(dialogPane);
@@ -909,74 +758,102 @@ public class SpeleoDBModals {
         // Note: No longer applying unified button styling since we use custom button containers
     }
 
-    private static void applyPerfectMaterialButton(Button button, String color, String colorDark) {
+    /**
+     * Creates a base Alert with standard owner/modality/header setup.
+     */
+    private static Alert createBaseAlert(Alert.AlertType type, String title) {
+        Alert alert = new Alert(type);
+        alert.setResizable(false);
+        Window owner = findOwnerWindow();
+        if (owner != null) {
+            alert.initOwner(owner);
+            alert.initModality(Modality.WINDOW_MODAL);
+        }
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(null);
+        return alert;
+    }
+
+    /**
+     * Applies the common white/shadow/header-panel style to a DialogPane.
+     */
+    private static void applySimpleDialogStyle(DialogPane dialogPane) {
+        dialogPane.setStyle(
+            "-fx-background-color: white; " +
+            "-fx-background-radius: 8; " +
+            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 10, 0, 0, 4);"
+        );
+        Node headerPanel = dialogPane.lookup(".header-panel");
+        if (headerPanel != null) {
+            headerPanel.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
+        }
+    }
+
+    /**
+     * Unified Material Design button styling.
+     * All other button styling methods delegate to this one.
+     *
+     * @param button the button to style
+     * @param color base color (hex)
+     * @param colorDark hover color (hex)
+     * @param width fixed width in pixels
+     * @param fontPx font size in pixels
+     * @param padV vertical padding
+     * @param padH horizontal padding
+     * @param radius background-radius in pixels
+     */
+    private static void applyMaterialButton(Button button, String color, String colorDark,
+                                            int width, int fontPx, int padV, int padH, int radius) {
         if (button == null) return;
 
-        // Calculate optimal button width based on text content
-        double textWidth = calculateTextWidth(button.getText(), true); // approximate width for bold
-        int optimalWidth = Math.max(120, (int)(textWidth + 60)); // Minimum 120px, add 60px padding
-
         String baseStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 14px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: 12 20; " +        // Slightly more horizontal padding
-            "-fx-background-radius: 4; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +       // Dynamic min width
-            "-fx-pref-width: %dpx; " +      // Dynamic preferred width
-            "-fx-max-width: %dpx; " +       // Dynamic max width (same as pref)
+            "-fx-background-color: %s; -fx-text-fill: white; -fx-font-size: %dpx; " +
+            "-fx-font-weight: bold; -fx-padding: %d %d; -fx-background-radius: %d; " +
+            "-fx-cursor: hand; -fx-min-width: %dpx; -fx-pref-width: %dpx; -fx-max-width: %dpx; " +
             "-fx-effect: dropshadow(three-pass-box, %s, 4, 0, 0, 2); " +
-            "-fx-alignment: center; " +     // Center text within button
-            "-fx-text-alignment: center;",
-            color, optimalWidth, optimalWidth, optimalWidth,
+            "-fx-alignment: center; -fx-text-alignment: center;",
+            color, fontPx, padV, padH, radius, width, width, width,
             convertColorToRgba(color, 0.3)
         );
 
         String hoverStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 14px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: 12 20; " +
-            "-fx-background-radius: 4; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +
-            "-fx-pref-width: %dpx; " +
-            "-fx-max-width: %dpx; " +
+            "-fx-background-color: %s; -fx-text-fill: white; -fx-font-size: %dpx; " +
+            "-fx-font-weight: bold; -fx-padding: %d %d; -fx-background-radius: %d; " +
+            "-fx-cursor: hand; -fx-min-width: %dpx; -fx-pref-width: %dpx; -fx-max-width: %dpx; " +
             "-fx-effect: dropshadow(three-pass-box, %s, 6, 0, 0, 3); " +
-            "-fx-alignment: center; " +
-            "-fx-text-alignment: center;",
-            colorDark, optimalWidth, optimalWidth, optimalWidth,
+            "-fx-alignment: center; -fx-text-alignment: center;",
+            colorDark, fontPx, padV, padH, radius, width, width, width,
             convertColorToRgba(colorDark, 0.4)
         );
 
         button.setStyle(baseStyle);
         button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
         button.setOnMouseExited(e -> button.setStyle(baseStyle));
-
-        // Ensure text never changes during hover
-        String originalText = button.getText();
-        button.setOnAction(e -> button.setText(originalText));
     }
 
-    /**
-     * Calculate text width for optimal button sizing
-     */
+    private static void applyPerfectMaterialButton(Button button, String color, String colorDark) {
+        if (button == null) return;
+        double textWidth = calculateTextWidth(button.getText(), true);
+        int optimalWidth = Math.max(120, (int)(textWidth + 60));
+        applyMaterialButton(button, color, colorDark, optimalWidth, 14, 12, 20, 4);
+    }
+
+    private static void applyIdenticalButton(Button button, String color, String colorDark, int width) {
+        applyMaterialButton(button, color, colorDark, width, 14, 12, 20, 4);
+    }
+
+    private static void applySizedButton(Button button, String color, String colorDark,
+                                         int width, int fontPx, int padV, int padH) {
+        applyMaterialButton(button, color, colorDark, width, fontPx, padV, padH, 6);
+    }
+
     private static double calculateTextWidth(String text, boolean bold) {
         if (text == null || text.isEmpty()) return 0;
-
-        // Approximate character width calculation
-        // Bold 14px Lato text is roughly 10-11px per character on average
-        // Increased to ensure no clipping with the Lato font
         double charWidth = bold ? 11.0 : 9.5;
         return text.length() * charWidth;
     }
 
-    /**
-     * Convert hex color to rgba with alpha
-     */
     private static String convertColorToRgba(String hexColor, double alpha) {
         if (hexColor.startsWith("#")) {
             try {
@@ -991,66 +868,13 @@ public class SpeleoDBModals {
         return hexColor;
     }
 
-    /**
-     * Applies identical sizing and styling to buttons
-     */
-    private static void applyIdenticalButton(Button button, String color, String colorDark, int width) {
-        String baseStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 14px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: 12 20; " +
-            "-fx-background-radius: 4; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +
-            "-fx-pref-width: %dpx; " +
-            "-fx-max-width: %dpx; " +
-            "-fx-effect: dropshadow(three-pass-box, %s, 4, 0, 0, 2); " +
-            "-fx-alignment: center; " +
-            "-fx-text-alignment: center;",
-            color, width, width, width,
-            convertColorToRgba(color, 0.3)
-        );
-
-        String hoverStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: 14px; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: 12 20; " +
-            "-fx-background-radius: 4; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +
-            "-fx-pref-width: %dpx; " +
-            "-fx-max-width: %dpx; " +
-            "-fx-effect: dropshadow(three-pass-box, %s, 6, 0, 0, 3); " +
-            "-fx-alignment: center; " +
-            "-fx-text-alignment: center;",
-            colorDark, width, width, width,
-            convertColorToRgba(colorDark, 0.4)
-        );
-
-        button.setStyle(baseStyle);
-        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
-        button.setOnMouseExited(e -> button.setStyle(baseStyle));
-    }
-
-    /**
-     * Centers the ButtonBar across the full modal width using CSS
-     */
     private static void applyCenteredButtonBar(DialogPane dialogPane) {
-        // Apply CSS that centers the button bar across the full dialog width
         Platform.runLater(() -> {
             ButtonBar buttonBar = (ButtonBar) dialogPane.lookup(".button-bar");
             if (buttonBar != null) {
                 buttonBar.setStyle(
-                    "-fx-padding: 16 24 20 24; " +
-                    "-fx-alignment: center; " +
-                    "-fx-spacing: 12; " +
-                    "-fx-background-color: #FAFAFA; " +
-                    "-fx-border-color: #E0E0E0; " +
-                    "-fx-border-width: 1 0 0 0;"
+                    "-fx-padding: 16 24 20 24; -fx-alignment: center; -fx-spacing: 12; " +
+                    "-fx-background-color: #FAFAFA; -fx-border-color: #E0E0E0; -fx-border-width: 1 0 0 0;"
                 );
             }
         });
@@ -1059,56 +883,9 @@ public class SpeleoDBModals {
     private static void addFallbackSuccessContent(VBox content) {
         Label successLabel = new Label("🎉 Success! 🎉");
         successLabel.setStyle(
-            "-fx-font-size: 24px; " +
-            "-fx-text-fill: " + MATERIAL_COLORS.SUCCESS + "; " +
-            "-fx-font-weight: bold;"
+            "-fx-font-size: 24px; -fx-text-fill: " + MATERIAL_COLORS.SUCCESS + "; -fx-font-weight: bold;"
         );
         content.getChildren().add(successLabel);
-    }
-
-    /**
-     * Applies sizing and styling to buttons with custom font and padding.
-     */
-    private static void applySizedButton(Button button, String color, String colorDark, int width, int fontPx, int padV, int padH) {
-        if (button == null) return;
-
-        String baseStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: %dpx; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: %d %d; " +
-            "-fx-background-radius: 6; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +
-            "-fx-pref-width: %dpx; " +
-            "-fx-max-width: %dpx; " +
-            "-fx-effect: dropshadow(three-pass-box, %s, 4, 0, 0, 2); " +
-            "-fx-alignment: center; " +
-            "-fx-text-alignment: center;",
-            color, fontPx, padV, padH, width, width, width, convertColorToRgba(color, 0.3)
-        );
-
-        String hoverStyle = String.format(
-            "-fx-background-color: %s; " +
-            "-fx-text-fill: white; " +
-            "-fx-font-size: %dpx; " +
-            "-fx-font-weight: bold; " +
-            "-fx-padding: %d %d; " +
-            "-fx-background-radius: 6; " +
-            "-fx-cursor: hand; " +
-            "-fx-min-width: %dpx; " +
-            "-fx-pref-width: %dpx; " +
-            "-fx-max-width: %dpx; " +
-            "-fx-effect: dropshadow(three-pass-box, %s, 6, 0, 0, 3); " +
-            "-fx-alignment: center; " +
-            "-fx-text-alignment: center;",
-            colorDark, fontPx, padV, padH, width, width, width, convertColorToRgba(colorDark, 0.4)
-        );
-
-        button.setStyle(baseStyle);
-        button.setOnMouseEntered(e -> button.setStyle(hoverStyle));
-        button.setOnMouseExited(e -> button.setStyle(baseStyle));
     }
 
     // Finds a suitable owner window for modality
@@ -1120,7 +897,8 @@ public class SpeleoDBModals {
             for (Window w : Window.getWindows()) {
                 if (w.isShowing()) return w;
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logger.debug("Could not find owner window: " + e.getMessage());
         }
         return null;
     }

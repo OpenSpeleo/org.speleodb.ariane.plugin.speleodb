@@ -204,8 +204,6 @@ public final class SpeleoDBConstants {
     public static final class VALIDATION {
         public static final String OAUTH_TOKEN_PATTERN = "^[a-f0-9]{40}$";
         public static final int OAUTH_TOKEN_LENGTH = 40;
-        public static final String TOKEN_JSON_START = "\"token\":\"";
-        public static final int TOKEN_JSON_START_LENGTH = 9;
     }
 
     // ==================== UI MESSAGES ====================
@@ -491,6 +489,7 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_TYPE = "type";
         public static final String SOFTWARE = "software";
         public static final String TITLE = "title";
+        public static final String TOKEN = "token";
         public static final String UUID = "uuid";
         public static final String VERSION = "version";
         // Plugin release fields
