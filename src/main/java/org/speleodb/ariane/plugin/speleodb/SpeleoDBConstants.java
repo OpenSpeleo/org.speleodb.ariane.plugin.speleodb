@@ -92,6 +92,7 @@ public final class SpeleoDBConstants {
         public static final String ACQUIRE_LOCK_PATH = "/acquire/";
         public static final String RELEASE_LOCK_PATH = "/release/";
         public static final String DOWNLOAD_ARIANE_TML_PATH = "/download/ariane_tml/";
+        public static final String WEB_UPLOAD_PATH = "/private/project/%s/upload/";
     }
 
     // ==================== HTTP STATUS CODES ====================
@@ -253,6 +254,11 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "Project exists but is empty - create empty TML file.";
         public static final String DOWNLOAD_FAILED = "Failed to download project file";
+
+        // Upload failure guidance
+        public static final String UPLOAD_FAILED_RETRY = "Please try again.";
+        public static final String CONTACT_ADMIN_HINT = "If the problem persists, contact the SpeleoDB team at contact@speleodb.org";
+        public static final String UPLOAD_FALLBACK_HINT = "You can also save your project locally and upload via the website:";
 
         // Multipart body building errors
         public static final String ERROR_BUILDING_MULTIPART_BODY = "Error building HTTP request multipart body";

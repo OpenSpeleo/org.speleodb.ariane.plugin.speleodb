@@ -44,7 +44,6 @@ public class HTTPRequestMultipartBody {
     private static final byte[] CRLF = MULTIPART.CRLF.getBytes(StandardCharsets.UTF_8);
     private static final byte[] QUOTE_CRLF = MULTIPART.QUOTE_CRLF.getBytes(StandardCharsets.UTF_8);
     private static final byte[] CONTENT_TYPE_PREFIX = MULTIPART.CONTENT_TYPE_HEADER.getBytes(StandardCharsets.UTF_8);
-    private static final byte[] DOUBLE_CRLF = MULTIPART.DOUBLE_CRLF.getBytes(StandardCharsets.UTF_8);
     private static final byte[] OCTET_STREAM_HEADER = MULTIPART.OCTET_STREAM_HEADER.getBytes(StandardCharsets.UTF_8);
 
     // Default MIME type for text fields
@@ -167,7 +166,7 @@ public class HTTPRequestMultipartBody {
          * Writes text content to the output stream
          */
         private void writeTextContent(ByteArrayOutputStream out, PartRecord record) throws IOException {
-            out.write(DOUBLE_CRLF);
+            out.write(CRLF);
             out.write(record.getValue().getBytes(StandardCharsets.UTF_8));
         }
 

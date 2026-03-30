@@ -3,11 +3,13 @@ package org.speleodb.ariane.plugin.speleodb;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,8 +24,8 @@ import javafx.scene.control.ProgressIndicator;
 
 /**
  * Tests for Import from Local Disk flow focusing on ordering:
- * - Upload must occur BEFORE loading the project
- * - On upload failure, project must NOT be loaded
+ * - Project must be loaded BEFORE uploading
+ * - On load failure, project must NOT be uploaded
  */
 class SpeleoDBImportFlowTest {
 
@@ -58,6 +60,7 @@ class SpeleoDBImportFlowTest {
 
         setPrivateField(controller, "serverProgressIndicator", progress);
         setPrivateField(controller, "uploadButton", uploadBtn);
+        setPrivateField(controller, "uploadMessageTextField", new javafx.scene.control.TextField());
         setPrivateField(controller, "projectListView", new javafx.scene.control.ListView<>());
         setPrivateField(controller, "createNewProjectButton", new Button());
         setPrivateField(controller, "refreshProjectsButton", new Button());
@@ -85,26 +88,24 @@ class SpeleoDBImportFlowTest {
     }
 
     @Test
-    @DisplayName("Should upload before loading project on successful import")
-    void shouldUploadBeforeLoadOnSuccess() throws Exception {
-        AtomicInteger stage = new AtomicInteger(0); // 0 = start, 1 = uploaded, 2 = loaded
-        CountDownLatch loadedLatch = new CountDownLatch(1);
+    @DisplayName("Should load project before uploading on successful import")
+    void shouldLoadBeforeUploadOnSuccess() throws Exception {
+        AtomicInteger stage = new AtomicInteger(0); // 0 = start, 1 = loaded, 2 = uploaded
+        CountDownLatch uploadLatch = new CountDownLatch(1);
 
-        // Fake SpeleoDBService that records upload stage
         SpeleoDBService fakeService = new SpeleoDBService(controller) {
             @Override
             public void uploadProject(String message, jakarta.json.JsonObject project) {
-                stage.compareAndSet(0, 1);
+                stage.compareAndSet(1, 2);
+                uploadLatch.countDown();
             }
         };
         setPrivateField(controller, "speleoDBService", fakeService);
 
-        // Listen for LOAD command to record ordering and signal latch
         SpeleoDBPlugin orderingPlugin = new SpeleoDBPlugin();
         orderingPlugin.getCommandProperty().addListener((obs, o, n) -> {
             if (n != null && n.equals(com.arianesline.ariane.plugin.api.DataServerCommands.LOAD.name())) {
-                assertThat(stage.get()).as("Upload should be done before load").isEqualTo(1);
-                // Set survey to release async lock path
+                stage.compareAndSet(0, 1);
                 orderingPlugin.setSurvey(new com.arianesline.cavelib.api.CaveSurveyInterface() {
                     @Override public String getExtraData() { return ""; }
                     @Override public void setExtraData(String data) {}
@@ -120,66 +121,69 @@ class SpeleoDBImportFlowTest {
                                               double longitude, double latitude,
                                               double up, double down, double left, double right, String comment, String profiletype, boolean islocked) { return 0; }
                 });
-                stage.set(2);
-                loadedLatch.countDown();
             }
         });
         controller.parentPlugin = orderingPlugin;
 
-        // Create a temp .tml file to import
-        File tempTml = File.createTempFile("import-order", ".tml");
-        tempTml.deleteOnExit();
-        Files.writeString(tempTml.toPath(), "<tml/>");
+        File tempTml = createValidTmlZip("import-order");
 
-        // Call private performImportUploadAndLoad via reflection
         Method method = SpeleoDBController.class.getDeclaredMethod("performImportUploadAndLoad", File.class, String.class);
         method.setAccessible(true);
         method.invoke(controller, tempTml, "test message");
 
-        assertThat(loadedLatch.await(5, java.util.concurrent.TimeUnit.SECONDS))
-            .as("Load should complete within 5 seconds")
+        assertThat(uploadLatch.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            .as("Upload should complete within timeout")
             .isTrue();
+        assertThat(stage.get())
+            .as("Should follow order: start(0) -> loaded(1) -> uploaded(2)")
+            .isEqualTo(2);
     }
 
     @Test
-    @DisplayName("Should not load project when upload fails")
-    void shouldNotLoadWhenUploadFails() throws Exception {
-        AtomicInteger stage = new AtomicInteger(0); // 0 = start, 1 = uploaded, 99 = loaded (should not)
-        CountDownLatch doneLatch = new CountDownLatch(1);
+    @DisplayName("Should not upload project when load fails")
+    void shouldNotUploadWhenLoadFails() throws Exception {
+        AtomicInteger uploadCallCount = new AtomicInteger(0);
 
-        SpeleoDBService failingService = new SpeleoDBService(controller) {
+        SpeleoDBService trackingService = new SpeleoDBService(controller) {
             @Override
-            public void uploadProject(String message, jakarta.json.JsonObject project) throws Exception {
-                throw new Exception("Simulated upload failure");
+            public void uploadProject(String message, jakarta.json.JsonObject project) {
+                uploadCallCount.incrementAndGet();
             }
         };
-        setPrivateField(controller, "speleoDBService", failingService);
+        setPrivateField(controller, "speleoDBService", trackingService);
 
-        SpeleoDBPlugin detectingPlugin = new SpeleoDBPlugin();
-        detectingPlugin.getCommandProperty().addListener((obs, o, n) -> {
+        SpeleoDBPlugin failPlugin = new SpeleoDBPlugin();
+        failPlugin.getCommandProperty().addListener((obs, o, n) -> {
             if (n != null && n.equals(com.arianesline.ariane.plugin.api.DataServerCommands.LOAD.name())) {
-                stage.set(99); // should not be emitted on failure
-                doneLatch.countDown();
+                // Interrupt the executor thread to make loadSurveyAsync fail quickly
+                // instead of waiting for the full 10-second timeout.
+                failPlugin.executorService.shutdownNow();
             }
         });
-        controller.parentPlugin = detectingPlugin;
+        controller.parentPlugin = failPlugin;
 
-        File tempTml = File.createTempFile("import-fail", ".tml");
-        tempTml.deleteOnExit();
-        Files.writeString(tempTml.toPath(), "<tml/>");
+        File tempTml = createValidTmlZip("import-fail");
 
         Method method = SpeleoDBController.class.getDeclaredMethod("performImportUploadAndLoad", File.class, String.class);
         method.setAccessible(true);
+        method.invoke(controller, tempTml, "msg");
 
-        try {
-            method.invoke(controller, tempTml, "msg");
-        } catch (Exception ignored) {
-            // expected: wrapped exception due to upload failure triggers FX error handling
+        // Allow async error path to complete
+        Thread.sleep(1000);
+        assertThat(uploadCallCount.get())
+            .as("Upload should not be called when load fails")
+            .isZero();
+    }
+
+    private static File createValidTmlZip(String prefix) throws Exception {
+        File tempTml = File.createTempFile(prefix, ".tml");
+        tempTml.deleteOnExit();
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempTml))) {
+            zos.putNextEntry(new ZipEntry("survey.xml"));
+            zos.write("<tml/>".getBytes());
+            zos.closeEntry();
         }
-
-        // Allow any FX tasks to run; ensure LOAD was not emitted
-        Thread.sleep(200);
-        assertThat(stage.get()).isNotEqualTo(99);
+        return tempTml;
     }
 
     private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {

@@ -22,6 +22,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Hyperlink;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -167,6 +168,70 @@ public class SpeleoDBModals {
      */
     public static void showError(String title, String message) {
         showSimpleAlert(Alert.AlertType.ERROR, title, message, MATERIAL_COLORS.ERROR, MATERIAL_COLORS.ERROR_DARK);
+    }
+
+    /**
+     * Shows a Material Design styled error dialog with a clickable hyperlink.
+     * The link opens in the user's default browser.
+     *
+     * @param title the dialog title
+     * @param message the error message (displayed above the link)
+     * @param linkUrl the URL to display as a clickable hyperlink
+     */
+    public static void showErrorWithLink(String title, String message, String linkUrl) {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> showErrorWithLink(title, message, linkUrl));
+            return;
+        }
+
+        Alert alert = createBaseAlert(Alert.AlertType.ERROR, title);
+
+        VBox content = new VBox(12);
+        content.setPadding(new Insets(24));
+        content.getStyleClass().add("material-dialog-content-simple");
+
+        Label messageLabel = new Label(message);
+        messageLabel.getStyleClass().add("material-dialog-message");
+        messageLabel.setWrapText(true);
+        messageLabel.setPrefWidth(Region.USE_COMPUTED_SIZE);
+        messageLabel.setMaxWidth(550);
+        messageLabel.setMinHeight(Region.USE_PREF_SIZE);
+
+        Hyperlink link = new Hyperlink(linkUrl);
+        link.setStyle("-fx-font-size: 13px; -fx-text-fill: " + MATERIAL_COLORS.PRIMARY + ";");
+        link.setWrapText(true);
+        link.setMaxWidth(550);
+        link.setOnAction(e -> {
+            try {
+                java.awt.Desktop.getDesktop().browse(new java.net.URI(linkUrl));
+            } catch (Exception ex) {
+                logger.warn("Failed to open URL: " + ex.getMessage());
+            }
+        });
+
+        content.getChildren().addAll(messageLabel, link);
+        alert.getDialogPane().setContent(content);
+
+        DialogPane dialogPane = alert.getDialogPane();
+        dialogPane.setMinWidth(400);
+        dialogPane.setPrefWidth(Region.USE_COMPUTED_SIZE);
+        dialogPane.setMaxWidth(650);
+        dialogPane.setMinHeight(200);
+        dialogPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+        applySimpleDialogStyle(dialogPane);
+
+        ButtonType okButton = new ButtonType("OK", ButtonBar.ButtonData.OK_DONE);
+        alert.getButtonTypes().setAll(okButton);
+
+        Platform.runLater(() -> {
+            Button btn = (Button) alert.getDialogPane().lookupButton(okButton);
+            if (btn != null) {
+                applyIdenticalButton(btn, MATERIAL_COLORS.ERROR, MATERIAL_COLORS.ERROR_DARK, 140);
+            }
+            applyCenteredButtonBar(alert.getDialogPane());
+        });
+
+        alert.showAndWait();
     }
 
     /**

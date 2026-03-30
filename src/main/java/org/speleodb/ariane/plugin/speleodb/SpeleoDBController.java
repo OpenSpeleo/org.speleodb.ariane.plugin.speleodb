@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
+import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.API;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.ARIANE_JAVAFX;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
@@ -534,6 +535,39 @@ public class SpeleoDBController implements Initializable {
         } else {
             // Generic network error
             return operation + " failed: " + exception.getMessage();
+        }
+    }
+
+    /**
+     * Builds the guidance text appended to upload error messages (without the URL).
+     * The URL should be passed separately to enable clickable links in dialogs.
+     */
+    static String buildUploadFailureGuidance() {
+        return MESSAGES.CONTACT_ADMIN_HINT + "\n\n" +
+               MESSAGES.UPLOAD_FALLBACK_HINT;
+    }
+
+    /**
+     * Builds the web-upload fallback URL for a given instance and project.
+     *
+     * @param instance  the resolved SpeleoDB instance URL (e.g. "https://www.speleodb.org")
+     * @param projectId the project UUID
+     * @return the full upload URL
+     */
+    static String buildUploadUrl(String instance, String projectId) {
+        return instance + String.format(API.WEB_UPLOAD_PATH, projectId);
+    }
+
+    /**
+     * Returns the web-upload fallback URL for the current project,
+     * or null if state is unavailable.
+     */
+    private String getUploadUrl() {
+        try {
+            return buildUploadUrl(speleoDBService.getSDBInstance(),
+                                  currentProject.getString(JSON_FIELDS.ID));
+        } catch (Exception ignored) {
+            return null;
         }
     }
 
@@ -1361,8 +1395,8 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Performs the import: copy selected file into Ariane project path, upload first,
-     * and only after a successful upload load the project and adjust the SpeleoDB ID.
+     * Performs the import: copy selected file into Ariane project path, load it first,
+     * and only after a successful load proceed with upload (errors handled by uploadProjectWithMessage).
      */
     private void performImportUploadAndLoad(java.io.File selectedFile, String message) throws Exception {
         String projectId = currentProject.getString("id");
@@ -1373,38 +1407,37 @@ public class SpeleoDBController implements Initializable {
 
         setUILoadingState(true);
 
-        try {
-            logger.info("Uploading project: " + message);
-            speleoDBService.uploadProject(message, currentProject);
-            parentPlugin.executorService.execute(() -> {
-                loadProject(currentProject, target, currentProject.getString("name"), true);
+        loadSurveyAsync(target.toFile(),
+            // Load succeeded — update UI, then proceed with upload
+            () -> {
                 Platform.runLater(() -> {
-                    showSuccessCelebrationDialog(() -> {});
+                    String projectName = currentProject.getString("name");
+                    logger.info("Import loaded successfully: " + projectName);
+
+                    parentPlugin.executorService.execute(() -> {
+                        if (parentPlugin.getSurvey() != null) {
+                            checkAndUpdateSpeleoDBId(currentProject);
+                        }
+                        listProjects();
+                    });
+
+                    scheduleRedrawAfterMillis(TIMINGS.REDRAW_DELAY_MILLIS, true);
+                    setUILoadingState(false);
+
+                    uploadProjectWithMessage(message);
+                });
+            },
+            // Load failed — show error and stop
+            (Exception e) -> {
+                logger.error("Failed to load imported file: " + getSafeErrorMessage(e));
+                Platform.runLater(() -> {
+                    showErrorAnimation("Import load failed");
+                    SpeleoDBModals.showError("Import Failed",
+                        "Could not load the imported file.\n\nError: " + getSafeErrorMessage(e));
                     setUILoadingState(false);
                 });
-            });
-        } catch (Exception ex) {
-            if (ex instanceof NotModifiedException) {
-                Platform.runLater(() -> {
-                    showErrorAnimation("Not saved");
-                    SpeleoDBModals.showError(
-                        DIALOGS.TITLE_PROJECT_NOT_SAVED,
-                        MESSAGES.PROJECT_NOT_MODIFIED_WITH_HINT
-                    );
-                    SpeleoDBTooltips.showError(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
-                    setUILoadingState(false);
-                });
-                return;
             }
-            logger.error("Post-upload load failed: " + getSafeErrorMessage(ex));
-            Platform.runLater(() -> {
-                showErrorAnimation("Load failed");
-                SpeleoDBModals.showError(
-                    "Load Failed", "The file was uploaded but could not be loaded.\n\nError: " + getSafeErrorMessage(ex)
-                );
-                setUILoadingState(false);
-            });
-        }
+        );
     }
 
     /**
@@ -2355,8 +2388,9 @@ public class SpeleoDBController implements Initializable {
 
             } catch (Exception e) {
                 String errorMessage = getNetworkErrorMessage(e, "Upload");
+                String guidance = buildUploadFailureGuidance();
+                String uploadUrl = getUploadUrl();
                 logger.info("Upload failed: " + getSafeErrorMessage(e));
-
 
                 Platform.runLater(() -> {
                     if (e instanceof NotModifiedException) {
@@ -2366,14 +2400,28 @@ public class SpeleoDBController implements Initializable {
                             MESSAGES.PROJECT_NOT_MODIFIED_WITH_HINT
                         );
                         SpeleoDBTooltips.showError(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
-                    } else if (isServerOfflineError(e)) {
-                        showErrorAnimation("Can't reach server");
-                        SpeleoDBModals.showError("Server Offline", errorMessage);
-                    } else if (isTimeoutError(e)) {
-                        showErrorAnimation("Upload timed out");
-                        SpeleoDBModals.showError("Upload Timeout", errorMessage);
+                    } else if (uploadUrl != null) {
+                        String msg;
+                        String animText;
+                        if (isServerOfflineError(e)) {
+                            msg = errorMessage;
+                            animText = "Can't reach server";
+                        } else if (isTimeoutError(e)) {
+                            msg = errorMessage;
+                            animText = "Upload timed out";
+                        } else {
+                            msg = "Upload failed: " + getSafeErrorMessage(e) + "\n\n" +
+                                  MESSAGES.UPLOAD_FAILED_RETRY;
+                            animText = "Upload Failed";
+                        }
+                        showErrorAnimation(animText);
+                        SpeleoDBModals.showErrorWithLink(
+                            "Upload Failed", msg + "\n\n" + guidance, uploadUrl);
                     } else {
-                        showErrorAnimation("Upload Failed: " + getSafeErrorMessage(e));
+                        showErrorAnimation("Upload Failed");
+                        SpeleoDBModals.showError("Upload Failed",
+                            "Upload failed: " + getSafeErrorMessage(e) + "\n\n" +
+                            MESSAGES.UPLOAD_FAILED_RETRY + "\n\n" + MESSAGES.CONTACT_ADMIN_HINT);
                     }
                     setUILoadingState(false);
                 });

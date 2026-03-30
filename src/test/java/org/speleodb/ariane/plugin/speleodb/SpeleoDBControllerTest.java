@@ -2021,5 +2021,90 @@ class SpeleoDBControllerTest {
         }
     }
 
+    // ===================== UPLOAD FAILURE GUIDANCE TESTS ===================== //
+
+    @Nested
+    @DisplayName("Upload Failure Guidance")
+    class UploadFailureGuidanceTests {
+
+        @Test
+        @DisplayName("Guidance text should include contact admin hint")
+        void guidanceShouldIncludeContactAdminHint() {
+            String guidance = SpeleoDBController.buildUploadFailureGuidance();
+            assertThat(guidance).contains("contact@speleodb.org");
+        }
+
+        @Test
+        @DisplayName("Guidance text should include save locally hint")
+        void guidanceShouldIncludeSaveLocallyHint() {
+            String guidance = SpeleoDBController.buildUploadFailureGuidance();
+            assertThat(guidance).contains(SpeleoDBConstants.MESSAGES.UPLOAD_FALLBACK_HINT);
+        }
+
+        @Test
+        @DisplayName("Should build correct upload URL for production instance")
+        void shouldBuildCorrectUploadUrl() {
+            String url = SpeleoDBController.buildUploadUrl(
+                "https://www.speleodb.org", "24d31420-9180-4f5d-b27f-0b1c13bf80b8");
+
+            assertThat(url)
+                .isEqualTo("https://www.speleodb.org/private/project/24d31420-9180-4f5d-b27f-0b1c13bf80b8/upload/");
+        }
+
+        @Test
+        @DisplayName("Should build correct upload URL for local dev instance")
+        void shouldBuildCorrectUrlForLocalInstance() {
+            String url = SpeleoDBController.buildUploadUrl(
+                "http://localhost:8000", "abc-123");
+
+            assertThat(url)
+                .isEqualTo("http://localhost:8000/private/project/abc-123/upload/");
+        }
+
+        @Test
+        @DisplayName("Should build correct upload URL for staging instance")
+        void shouldBuildCorrectUrlForStagingInstance() {
+            String url = SpeleoDBController.buildUploadUrl(
+                "https://stage.speleodb.org", "my-project-id");
+
+            assertThat(url)
+                .isEqualTo("https://stage.speleodb.org/private/project/my-project-id/upload/");
+        }
+    }
+
+    @Nested
+    @DisplayName("Upload Failure Constants")
+    class UploadFailureConstantsTests {
+
+        @Test
+        @DisplayName("UPLOAD_FAILED_RETRY should mention trying again")
+        void uploadFailedRetryShouldMentionRetry() {
+            assertThat(SpeleoDBConstants.MESSAGES.UPLOAD_FAILED_RETRY)
+                .containsIgnoringCase("try again");
+        }
+
+        @Test
+        @DisplayName("CONTACT_ADMIN_HINT should contain contact email")
+        void contactAdminHintShouldContainEmail() {
+            assertThat(SpeleoDBConstants.MESSAGES.CONTACT_ADMIN_HINT)
+                .contains("contact@speleodb.org");
+        }
+
+        @Test
+        @DisplayName("UPLOAD_FALLBACK_HINT should mention website")
+        void uploadFallbackHintShouldMentionWebsite() {
+            assertThat(SpeleoDBConstants.MESSAGES.UPLOAD_FALLBACK_HINT)
+                .containsIgnoringCase("website");
+        }
+
+        @Test
+        @DisplayName("WEB_UPLOAD_PATH should contain format placeholder")
+        void webUploadPathShouldContainPlaceholder() {
+            assertThat(SpeleoDBConstants.API.WEB_UPLOAD_PATH)
+                .contains("%s")
+                .startsWith("/private/project/")
+                .endsWith("/upload/");
+        }
+    }
 
 }

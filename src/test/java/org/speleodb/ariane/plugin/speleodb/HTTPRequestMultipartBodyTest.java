@@ -210,6 +210,28 @@ class HTTPRequestMultipartBodyTest {
     }
 
     @Nested
+    @DisplayName("Multipart Structure Compliance")
+    class MultipartStructureTests {
+
+        @Test
+        @DisplayName("Text field value should not have leading CRLF")
+        void textFieldValueShouldNotHaveLeadingCrlf() throws IOException {
+            HTTPRequestMultipartBody body = new HTTPRequestMultipartBody.Builder()
+                .addPart("message", "comment fix")
+                .build();
+
+            String bodyStr = new String(body.getBody(), StandardCharsets.UTF_8);
+            String headerEnd = "name=\"message\"\r\n";
+            int headerEndIdx = bodyStr.indexOf(headerEnd) + headerEnd.length();
+            String afterHeader = bodyStr.substring(headerEndIdx);
+
+            assertThat(afterHeader)
+                .as("Exactly one blank line (CRLF) between header and value")
+                .startsWith("\r\ncomment fix");
+        }
+    }
+
+    @Nested
     @DisplayName("Special Characters and Encoding")
     class SpecialCharactersTests {
 
