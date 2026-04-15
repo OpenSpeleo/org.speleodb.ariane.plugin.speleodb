@@ -460,9 +460,11 @@ public final class SpeleoDBConstants {
         public static final int REDRAW_DELAY_MILLIS_2 = 1500;
         public static final int CENTER_VIEW_DELAY_MILLIS = 1000;
         
-        // File stability detection (for waiting on async file writes)
-        public static final int FILE_STABILITY_POLL_INTERVAL_MILLIS = 100;
-        public static final int FILE_STABILITY_TIMEOUT_MILLIS = 5000;
+        // File stability detection with exponential backoff (for waiting on async file writes).
+        // Poll sequence: 50, 100, 200, 400, 800, 1000, 1000… ms (doubles until capped).
+        public static final int FILE_STABILITY_INITIAL_BACKOFF_MILLIS = 50;
+        public static final int FILE_STABILITY_MAX_BACKOFF_MILLIS = 1000;
+        public static final int FILE_STABILITY_TIMEOUT_MILLIS = 10000;
     }
 
     // ==================== DEBUG & SYSTEM PROPERTIES ====================

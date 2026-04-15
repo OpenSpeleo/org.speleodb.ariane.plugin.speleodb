@@ -2123,27 +2123,45 @@ public class SpeleoDBController implements Initializable {
     }
 
     /**
-     * Waits for a TML file to be fully written by validating its ZIP structure.
-     * TML files are ZIP archives, so we poll until the file can be opened as a valid ZIP.
-     * An incomplete ZIP file will fail validation because it lacks proper structure.
-     * 
+     * Waits for a TML file to be fully written and pass full CRC32 ZIP validation.
+     *
+     * <p>Ariane writes {@code .tml} (ZIP) files asynchronously, so the file may still
+     * be incomplete when we first check. This method polls with <b>exponential backoff</b>
+     * (50 ms → 100 → 200 → 400 → 800 → 1000 ms cap) to balance responsiveness against
+     * I/O overhead, with a total timeout of
+     * {@value SpeleoDBConstants.TIMINGS#FILE_STABILITY_TIMEOUT_MILLIS} ms.</p>
+     *
+     * <p>Each attempt runs {@link #isValidZipFile(java.io.File)}, which decompresses
+     * every entry and verifies CRC32 checksums — equivalent to Python's
+     * {@code ZipFile.testzip()}.</p>
+     *
      * @param file the TML/ZIP file to wait for
-     * @return true if the file is a valid ZIP and ready, false if timeout occurred
+     * @return true if the file passes full ZIP/CRC32 validation, false on timeout or interruption
      */
     private boolean waitForFileStability(java.io.File file) {
         if (file == null) {
             return false;
         }
-        
+
         long startTime = System.currentTimeMillis();
-        
+        long currentBackoff = TIMINGS.FILE_STABILITY_INITIAL_BACKOFF_MILLIS;
+        int attempt = 0;
+
         while (System.currentTimeMillis() - startTime < TIMINGS.FILE_STABILITY_TIMEOUT_MILLIS) {
+            attempt++;
             try {
                 if (file.exists() && isValidZipFile(file)) {
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    logger.debug("ZIP validation passed after " + attempt +
+                                 " attempt(s) in " + elapsed + "ms");
                     return true;
-                }  
-                // ZIP validation failed, file is still being written
-                Thread.sleep(TIMINGS.FILE_STABILITY_POLL_INTERVAL_MILLIS);
+                }
+
+                logger.debug("ZIP validation attempt " + attempt + " failed, retrying in " +
+                             currentBackoff + "ms (elapsed: " +
+                             (System.currentTimeMillis() - startTime) + "ms)");
+                Thread.sleep(currentBackoff);
+                currentBackoff = Math.min(currentBackoff * 2, TIMINGS.FILE_STABILITY_MAX_BACKOFF_MILLIS);
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -2151,33 +2169,57 @@ public class SpeleoDBController implements Initializable {
                 return false;
             }
         }
-       
-        logger.warn("File validation timeout after " + TIMINGS.FILE_STABILITY_TIMEOUT_MILLIS + 
-                    "ms. File size: " + (file.exists() ? file.length() : 0) + " bytes");
+
+        logger.warn("ZIP validation timeout after " + TIMINGS.FILE_STABILITY_TIMEOUT_MILLIS +
+                     "ms (" + attempt + " attempts). File size: " +
+                     (file.exists() ? file.length() : 0) + " bytes");
         return false;
     }
     
     /**
-     * Checks if a file is a valid, complete ZIP archive.
-     * This works because ZIP files have a specific structure with an end-of-central-directory
-     * record that must be present for the file to be valid.
-     * 
+     * Validates a file as a complete, intact ZIP archive by reading and decompressing
+     * every entry and verifying CRC32 checksums. This is equivalent to Python's
+     * {@code ZipFile.testzip()} and guarantees that a file passing this check will
+     * also pass server-side validation, preventing {@code BadZipFile} errors from
+     * the SpeleoDB API.
+     *
+     * <p>The verification works because Java's {@link java.util.zip.ZipFile} automatically
+     * checks CRC32 on read: if the stored checksum does not match the decompressed data,
+     * a {@link java.util.zip.ZipException} is thrown.</p>
+     *
      * @param file the file to validate
-     * @return true if the file is a valid ZIP archive, false otherwise
+     * @return true if the file is a valid ZIP with at least one entry and all CRC32 checksums pass
      */
     private boolean isValidZipFile(java.io.File file) {
         if (file == null || !file.exists()) {
             return false;
         }
-        
+
         try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(file)) {
-            // Successfully opened as ZIP - verify it has at least one entry
-            return zipFile.entries().hasMoreElements();
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zipFile.entries();
+            if (!entries.hasMoreElements()) {
+                return false;
+            }
+
+            byte[] buffer = new byte[8192];
+            while (entries.hasMoreElements()) {
+                java.util.zip.ZipEntry entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                // Reading all bytes triggers CRC32 verification against the stored checksum
+                try (java.io.InputStream is = zipFile.getInputStream(entry)) {
+                    while (is.read(buffer) != -1) {
+                        // drain — CRC32 is verified on read by ZipFile
+                    }
+                }
+            }
+            return true;
         } catch (java.util.zip.ZipException e) {
-            // Invalid or incomplete ZIP structure
+            logger.debug("ZIP validation failed (ZipException): " + e.getMessage());
             return false;
         } catch (java.io.IOException e) {
-            // File I/O error (possibly still being written)
+            logger.debug("ZIP validation failed (IOException): " + e.getMessage());
             return false;
         }
     }
