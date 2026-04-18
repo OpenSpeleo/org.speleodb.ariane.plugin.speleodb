@@ -83,7 +83,7 @@ public final class SpeleoDBConstants {
 
     // ==================== API ENDPOINTS ====================
     public static final class API {
-        public static final String BASE_PATH = "/api/v1";
+        public static final String BASE_PATH = "/api/v2";
         public static final String AUTH_TOKEN_ENDPOINT = BASE_PATH + "/user/auth-token/";
         public static final String PROJECTS_ENDPOINT = BASE_PATH + "/projects/";
         public static final String ANNOUNCEMENTS_ENDPOINT = BASE_PATH + "/announcements/";
@@ -246,6 +246,7 @@ public final class SpeleoDBConstants {
         // Auth Error Messages
         public static final String AUTH_FAILED_STATUS = "Authentication failed with status code: ";
         public static final String PROJECT_CREATE_FAILED_STATUS = "Failed to create project with status code: ";
+        public static final String PROJECT_CREATE_INVALID_RESPONSE = "Project creation response must be an unwrapped project object";
         public static final String PROJECT_LIST_FAILED_STATUS = "Failed to list projects with status code: ";
         public static final String PROJECT_DOWNLOAD_FAILED_STATUS = "Failed to download project with status code: ";
         public static final String PROJECT_UPLOAD_FAILED_STATUS = "Failed to upload project with status code: ";
@@ -254,6 +255,11 @@ public final class SpeleoDBConstants {
         public static final String PROJECT_DOWNLOAD_UNEXPECTED_STATUS = ". Expected: 200 (success), or 422 (project empty)";
         public static final String PROJECT_DOWNLOAD_404_EMPTY = "Project exists but is empty - create empty TML file.";
         public static final String DOWNLOAD_FAILED = "Failed to download project file";
+        public static final String MUTEX_ACQUIRE_FAILED_STATUS = "Failed to acquire project mutex with status code: ";
+        public static final String MUTEX_RELEASE_FAILED_STATUS = "Failed to release project mutex with status code: ";
+        public static final String ANNOUNCEMENTS_FETCH_FAILED_STATUS = "Failed to fetch announcements with status code: ";
+        public static final String PLUGIN_RELEASES_FETCH_FAILED_STATUS = "Failed to fetch plugin releases with status code: ";
+        public static final String PLUGIN_UPDATE_DOWNLOAD_FAILED_STATUS = "HTTP error when downloading plugin update: ";
 
         // Upload failure guidance
         public static final String UPLOAD_FAILED_RETRY = "Please try again.";
@@ -478,10 +484,11 @@ public final class SpeleoDBConstants {
     // ==================== JSON FIELD NAMES ====================
     public static final class JSON_FIELDS {
         public static final String COUNTRY = "country";
-        public static final String DATA = "data";
         public static final String DESCRIPTION = "description";
+        public static final String DETAIL = "detail";
         public static final String EMAIL = "email";
         public static final String ERROR = "error";
+        public static final String ERRORS = "errors";
         public static final String EXPIRES_AT = "expiracy_date";
         public static final String FILE_KEY = "artifact";
         public static final String HEADER = "header";
@@ -491,6 +498,7 @@ public final class SpeleoDBConstants {
         public static final String LONGITUDE = "longitude";
         public static final String MESSAGE = "message";
         public static final String NAME = "name";
+        public static final String NON_FIELD_ERRORS = "non_field_errors";
         public static final String PASSWORD = "password";
         public static final String PERMISSION = "permission";
         public static final String PERMISSION_WEB_VIEWER = "WEB_VIEWER";

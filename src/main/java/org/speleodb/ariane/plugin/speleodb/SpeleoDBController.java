@@ -5,9 +5,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,10 +31,8 @@ import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.AccessLevel;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.BUTTON_TYPES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIALOGS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.DIMENSIONS;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.HTTP_STATUS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.JSON_FIELDS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.MESSAGES;
-import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.NETWORK;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PATHS;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.PREFERENCES;
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.STYLES;
@@ -3646,8 +3641,7 @@ public class SpeleoDBController implements Initializable {
         try {
             logger.debug(MESSAGES.UPDATE_CHECK_STARTING);
 
-            SpeleoDBService tempService = new SpeleoDBService(this);
-            JsonArray releases = tempService.fetchPluginReleases(instanceUrl);
+            JsonArray releases = speleoDBService.fetchPluginReleases(instanceUrl);
 
             if (releases.isEmpty()) {
                 logger.info(String.format(MESSAGES.UPDATE_NOT_AVAILABLE, SpeleoDBConstants.VERSION));
@@ -3711,8 +3705,8 @@ public class SpeleoDBController implements Initializable {
 
             logger.info(String.format(MESSAGES.UPDATE_DOWNLOAD_STARTING, version));
 
-            // Download the file
-            byte[] fileData = downloadFile(downloadUrl);
+            // Download the file via the service so all HTTP I/O lives in SpeleoDBService.
+            byte[] fileData = speleoDBService.downloadPluginUpdate(downloadUrl);
 
             // Verify SHA256 hash
             if (!verifyFileHash(fileData, expectedHash)) {
@@ -3747,43 +3741,6 @@ public class SpeleoDBController implements Initializable {
         } catch (Exception e) {
             logger.error(String.format(MESSAGES.UPDATE_DOWNLOAD_FAILED, e.getMessage()), e);
         }
-    }
-
-    /**
-     * Downloads a file from the given URL.
-     *
-     * @param url the URL to download from
-     * @return byte array containing the file data
-     * @throws Exception if download fails
-     */
-    private byte[] downloadFile(String url) throws Exception {
-        URI originalUri = new URI(url);
-        URI uri = new URI(
-            originalUri.getScheme(),
-            originalUri.getUserInfo(),
-            originalUri.getHost().toLowerCase(Locale.ROOT),
-            originalUri.getPort(),
-            originalUri.getPath(),
-            originalUri.getQuery(),
-            originalUri.getFragment()
-        );
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .GET()
-                .timeout(java.time.Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))
-                .build();
-
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(java.time.Duration.ofSeconds(NETWORK.CONNECT_TIMEOUT_SECONDS))
-                .followRedirects(HttpClient.Redirect.NORMAL)  // Follow redirects automatically
-                .build();
-
-        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
-
-        if (response.statusCode() != HTTP_STATUS.OK) {
-            throw new Exception("HTTP " + response.statusCode() + " when downloading update");
-        }
-
-        return response.body();
     }
 
     /**
@@ -3991,8 +3948,7 @@ public class SpeleoDBController implements Initializable {
      */
     private void checkForAnnouncements(String instanceUrl) {
         try {
-            SpeleoDBService tempService = new SpeleoDBService(this);
-            JsonArray announcements = tempService.fetchAnnouncements(instanceUrl);
+            JsonArray announcements = speleoDBService.fetchAnnouncements(instanceUrl);
 
             // Filter out announcements that have already been displayed
             List<JsonObject> unshownAnnouncements = new ArrayList<>();

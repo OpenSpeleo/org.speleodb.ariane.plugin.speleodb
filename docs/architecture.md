@@ -92,13 +92,13 @@ sequenceDiagram
     Controller->>Service: authenticate(email, password, oauth, instanceUrl)
     Service->>Service: setSDBInstance(url) via resolveInstanceUrl()
     Service->>Service: createHttpClient()
-    Service->>API: POST /api/v1/user/auth-token/
+    Service->>API: POST /api/v2/user/auth-token/
     API-->>Service: {"token": "abc123..."}
     Service->>Service: parseAuthToken() via jakarta.json
     Service-->>Controller: success
     Controller->>Service: listProjects()
-    Service->>API: GET /api/v1/projects/
-    API-->>Service: {"data": [...]}
+    Service->>API: GET /api/v2/projects/
+    API-->>Service: [...]
     Service-->>Controller: filtered JsonArray (ARIANE only)
     Controller->>Controller: updateProjectList()
 ```
@@ -119,13 +119,37 @@ sequenceDiagram
     Controller->>Plugin: saveSurvey() (trigger host app save)
     Plugin->>Plugin: commandProperty.set(SAVE)
     Controller->>Service: acquireOrRefreshProjectMutex()
-    Service->>API: POST /api/v1/projects/{id}/acquire/
+    Service->>API: POST /api/v2/projects/{id}/acquire/
     API-->>Service: 200 OK
     Controller->>Service: uploadProject(message, project)
     Service->>Service: calculateSHA256 + empty template check
-    Service->>API: PUT /api/v1/projects/{id}/upload/ariane_tml/
+    Service->>API: PUT /api/v2/projects/{id}/upload/ariane_tml/
     API-->>Service: 200 OK / 304 Not Modified
     Controller->>Controller: showSuccessCelebration()
+```
+
+## Data Flow: Plugin Update Download
+
+```mermaid
+sequenceDiagram
+    participant Controller as SpeleoDBController
+    participant Service as SpeleoDBService
+    participant Api as SpeleoDBAPI
+    participant Host as ReleaseHost
+    participant Disk as PluginsDirectory
+
+    Controller->>Service: fetchPluginReleases(instanceUrl)
+    Service->>Api: GET /api/v2/plugin_releases/
+    Api-->>Service: [...]
+    Service-->>Controller: compatible releases
+    Controller->>Controller: select latest version
+    Controller->>Service: downloadPluginUpdate(downloadUrl)
+    Service->>Host: GET downloadUrl
+    Host-->>Service: JAR bytes
+    Service-->>Controller: fileData
+    Controller->>Controller: verify SHA-256
+    Controller->>Disk: write *.jar.new
+    Controller->>Controller: show restart-required dialog
 ```
 
 ## JPMS Module Structure

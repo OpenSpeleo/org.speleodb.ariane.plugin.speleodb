@@ -8,6 +8,7 @@ import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,7 +18,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.speleodb.ariane.plugin.speleodb.SpeleoDBConstants.API;
@@ -33,6 +36,8 @@ import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
+import jakarta.json.JsonString;
+import jakarta.json.JsonValue;
 
 
 /**
@@ -77,12 +82,17 @@ public class SpeleoDBService {
     /**
      * Resolves a raw instance URL into a full URL with the appropriate protocol.
      * Normalizes the URL and applies http:// for local addresses, https:// for remote.
+     * Pure function -- package-private static so it is directly unit-testable.
      *
-     * @param rawUrl the raw instance URL from user input
-     * @return full URL with protocol prefix (e.g., "https://www.speleodb.org")
+     * @param rawUrl the raw instance URL from user input (may be null)
+     * @return full URL with protocol prefix (e.g., "https://www.speleodb.org"),
+     *         or {@code null} if {@code rawUrl} is {@code null}
      */
-    private String resolveInstanceUrl(String rawUrl) {
+    static String resolveInstanceUrl(String rawUrl) {
         String normalizedUrl = normalizeInstanceUrl(rawUrl);
+        if (normalizedUrl == null) {
+            return null;
+        }
         if (Pattern.compile(NETWORK.LOCAL_PATTERN).matcher(normalizedUrl).find()) {
             return NETWORK.HTTP_PROTOCOL + normalizedUrl;
         }
@@ -91,24 +101,31 @@ public class SpeleoDBService {
 
     /**
      * Normalizes an instance URL by removing protocol prefixes and trailing slashes.
-     * This ensures consistent processing regardless of user input format.
+     * Pure function -- package-private static so it is directly unit-testable.
      *
      * Examples:
      * - "https://www.speleodb.org/" -> "www.speleodb.org"
      * - "http://localhost:8000/" -> "localhost:8000"
      * - "stage.speleodb.org" -> "stage.speleodb.org"
+     * - null -> null
+     * - "" / "   " -> ""
      *
-     * @param instanceUrl the raw instance URL from user input
-     * @return normalized URL without protocol prefix or trailing slashes
+     * @param instanceUrl the raw instance URL from user input (may be null)
+     * @return normalized URL without protocol prefix or trailing slashes,
+     *         {@code null} for {@code null} input, or {@code ""} for blank input
      */
-    private String normalizeInstanceUrl(String instanceUrl) {
-        if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
-            return instanceUrl;
+    static String normalizeInstanceUrl(String instanceUrl) {
+        if (instanceUrl == null) {
+            return null;
+        }
+        if (instanceUrl.trim().isEmpty()) {
+            return "";
         }
 
-        String normalized = instanceUrl.trim();
+        // RFC 3986: scheme is case-insensitive; RFC 7230: host is case-insensitive.
+        // Lowercase up-front so a single startsWith() check handles both "https://" and "HTTPS://".
+        String normalized = instanceUrl.trim().toLowerCase(Locale.ROOT);
 
-        // Remove http:// or https:// protocol prefixes
         if (normalized.startsWith(NETWORK.HTTPS_PROTOCOL)) {
             normalized = normalized.substring(NETWORK.HTTPS_PROTOCOL.length());
         } else if (normalized.startsWith(NETWORK.HTTP_PROTOCOL)) {
@@ -119,9 +136,6 @@ public class SpeleoDBService {
         while (normalized.endsWith("/") && normalized.length() > 1) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
-
-        // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
-        normalized = normalized.toLowerCase(Locale.ROOT);
 
         return normalized;
     }
@@ -219,10 +233,16 @@ public class SpeleoDBService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.OK) {
-            authToken = parseAuthToken(response.body());
+            try {
+                authToken = parseAuthToken(response.body());
+            } catch (RuntimeException e) {
+                logout(); // Clear sdbInstance on malformed/missing-token responses
+                throw e;
+            }
         } else {
+            String errorMessage = formatStatusError(MESSAGES.AUTH_FAILED_STATUS, response.statusCode(), response.body());
             logout(); // Ensure we clears the `sdbInstance`
-            throw new Exception(MESSAGES.AUTH_FAILED_STATUS + response.statusCode());
+            throw new Exception(errorMessage);
         }
     }
 
@@ -295,25 +315,15 @@ public class SpeleoDBService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() == HTTP_STATUS.CREATED) {
-            // Successfully created, parse and return the project data
             try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                JsonObject responseObject = reader.readObject();
-                return responseObject.getJsonObject(JSON_FIELDS.DATA);
-            }
-        } else {
-            // Handle different error cases
-            String errorMessage = MESSAGES.PROJECT_CREATE_FAILED_STATUS + response.statusCode();
-            try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-                JsonObject errorObj = reader.readObject();
-                if (errorObj.containsKey(JSON_FIELDS.ERROR)) {
-                    errorMessage += " - " + errorObj.getString(JSON_FIELDS.ERROR);
+                JsonObject createdProject = reader.readObject();
+                if (!createdProject.containsKey(JSON_FIELDS.ID) || !createdProject.containsKey(JSON_FIELDS.NAME)) {
+                    throw new IllegalArgumentException(MESSAGES.PROJECT_CREATE_INVALID_RESPONSE);
                 }
-            } catch (Exception parseException) {
-                // If we can't parse the error, just use the response body
-                errorMessage += " - " + response.body();
+                return createdProject;
             }
-            throw new Exception(errorMessage);
         }
+        throw new Exception(formatStatusError(MESSAGES.PROJECT_CREATE_FAILED_STATUS, response.statusCode(), response.body()));
     }
 
     // -------------------------- Project Listing -------------------------- //
@@ -341,12 +351,11 @@ public class SpeleoDBService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
-            throw new Exception(MESSAGES.PROJECT_LIST_FAILED_STATUS + response.statusCode());
+            throw new Exception(formatStatusError(MESSAGES.PROJECT_LIST_FAILED_STATUS, response.statusCode(), response.body()));
         }
 
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-            JsonObject responseObject = reader.readObject();
-            JsonArray projects = responseObject.getJsonArray(JSON_FIELDS.DATA);
+            JsonArray projects = reader.readArray();
 
             return collectToJsonArray(projects.stream()
                     .filter(JsonObject.class::isInstance)
@@ -419,10 +428,8 @@ public class SpeleoDBService {
             return;
         } else if (status == HTTP_STATUS.NOT_MODIFIED) {
             throw new NotModifiedException(MESSAGES.PROJECT_UPLOAD_NOT_MODIFIED);
-        } else {
-            throw new Exception(MESSAGES.PROJECT_UPLOAD_FAILED_STATUS + status);
         }
-        // TODO: Improve error management
+        throw new Exception(formatStatusError(MESSAGES.PROJECT_UPLOAD_FAILED_STATUS, status, decodeUtf8(response.body())));
     }
 
     // -------------------------- Project Download ------------------------- //
@@ -471,13 +478,12 @@ public class SpeleoDBService {
                 return createEmptyTmlFileFromTemplate(sdbProjectId, project.getString(JSON_FIELDS.NAME, "Unknown Project"));
             }
             default -> {
-                String errorMessage = "Unexpected HTTP status code during project download: " + response.statusCode() +
-                        " for project: " + project.getString(JSON_FIELDS.NAME, "Unknown Project");
-
-                logger.info(errorMessage);
-
-                throw new RuntimeException(MESSAGES.PROJECT_DOWNLOAD_FAILED_STATUS + response.statusCode() +
-                        MESSAGES.PROJECT_DOWNLOAD_UNEXPECTED_STATUS);
+                String body = decodeUtf8(response.body());
+                String errorMessage = formatStatusError(MESSAGES.PROJECT_DOWNLOAD_FAILED_STATUS, response.statusCode(), body)
+                        + MESSAGES.PROJECT_DOWNLOAD_UNEXPECTED_STATUS;
+                logger.info("Unexpected HTTP status code during project download: " + response.statusCode()
+                        + " for project: " + project.getString(JSON_FIELDS.NAME, "Unknown Project"));
+                throw new RuntimeException(errorMessage);
             }
         }
     }
@@ -534,8 +540,14 @@ public class SpeleoDBService {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        // TODO: Add error management
-        return (response.statusCode() == HTTP_STATUS.OK);
+        if (response.statusCode() == HTTP_STATUS.OK) {
+            return true;
+        }
+        // Surface the parsed v2 detail (e.g. "Project locked by alice@example.com since ...")
+        // to the UI console. The controller emits a complementary generic line; the two
+        // together convey what failed (controller) and why (service).
+        logger.warn(formatStatusError(MESSAGES.MUTEX_ACQUIRE_FAILED_STATUS, response.statusCode(), response.body()));
+        return false;
     }
 
     /**
@@ -559,8 +571,15 @@ public class SpeleoDBService {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        // TODO: Add error management
-        return (response.statusCode() == HTTP_STATUS.OK);
+        if (response.statusCode() == HTTP_STATUS.OK) {
+            return true;
+        }
+        // Surface the parsed v2 detail to the UI console; see acquireOrRefreshProjectMutex
+        // for rationale. The release path has no controller-side fallback for the reason
+        // ("Failed to release lock for X" carries no detail), so this warn is the only
+        // place the user sees why the server refused.
+        logger.warn(formatStatusError(MESSAGES.MUTEX_RELEASE_FAILED_STATUS, response.statusCode(), response.body()));
+        return false;
     }
 
     /* ========================= PUBLIC ANNOUNCEMENTS ======================== */
@@ -587,12 +606,11 @@ public class SpeleoDBService {
         HttpResponse<String> response = createHttpClientForInstance(tempInstance).send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
-            throw new Exception("Failed to fetch announcements with status code: " + response.statusCode());
+            throw new Exception(formatStatusError(MESSAGES.ANNOUNCEMENTS_FETCH_FAILED_STATUS, response.statusCode(), response.body()));
         }
 
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-            JsonObject responseObject = reader.readObject();
-            JsonArray announcements = responseObject.getJsonArray(JSON_FIELDS.DATA);
+            JsonArray announcements = reader.readArray();
 
             // Note: We'll get current date inside the filter for date comparison
 
@@ -649,12 +667,11 @@ public class SpeleoDBService {
         HttpResponse<String> response = createHttpClientForInstance(tempInstance).send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != HTTP_STATUS.OK) {
-            throw new Exception("Failed to fetch plugin releases with status code: " + response.statusCode());
+            throw new Exception(formatStatusError(MESSAGES.PLUGIN_RELEASES_FETCH_FAILED_STATUS, response.statusCode(), response.body()));
         }
 
         try (JsonReader reader = Json.createReader(new StringReader(response.body()))) {
-            JsonObject responseObject = reader.readObject();
-            JsonArray releases = responseObject.getJsonArray(JSON_FIELDS.DATA);
+            JsonArray releases = reader.readArray();
 
             return collectToJsonArray(releases.stream()
                     .filter(JsonObject.class::isInstance)
@@ -679,6 +696,44 @@ public class SpeleoDBService {
         }
     }
 
+    /* ========================= PLUGIN UPDATE DOWNLOAD ======================== */
+
+    /**
+     * Downloads the binary plugin-update artifact from an arbitrary URL (typically a
+     * non-SpeleoDB host such as GitHub releases). Does not require authentication and
+     * builds its own short-lived {@link HttpClient} so it never depends on
+     * {@link #sdbInstance} or the cached authenticated client.
+     *
+     * @param url the URL to download from
+     * @return byte array containing the file data
+     * @throws Exception if the URL is malformed or the response status is not 200
+     */
+    public byte[] downloadPluginUpdate(String url) throws Exception {
+        URI originalUri = new URI(url);
+        URI uri = new URI(
+            originalUri.getScheme(),
+            originalUri.getUserInfo(),
+            originalUri.getHost().toLowerCase(Locale.ROOT),
+            originalUri.getPort(),
+            originalUri.getPath(),
+            originalUri.getQuery(),
+            originalUri.getFragment()
+        );
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .GET()
+                .timeout(Duration.ofSeconds(NETWORK.DOWNLOAD_TIMEOUT_SECONDS))
+                .build();
+
+        HttpResponse<byte[]> response = createHttpClientForInstance(uri.toString())
+                .send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+        if (response.statusCode() != HTTP_STATUS.OK) {
+            throw new Exception(formatStatusError(MESSAGES.PLUGIN_UPDATE_DOWNLOAD_FAILED_STATUS, response.statusCode(), decodeUtf8(response.body())));
+        }
+        return response.body();
+    }
+
     /* ========================= UTILITIES ======================== */
 
     /**
@@ -693,6 +748,103 @@ public class SpeleoDBService {
                 (builder, item) -> builder.add(item),
                 (b1, b2) -> { throw new UnsupportedOperationException("Parallel processing not supported"); }
         ).build();
+    }
+
+    /**
+     * Decodes a (possibly null) byte body to a UTF-8 string. Used at error branches of
+     * binary endpoints so {@link #parseV2ErrorMessage(String)} can extract the v2 error
+     * envelope.
+     */
+    private static String decodeUtf8(byte[] body) {
+        return body == null ? "" : new String(body, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Builds the user-facing error message for a non-success HTTP response. Combines
+     * a fixed prefix (e.g. {@link MESSAGES#AUTH_FAILED_STATUS}) with the status code
+     * and -- when present -- the human-readable detail extracted from the v2 error
+     * envelope by {@link #parseV2ErrorMessage(String)}.
+     */
+    static String formatStatusError(String prefix, int statusCode, String body) {
+        String base = prefix + statusCode;
+        return parseV2ErrorMessage(body).map(d -> base + " - " + d).orElse(base);
+    }
+
+    /**
+     * Extracts a human-readable message from the SpeleoDB v2 error envelope. Three
+     * shapes are recognized; precedence is single-{@code "error"} > list-{@code "errors"} >
+     * DRF-default {@code "non_field_errors"}:
+     * <ul>
+     *   <li>{@code {"error": "<message>"}} -- single message string.</li>
+     *   <li>{@code {"errors": [<entry>, ...]}} -- where each entry is either a string,
+     *       or an object with one of {@code "detail"} / {@code "message"} / {@code "error"}.
+     *       Unknown entry shapes fall back to {@link JsonValue#toString()} so information
+     *       is never silently dropped. Entries are joined with {@code "; "}.</li>
+     *   <li>{@code {"non_field_errors": [<entry>, ...]}} -- DRF's default cross-field
+     *       serializer-validation envelope; treated identically to {@code "errors"}.</li>
+     * </ul>
+     * Returns {@link Optional#empty()} for {@code null} / blank / non-JSON / unrecognized
+     * bodies so callers fall through to a status-only error message.
+     *
+     * <p>Package-private to keep it directly unit-testable.
+     */
+    static Optional<String> parseV2ErrorMessage(String body) {
+        if (body == null || body.isBlank()) {
+            return Optional.empty();
+        }
+        try (JsonReader reader = Json.createReader(new StringReader(body))) {
+            JsonObject root = reader.readObject();
+            if (root.containsKey(JSON_FIELDS.ERROR) && root.get(JSON_FIELDS.ERROR).getValueType() == JsonValue.ValueType.STRING) {
+                String single = root.getString(JSON_FIELDS.ERROR, "");
+                return single.isBlank() ? Optional.empty() : Optional.of(single);
+            }
+            Optional<String> arr = joinErrorArray(root, JSON_FIELDS.ERRORS);
+            if (arr.isEmpty()) {
+                arr = joinErrorArray(root, JSON_FIELDS.NON_FIELD_ERRORS);
+            }
+            if (arr.isPresent()) {
+                return arr;
+            }
+        } catch (RuntimeException ignored) {
+            // Non-JSON body, JSON array root, or other parse failure: fall through.
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Joins the entries of a JSON array under {@code key} (when present and array-typed)
+     * via {@link #extractErrorEntry(JsonValue)} into a single {@code "; "}-separated
+     * message. Returns {@link Optional#empty()} when the key is missing, not an array,
+     * or yields no non-blank entries.
+     */
+    private static Optional<String> joinErrorArray(JsonObject root, String key) {
+        if (!root.containsKey(key) || root.get(key).getValueType() != JsonValue.ValueType.ARRAY) {
+            return Optional.empty();
+        }
+        String joined = root.getJsonArray(key).stream()
+                .map(SpeleoDBService::extractErrorEntry)
+                .filter(s -> s != null && !s.isBlank())
+                .collect(Collectors.joining("; "));
+        return joined.isBlank() ? Optional.empty() : Optional.of(joined);
+    }
+
+    /**
+     * Extracts a single message string from one entry of the {@code "errors"} array.
+     * See {@link #parseV2ErrorMessage(String)} for the supported shapes.
+     */
+    private static String extractErrorEntry(JsonValue value) {
+        return switch (value.getValueType()) {
+            case STRING -> ((JsonString) value).getString();
+            case OBJECT -> {
+                JsonObject obj = (JsonObject) value;
+                if (obj.containsKey(JSON_FIELDS.DETAIL)  && obj.get(JSON_FIELDS.DETAIL).getValueType()  == JsonValue.ValueType.STRING) yield obj.getString(JSON_FIELDS.DETAIL,  "");
+                if (obj.containsKey(JSON_FIELDS.MESSAGE) && obj.get(JSON_FIELDS.MESSAGE).getValueType() == JsonValue.ValueType.STRING) yield obj.getString(JSON_FIELDS.MESSAGE, "");
+                if (obj.containsKey(JSON_FIELDS.ERROR)   && obj.get(JSON_FIELDS.ERROR).getValueType()   == JsonValue.ValueType.STRING) yield obj.getString(JSON_FIELDS.ERROR,   "");
+                yield obj.toString();
+            }
+            case NULL -> "";
+            default -> value.toString();
+        };
     }
 
     /**

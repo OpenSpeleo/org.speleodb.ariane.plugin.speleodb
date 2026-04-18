@@ -14,13 +14,16 @@ import javafx.application.Platform;
 class SpeleoDBModalsInternalTest {
 
     @BeforeAll
-    static void initFX() {
+    static void initFX() throws InterruptedException {
         try {
             if (!Platform.isFxApplicationThread()) {
                 Platform.startup(() -> {});
                 Thread.sleep(100);
             }
-        } catch (Exception ignored) {
+        } catch (IllegalStateException e) {
+            if (!e.getMessage().contains("Toolkit already initialized")) {
+                throw e;
+            }
         }
     }
 

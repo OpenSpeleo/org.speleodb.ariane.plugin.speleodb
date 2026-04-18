@@ -18,14 +18,17 @@ import javafx.scene.control.DialogPane;
 class NewProjectDialogFXPropertiesTest {
 
     @BeforeAll
-    static void initFX() {
+    static void initFX() throws InterruptedException {
         try {
             if (!Platform.isFxApplicationThread()) {
                 Platform.startup(() -> {});
                 // Allow the platform to finish booting
                 Thread.sleep(100);
             }
-        } catch (Exception ignored) {
+        } catch (IllegalStateException e) {
+            if (!e.getMessage().contains("Toolkit already initialized")) {
+                throw e;
+            }
         }
     }
 

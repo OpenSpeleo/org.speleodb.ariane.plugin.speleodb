@@ -39,6 +39,9 @@ dependencies {
     // JavaFX testing support
     testImplementation 'org.testfx:testfx-core:4.0.16-alpha'
     testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
+
+    // Hermetic HTTP server for WireMock-based service tests (test scope only).
+    testImplementation 'org.wiremock:wiremock-standalone:3.10.0'
 }
 
 
