@@ -19,9 +19,13 @@ class SpeleoDBReadOnlyPopupTest {
                 Thread.sleep(100);
             }
         } catch (IllegalStateException e) {
+            // "Toolkit already initialized" is the happy path -- FX is up from a prior class.
             if (!e.getMessage().contains("Toolkit already initialized")) {
                 throw e;
             }
+        } catch (UnsupportedOperationException e) {
+            // Headless Linux CI without DISPLAY/Monocle: tests in this class are pure-Java
+            // assertions on enum values, so a failed FX bootstrap is non-fatal here.
         }
     }
 

@@ -96,12 +96,12 @@ public class SpeleoDBController implements Initializable {
 
     // Singleton instance - eagerly initialized
     private static final SpeleoDBController instance = new SpeleoDBController();
-    
+
     // Latch to ensure FXML is fully initialized before UI operations can proceed.
     // This prevents NullPointerExceptions when background threads try to access UI components
     // before FXMLLoader has injected the @FXML fields.
     private final CountDownLatch fxmlInitializedLatch = new CountDownLatch(1);
-    
+
     // Track scenes that already have the global event logger attached
     private final java.util.Set<javafx.scene.Scene> eventLoggedScenes =
             java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
@@ -807,7 +807,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Installs a default uncaught exception handler to log uncaught exceptions.
      * Idempotent: will only install once.
-     * 
+     *
      * IMPORTANT: This handler should ONLY log exceptions, NOT perform shutdown cleanup.
      * The JVM shutdown hook handles cleanup when the application actually terminates.
      * Uncaught exceptions in JavaFX do not necessarily terminate the application,
@@ -821,7 +821,7 @@ public class SpeleoDBController implements Initializable {
         try {
             Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
                 try {
-                    logger.error("Uncaught exception in thread: " + thread.getName() + 
+                    logger.error("Uncaught exception in thread: " + thread.getName() +
                         " - Exception: " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage(), throwable);
                     // Log stack trace for debugging
                     StringBuilder stackTrace = new StringBuilder("Stack trace:\n");
@@ -1007,7 +1007,7 @@ public class SpeleoDBController implements Initializable {
             }
 
             logger.debug("SpeleoDBController initialization complete");
-            
+
             // Signal that FXML is fully initialized - background threads waiting on this can now proceed
             fxmlInitializedLatch.countDown();
         });
@@ -1335,7 +1335,7 @@ public class SpeleoDBController implements Initializable {
     /**
      * Sets the loading state for the entire UI, disabling/enabling all interactive elements.
      * This provides comprehensive visual feedback during loading operations.
-     * 
+     *
      * This method waits for FXML initialization to complete before accessing UI components,
      * preventing NullPointerExceptions when called from background threads before the
      * FXMLLoader has injected the @FXML fields.
@@ -1358,7 +1358,7 @@ public class SpeleoDBController implements Initializable {
             logger.error("Interrupted while waiting for FXML initialization: " + e.getMessage());
             return;
         }
-        
+
         Platform.runLater(() -> {
             // Project-related controls
             projectListView.setDisable(loading);
@@ -2170,7 +2170,7 @@ public class SpeleoDBController implements Initializable {
                      (file.exists() ? file.length() : 0) + " bytes");
         return false;
     }
-    
+
     /**
      * Validates a file as a complete, intact ZIP archive by reading and decompressing
      * every entry and verifying CRC32 checksums. This is equivalent to Python's
@@ -2218,7 +2218,7 @@ public class SpeleoDBController implements Initializable {
             return false;
         }
     }
-    
+
     /**
      * Downloads and loads a project with unified logic for both read-only and writable projects.
      *
@@ -2325,29 +2325,6 @@ public class SpeleoDBController implements Initializable {
         });
     }
 
-    // ---------------------- Project Mutex Management --------------------- //
-
-    /**
-     * Shows project switch confirmation - uses the ultra-fast modal.
-     */
-    // Removed: lock-related confirmation dialogs
-
-    /**
-     * Shows unlock confirmation - uses the ultra-fast modal.
-     */
-    // Removed: lock-related confirmation dialogs
-
-    /**
-     * Shows release lock confirmation - uses the ultra-fast modal.
-     */
-    // Removed: lock-related confirmation dialogs
-
-    /**
-     * Handles the "Unlock Project" button click event for SpeleoDB.
-     */
-    @FXML
-    // Removed: unlock button handler
-
     // --------------------- Project Saving and Upload --------------------- //
 
     /**
@@ -2380,7 +2357,7 @@ public class SpeleoDBController implements Initializable {
                     });
                     return;
                 }
-                
+
                 // Wait for the file to be fully written (avoid race condition with async save)
                 if (!waitForFileStability(sourceFile)) {
                     Platform.runLater(() -> {

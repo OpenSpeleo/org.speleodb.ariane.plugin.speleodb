@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
@@ -26,21 +27,38 @@ import javafx.scene.control.ProgressIndicator;
  * Tests for Import from Local Disk flow focusing on ordering:
  * - Project must be loaded BEFORE uploading
  * - On load failure, project must NOT be uploaded
+ *
+ * <p>Disabled on CI ({@code CI=true}) because every test in this class
+ * instantiates JavaFX controls ({@code new ProgressIndicator()}, {@code new Button()},
+ * etc.) inside {@code @BeforeEach}. Loading any {@code javafx.scene.control.*}
+ * class triggers {@code Control.<clinit>} which calls
+ * {@code Platform.runLater} which blocks indefinitely on a {@code CountDownLatch}
+ * waiting for the FX toolkit to start -- a toolkit that cannot start on a
+ * headless Linux runner without DISPLAY/Monocle. Per-method {@code assumeTrue}
+ * guards do NOT help here because {@code @BeforeEach} fires before the test body.
  */
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+        disabledReason = "Headless CI cannot bootstrap JavaFX toolkit; @BeforeEach instantiates JavaFX controls")
 class SpeleoDBImportFlowTest {
 
     @BeforeAll
-    static void initFX() throws Exception {
+    static void initFX() throws InterruptedException {
+        // Best-effort FX bootstrap for hosts where the toolkit IS available
+        // (developer macOS/Windows). Failures are non-fatal -- the class-level
+        // CI guard handles the headless case.
         try {
             if (!Platform.isFxApplicationThread()) {
                 Platform.startup(() -> {});
                 Thread.sleep(100);
             }
         } catch (IllegalStateException e) {
-            // Toolkit already initialized - this is fine in test suites
             if (!e.getMessage().contains("Toolkit already initialized")) {
                 throw e;
             }
+        } catch (UnsupportedOperationException ignored) {
+            // No DISPLAY available; the class is already disabled on CI via the
+            // class-level annotation, so this should only happen on dev machines
+            // without a display (e.g., remote SSH session).
         }
     }
 

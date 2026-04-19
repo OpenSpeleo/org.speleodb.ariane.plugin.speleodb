@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
@@ -225,6 +226,8 @@ class SpeleoDBPluginTest {
 
         @Test
         @DisplayName("Should provide icon")
+        @DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+                disabledReason = "new Image(...) requires JavaFX graphics toolkit (Internal graphics not initialized yet)")
         void shouldProvideIcon() {
             assertThatCode(() -> plugin.getIcon())
                 .doesNotThrowAnyException();
@@ -232,6 +235,8 @@ class SpeleoDBPluginTest {
 
         @Test
         @DisplayName("Should attempt to create UI node")
+        @DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+                disabledReason = "FXMLLoader.load triggers Image init which requires JavaFX graphics toolkit on headless CI")
         void shouldAttemptToCreateUINode() {
             // JavaFX UI components may not be available in headless test environment
             // Just verify that the method can be called without crashing the test
@@ -246,6 +251,8 @@ class SpeleoDBPluginTest {
 
         @Test
         @DisplayName("Should attempt to show UI")
+        @DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+                disabledReason = "showUI -> FXMLLoader.load -> Image init requires JavaFX graphics toolkit on headless CI")
         void shouldAttemptToShowUI() {
             // JavaFX UI components may not be available in headless test environment
             // Just verify that the method can be called without crashing the test

@@ -61,37 +61,33 @@ public class SpeleoDBAPITest {
         System.out.println("=== SpeleoDB API Test Suite ===");
         System.out.println("Using Fixtures and Round-trip Testing");
 
-        // CRITICAL: Load and validate environment configuration
-        // If .env file is missing or invalid, skip tests instead of failing
+        // The lazy loader only throws RuntimeException at worst. Catching Exception
+        // (rather than Throwable) keeps Errors -- OOM, LinkageError, StackOverflow --
+        // visible instead of disguising them as "all tests skipped".
         try {
             TestEnvironmentConfig.printConfigStatus();
-        } catch (RuntimeException e) {
-            // Log the error but don't fail - instead skip all tests
-            System.out.println("❌ SETUP WARNING: Cannot run SpeleoDB API tests!");
+        } catch (Exception e) {
+            System.out.println("SETUP WARNING: Cannot run SpeleoDB API tests!");
             System.out.println("   Reason: " + e.getMessage());
             System.out.println("   All API tests will be skipped.");
             skipTests = true;
             return;
         }
 
-        // Check if API testing is enabled
         if (!TestEnvironmentConfig.isApiTestEnabled()) {
-            System.out.println("❌ API testing is disabled. Set API_TEST_ENABLED=true to enable.");
+            System.out.println("FAIL: API testing is disabled. Set API_TEST_ENABLED=true to enable.");
             skipTests = true;
             return;
         }
 
-        // Check if required configuration is present
         if (!TestEnvironmentConfig.hasRequiredConfig()) {
-            System.out.println("❌ Required configuration missing. Please check your .env file.");
+            System.out.println("FAIL: Required configuration missing. Please set SPELEODB_INSTANCE_URL "
+                + "and an auth method (token or email+password) via .env, env vars, or -D system properties.");
             skipTests = true;
             return;
         }
 
-        // Note: Controller and service initialization moved to setUp() method
-        // to properly use the singleton pattern
-
-        System.out.println("✅ Environment setup complete. Running API tests...");
+        System.out.println("OK: Environment setup complete. Running API tests...");
     }
 
     @BeforeEach
@@ -126,7 +122,7 @@ public class SpeleoDBAPITest {
         // Skip auto-authentication for the email/password authentication test
         String testMethodName = testInfo.getTestMethod().get().getName();
         if ("testAuthenticationWithCredentials".equals(testMethodName)) {
-            System.out.println("⏭️  Skipping auto-authentication for email/password test");
+            System.out.println("SKIP: Skipping auto-authentication for email/password test");
             return;
         }
 
@@ -136,7 +132,7 @@ public class SpeleoDBAPITest {
 
         if (oauthToken != null && !oauthToken.isEmpty()) {
             service.authenticate(null, null, oauthToken, instanceUrl);
-            System.out.println("🔐 Auto-authenticated with OAuth for test: " + testInfo.getDisplayName());
+            System.out.println("AUTH: Auto-authenticated with OAuth for test: " + testInfo.getDisplayName());
         } else {
             throw new RuntimeException("OAuth token not available for auto-authentication");
         }
@@ -150,7 +146,7 @@ public class SpeleoDBAPITest {
     void logoutAfterTest(TestInfo testInfo) {
         if (service != null) {
             service.logout();
-            System.out.println("🔓 Auto-logout completed for test: " + testInfo.getDisplayName());
+            System.out.println("LOGOUT: Auto-logout completed for test: " + testInfo.getDisplayName());
         }
     }
 
@@ -171,7 +167,7 @@ public class SpeleoDBAPITest {
             assertTrue(service.isAuthenticated(), "Service should be authenticated via OAuth");
             assertNotNull(service.getSDBInstance(), "SDB instance should be set after authentication");
 
-            System.out.println("✓ OAuth authentication successful");
+            System.out.println("OK: OAuth authentication successful");
         } else {
             System.out.println("No OAuth token provided, skipping OAuth test");
         }
@@ -201,7 +197,7 @@ public class SpeleoDBAPITest {
             assertTrue(service.isAuthenticated(), "Service should be authenticated after email/password login");
             assertNotNull(service.getSDBInstance(), "SDB instance should be set after authentication");
 
-            System.out.println("✓ Email/password authentication successful");
+            System.out.println("OK: Email/password authentication successful");
 
             // Logout to clean state (AfterEach will also logout, but this is explicit)
             service.logout();
@@ -237,7 +233,7 @@ public class SpeleoDBAPITest {
         assertTrue(exception.getMessage().contains("Authentication failed"),
                    "Exception message should indicate authentication failure");
 
-        System.out.println("✓ Invalid credential handling works correctly");
+        System.out.println("OK: Invalid credential handling works correctly");
 
         // Note: AfterEach will handle logout, and next test's BeforeEach will re-authenticate
     }
@@ -254,14 +250,14 @@ public class SpeleoDBAPITest {
         JsonArray projects = retryOperation(() -> service.listProjects());
 
         assertNotNull(projects, "Projects list should not be null");
-        System.out.println("✓ Successfully retrieved " + projects.size() + " projects");
+        System.out.println("OK: Successfully retrieved " + projects.size() + " projects");
 
         // Validate project structure if any projects exist
         if (projects.size() > 0) {
             JsonObject firstProject = projects.getJsonObject(0);
             assertTrue(firstProject.containsKey("id"), "Project should have ID field");
             assertTrue(firstProject.containsKey("name"), "Project should have name field");
-            System.out.println("✓ Project structure validation passed");
+            System.out.println("OK: Project structure validation passed");
         }
     }
 
@@ -285,7 +281,7 @@ public class SpeleoDBAPITest {
         assertTrue(testProject.containsKey("name"), "Created project should have name");
         assertEquals(fixture.getName(), testProject.getString("name"), "Project name should match fixture");
 
-        System.out.println("✓ Successfully created standard project: " + testProject.getString("name"));
+        System.out.println("OK: Successfully created standard project: " + testProject.getString("name"));
         System.out.println("  Project ID: " + testProject.getString("id"));
     }
 
@@ -309,7 +305,7 @@ public class SpeleoDBAPITest {
         assertTrue(minimalProject.containsKey("name"), "Created project should have name");
         assertEquals(fixture.getName(), minimalProject.getString("name"), "Project name should match fixture");
 
-        System.out.println("✓ Successfully created minimal project: " + minimalProject.getString("name"));
+        System.out.println("OK: Successfully created minimal project: " + minimalProject.getString("name"));
         System.out.println("  Project ID: " + minimalProject.getString("id"));
     }
 
@@ -333,7 +329,7 @@ public class SpeleoDBAPITest {
         assertTrue(comprehensiveProject.containsKey("name"), "Created project should have name");
         assertEquals(fixture.getName(), comprehensiveProject.getString("name"), "Project name should match fixture");
 
-        System.out.println("✓ Successfully created comprehensive project: " + comprehensiveProject.getString("name"));
+        System.out.println("OK: Successfully created comprehensive project: " + comprehensiveProject.getString("name"));
         System.out.println("  Project ID: " + comprehensiveProject.getString("id"));
     }
 
@@ -350,7 +346,7 @@ public class SpeleoDBAPITest {
         boolean acquired = retryOperation(() -> service.acquireOrRefreshProjectMutex(testProject));
 
         assertTrue(acquired, "Should be able to acquire project mutex");
-        System.out.println("✓ Successfully acquired project mutex");
+        System.out.println("OK: Successfully acquired project mutex");
     }
 
     @Test
@@ -361,7 +357,7 @@ public class SpeleoDBAPITest {
         // Authentication is handled by @BeforeEach
         assumeTrue(testProject != null, "Test project must be created first");
 
-        System.out.println("Testing standard project round-trip (upload → download) with checksum verification...");
+        System.out.println("Testing standard project round-trip (upload -> download) with checksum verification...");
 
         // Acquire mutex first
         boolean acquired = retryOperation(() -> service.acquireOrRefreshProjectMutex(testProject));
@@ -389,7 +385,7 @@ public class SpeleoDBAPITest {
             }, "Project upload should not throw exception");
 
             long uploadTime = System.currentTimeMillis() - uploadStart;
-            System.out.println("  ✓ Upload successful (" + uploadTime + "ms)");
+            System.out.println("  OK: Upload successful (" + uploadTime + "ms)");
 
             // Download the file
             System.out.println("  Downloading TML file...");
@@ -401,7 +397,7 @@ public class SpeleoDBAPITest {
             assertTrue(Files.exists(downloadedFile), "Downloaded file should exist");
             assertTrue(Files.size(downloadedFile) > 0, "Downloaded file should not be empty");
 
-            System.out.println("  ✓ Download successful (" + downloadTime + "ms)");
+            System.out.println("  OK: Download successful (" + downloadTime + "ms)");
 
             // Verify checksum
             String downloadedChecksum = TestFixtures.calculateChecksum(downloadedFile);
@@ -410,9 +406,9 @@ public class SpeleoDBAPITest {
             assertEquals(originalChecksum, downloadedChecksum, "Downloaded content checksum should match uploaded content");
             assertTrue(TestFixtures.verifyChecksum(originalTmlFile, downloadedFile), "Checksum verification should pass");
 
-            System.out.println("  ✓ Checksum verification passed");
+            System.out.println("  OK: Checksum verification passed");
             System.out.println("  File size: " + Files.size(downloadedFile) + " bytes");
-            System.out.println("✓ Standard project round-trip test completed successfully");
+            System.out.println("OK: Standard project round-trip test completed successfully");
 
             // Clean up downloaded file
             Files.delete(downloadedFile);
@@ -469,7 +465,7 @@ public class SpeleoDBAPITest {
             }, "Real TML file upload should not throw exception");
 
             long uploadTime = System.currentTimeMillis() - uploadStart;
-            System.out.println("  ✓ Upload successful (" + uploadTime + "ms)");
+            System.out.println("  OK: Upload successful (" + uploadTime + "ms)");
 
             // Download the file
             System.out.println("  Downloading TML file...");
@@ -495,12 +491,12 @@ public class SpeleoDBAPITest {
 
             // Binary file verification (TML files are ZIP archives, not text)
             // Content verification is done via checksum comparison only
-            System.out.println("  ✓ Binary file integrity verified via checksum");
+            System.out.println("  OK: Binary file integrity verified via checksum");
 
-            System.out.println("  ✓ Download successful (" + downloadTime + "ms)");
-            System.out.println("  ✓ Size verification passed");
-            System.out.println("  ✓ Checksum verification passed");
-            System.out.println("✓ Real TML file round-trip test completed successfully");
+            System.out.println("  OK: Download successful (" + downloadTime + "ms)");
+            System.out.println("  OK: Size verification passed");
+            System.out.println("  OK: Checksum verification passed");
+            System.out.println("OK: Real TML file round-trip test completed successfully");
 
             // Performance summary
             System.out.println("  Performance Summary:");
@@ -538,7 +534,7 @@ public class SpeleoDBAPITest {
         boolean released = retryOperation(() -> service.releaseProjectMutex(testProject));
 
         assertTrue(released, "Should be able to release project mutex");
-        System.out.println("✓ Successfully released project mutex");
+        System.out.println("OK: Successfully released project mutex");
     }
 
     @Test
@@ -558,7 +554,7 @@ public class SpeleoDBAPITest {
             service.listProjects();
         }, "Operations should fail after logout");
 
-        System.out.println("✓ Successfully logged out");
+        System.out.println("OK: Successfully logged out");
     }
 
     @Test
@@ -582,7 +578,7 @@ public class SpeleoDBAPITest {
         service.listProjects();
         long listTime = System.currentTimeMillis() - listStart;
 
-        System.out.println("✓ Performance Results:");
+        System.out.println("OK: Performance Results:");
         System.out.println("  Authentication: " + authTime + "ms");
         System.out.println("  List Projects: " + listTime + "ms");
 
@@ -671,7 +667,7 @@ public class SpeleoDBAPITest {
             for (JsonObject project : TestFixtures.getCreatedProjects()) {
                 try {
                     service.releaseProjectMutex(project);
-                    System.out.println("✓ Released mutex for project: " + project.getString("name"));
+                    System.out.println("OK: Released mutex for project: " + project.getString("name"));
                 } catch (Exception e) {
                     System.err.println("Failed to release mutex for project " + project.getString("name") + ": " + e.getMessage());
                 }
@@ -679,7 +675,7 @@ public class SpeleoDBAPITest {
 
             // Logout
             service.logout();
-            System.out.println("✓ Logged out");
+            System.out.println("OK: Logged out");
         }
 
         // Clear fixtures

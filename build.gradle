@@ -1,5 +1,7 @@
 plugins {
     id 'java-library'
+    id 'jacoco'
+    id 'org.owasp.dependencycheck' version '11.1.1'
 }
 
 repositories {
@@ -9,14 +11,8 @@ repositories {
 // Store the CalVer version as a project property (available during configuration)
 ext.calVerVersion = new Date().format('yyyy.MM.dd')
 
-// Target Java 21 exclusively - Same as Ariane
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
+// Java 25 toolchain + source/target compatibility are declared once in the root
+// `subprojects {}` block so all submodules stay in lockstep. Don't redeclare here.
 
 dependencies {
     api project(':com.arianesline.cavelib.api')
@@ -27,21 +23,56 @@ dependencies {
     implementation ('org.eclipse.parsson:parsson:1.1.4')
     implementation("org.glassfish:jakarta.json:2.0.1")
 
-    // Testing dependencies
-    testImplementation platform('org.junit:junit-bom:5.10.1')
+    // Testing dependencies (bumped for JDK 25 compatibility).
+    // Versions live in gradle.properties so the Mockito agent (root build.gradle)
+    // cannot drift from the test runtime here -- ByteBuddy/ASM must match.
+    testImplementation platform("org.junit:junit-bom:${providers.gradleProperty('junitBomVersion').get()}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    testImplementation 'org.assertj:assertj-core:3.24.2'
-    testImplementation 'org.mockito:mockito-core:5.8.0'
-    testImplementation 'org.mockito:mockito-junit-jupiter:5.8.0'
-    testImplementation 'org.mockito:mockito-inline:5.2.0'
+    testImplementation "org.assertj:assertj-core:${providers.gradleProperty('assertjVersion').get()}"
+    testImplementation "org.mockito:mockito-core:${providers.gradleProperty('mockitoVersion').get()}"
+    testImplementation "org.mockito:mockito-junit-jupiter:${providers.gradleProperty('mockitoVersion').get()}"
+    // mockito-inline is no longer needed: inline mock-maker is the default in Mockito 5.x
+    // and ships inside mockito-core.
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     // JavaFX testing support
-    testImplementation 'org.testfx:testfx-core:4.0.16-alpha'
-    testImplementation 'org.testfx:testfx-junit5:4.0.16-alpha'
+    testImplementation "org.testfx:testfx-core:${providers.gradleProperty('testfxVersion').get()}"
+    testImplementation "org.testfx:testfx-junit5:${providers.gradleProperty('testfxVersion').get()}"
 
     // Hermetic HTTP server for WireMock-based service tests (test scope only).
-    testImplementation 'org.wiremock:wiremock-standalone:3.10.0'
+    testImplementation "org.wiremock:wiremock-standalone:${providers.gradleProperty('wiremockVersion').get()}"
+}
+
+// JaCoCo coverage report runs after :test and writes to build/reports/jacoco/
+// 0.8.14+ adds official support for JDK 25 class files (major version 69).
+jacoco {
+    toolVersion = '0.8.14'
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+// OWASP Dependency-Check: surface known CVEs in dependencies. Non-blocking by default
+// (no failBuildOnCVSS) so CI can publish the report as a warning without breaking releases.
+// Run nightly via .github/workflows/dependency-vuln-scan.yml -- not per-PR -- to avoid
+// NVD rate-limit noise on every push.
+dependencyCheck {
+    formats = ['HTML', 'JSON']
+    suppressionFile = file('owasp-suppressions.xml').exists() ? 'owasp-suppressions.xml' : null
+    // Skip configurations Gradle uses internally that can't be resolved without test/runtime context.
+    skipConfigurations = ['archives', 'mockitoAgent']
+    // Optional NVD API key (set via -PnvdApiKey=... in CI); skips the public rate limit.
+    if (project.hasProperty('nvdApiKey') && project.property('nvdApiKey')?.toString()?.trim()) {
+        nvd {
+            apiKey = project.property('nvdApiKey').toString().trim()
+        }
+    }
 }
 
 
@@ -78,31 +109,15 @@ tasks.register('help-build') {
         println ''
         println 'TIP: Use "clean" before any task to ensure a fresh build state.'
         println ''
+        println 'LIVE API TEST CONFIG:'
+        println '  Live API tests (SpeleoDBAPITest) read SPELEODB_* settings via this order:'
+        println '    1. .env file (org.speleodb.ariane.plugin.speleodb/.env or repo root .env)'
+        println '    2. Process environment variables (set via shell or CI secrets)'
+        println '    3. Java system properties (-DSPELEODB_OAUTH_TOKEN=...)'
+        println '  In CI we set env vars from GitHub secrets (no .env file needed).'
+        println ''
     }
 }
-// Task to clean build/libs directory before build
-tasks.register('cleanBuildArtifacts') {
-    group = 'build'
-    description = 'Cleans the build/libs directory before building'
-
-    def libsDir = layout.buildDirectory.dir('libs').get().asFile
-
-    doFirst {
-        if (libsDir.exists()) {
-            println "Cleaning build/libs directory..."
-            libsDir.listFiles().each { f ->
-                if (f.isFile()) {
-                    println "Deleting: ${f.name}"
-                    f.delete()
-                }
-            }
-            println "build/libs directory cleaned"
-        } else {
-            println "build/libs directory does not exist, skipping clean"
-        }
-    }
-}
-
 // Task to generate version based on build date
 tasks.register('generateReleaseVersion') {
     group = 'build'
@@ -155,10 +170,14 @@ tasks.register('enableTestMode') {
     }
 }
 
-// Configure test task to ensure proper ordering
+// Configure test task to ensure proper ordering.
+// `dependsOn jar` is intentional: JarManifestTest + ModuleProvidesTest open the built
+// JAR from build/libs/ to validate manifest entries and module-layer ServiceLoader
+// discovery. Without this, those tests would `assumeTrue`-skip when run via a bare
+// `:test` invocation that hasn't packaged a JAR yet.
 test {
     useJUnitPlatform()
-    dependsOn generateReleaseVersion, enableTestMode
+    dependsOn generateReleaseVersion, enableTestMode, jar
 }
 
 // When the test task is in the execution graph, force recompilation after enableTestMode
@@ -186,7 +205,7 @@ build {
 // Configure Java compiler optimizations for release builds
 compileJava {
     // Make compileJava depend on generateReleaseVersion so version is always up to date
-    dependsOn generateReleaseVersion, cleanBuildArtifacts
+    dependsOn generateReleaseVersion
 
     options.compilerArgs += [
         '-Xlint:all',          // Enable all warnings (helps catch inefficiencies)
@@ -210,6 +229,21 @@ jar {
     archiveBaseName = 'org.speleodb.ariane.plugin.speleodb'
     archiveVersion = project.calVerVersion
 
+    // Wipe stale CalVer JARs from previous days so build/libs only ever contains
+    // today's artifact. Replaces the old standalone `cleanBuildArtifacts` task,
+    // which was wired into `compileJava` and forced a full recompile + re-jar
+    // on every test run for no real protection.
+    //
+    // libsDir captured at configuration time (the configuration cache rejects
+    // `layout` lookups inside execution-time closures).
+    def libsDir = layout.buildDirectory.dir('libs').get().asFile
+    doFirst {
+        if (libsDir.exists()) {
+            libsDir.listFiles({ f -> f.isFile() && f.name.endsWith('.jar') } as java.io.FileFilter)
+                    ?.each { it.delete() }
+        }
+    }
+
     // Optimize JAR structure and compression
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
@@ -217,7 +251,9 @@ jar {
     entryCompression = ZipEntryCompression.DEFLATED
     zip64 = true  // Enable ZIP64 extensions for better compression
 
-    // Add security and optimization manifest entries
+    // Add security and optimization manifest entries.
+    // Build-Jdk is pinned to the major version (not java.version) so two builds on
+    // different JDK 25 patch levels still produce a bit-identical JAR.
     manifest {
         attributes(
             'Sealed': 'true',
@@ -225,7 +261,7 @@ jar {
             'Implementation-Version': project.calVerVersion,
             'Implementation-Vendor': 'SpeleoDB Software',
             'Built-By': 'Jonathan Dekhtiar',
-            'Build-Jdk': System.getProperty('java.version'),
+            'Build-Jdk': '25',
             'Created-By': "Gradle ${gradle.gradleVersion}",
             'Multi-Release': 'false'  // Explicitly disable for clarity
         )

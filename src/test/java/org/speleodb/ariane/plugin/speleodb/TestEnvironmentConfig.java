@@ -8,13 +8,23 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Configuration loader for SpeleoDB API tests
- * Loads environment variables from .env file with secure credential handling
- * FAILS IMMEDIATELY if .env file is not found - no silent failures!
+ * Configuration loader for SpeleoDB API tests.
+ *
+ * <p>Resolution order for any key (pytest-env style):
+ * <ol>
+ *   <li>{@code .env} file (searched in CWD, the plugin module dir, and two parent dirs)</li>
+ *   <li>Process environment variables ({@link System#getenv(String)})</li>
+ *   <li>JVM system properties ({@link System#getProperty(String)})</li>
+ * </ol>
+ *
+ * <p>Designed to be safe to load when no {@code .env} exists -- {@link #get(String)} simply
+ * falls through to the env-var / system-property fallback. This lets CI provide credentials
+ * via GitHub secrets without ever materializing a {@code .env} file. {@link
+ * #validateCriticalConfig()} only throws when {@code SPELEODB_INSTANCE_URL} plus an auth
+ * method cannot be resolved from any source.
  */
 public class TestEnvironmentConfig {
 
-    // Configuration keys
     public static final String SPELEODB_INSTANCE_URL = "SPELEODB_INSTANCE_URL";
     public static final String SPELEODB_OAUTH_TOKEN = "SPELEODB_OAUTH_TOKEN";
     public static final String SPELEODB_EMAIL = "SPELEODB_EMAIL";
@@ -23,29 +33,25 @@ public class TestEnvironmentConfig {
     public static final String API_TIMEOUT_MS = "API_TIMEOUT_MS";
     public static final String API_RETRY_COUNT = "API_RETRY_COUNT";
 
-    private static final Map<String, String> config = new HashMap<>();
-    private static boolean configLoaded = false;
+    private static final Map<String, String> dotenvConfig = new HashMap<>();
+    private static volatile boolean configLoaded = false;
     private static String envFilePath = null;
-
-    static {
-        loadConfiguration();
-    }
+    private static String envFileLoadError = null;
 
     /**
-     * Load configuration from .env file
-     * FAILS IMMEDIATELY if .env file is not found!
+     * Lazy-load the {@code .env} file the first time anything reads config. Failure to find
+     * the file is NOT fatal -- env-var / system-property fallback may still satisfy callers.
      */
-    private static void loadConfiguration() {
+    private static synchronized void loadConfiguration() {
         if (configLoaded) {
             return;
         }
 
-        // Search for .env file in multiple locations
         String[] searchPaths = {
-            ".env",                                                    // Current directory
-            "org.speleodb.ariane.plugin.speleodb/.env",            // From monorepo root
-            "../.env",                                                 // Parent directory
-            "../../.env"                                               // Grandparent directory
+            ".env",
+            "org.speleodb.ariane.plugin.speleodb/.env",
+            "../.env",
+            "../../.env"
         };
 
         Path envFile = null;
@@ -58,48 +64,16 @@ public class TestEnvironmentConfig {
             }
         }
 
-        // IMMEDIATE FAILURE if .env file not found
         if (envFile == null) {
-            String errorMessage = """
-
-                ❌ CRITICAL ERROR: .env file NOT FOUND!
-
-                The SpeleoDB API tests require a .env file with your credentials.
-
-                📍 Searched locations:
-                %s
-
-                🔧 TO FIX THIS:
-
-                1. Copy the template file:
-                   cp env.dist .env
-
-                2. Edit .env with your SpeleoDB credentials:
-                   SPELEODB_INSTANCE_URL=https://your-speleodb-instance.com
-                   SPELEODB_OAUTH_TOKEN=your-token-here
-                   # OR
-                   SPELEODB_EMAIL=your-email@example.com
-                   SPELEODB_PASSWORD=your-password
-
-                   API_TEST_ENABLED=true
-
-                3. Ensure .env is in one of these locations:
-                   - Project root: .env
-                   - SpeleoDB module: org.speleodb.ariane.plugin.speleodb/.env
-
-                ⚠️  IMPORTANT: Never commit your .env file to version control!
-
-                """.formatted(String.join("\n                ",
-                    java.util.Arrays.stream(searchPaths)
-                        .map(path -> "• " + Path.of(path).toAbsolutePath().normalize())
-                        .toArray(String[]::new)));
-
-            throw new RuntimeException(errorMessage);
+            // Not fatal -- env vars / system properties may still provide everything we need.
+            envFileLoadError = ".env file not found in any of: "
+                + String.join(", ", searchPaths);
+            configLoaded = true;
+            return;
         }
 
-        // Load the .env file
         try {
-            System.out.println("✓ Loading .env file from: " + envFile);
+            System.out.println("OK: Loading .env file from: " + envFile);
 
             Files.lines(envFile)
                 .filter(line -> !line.trim().isEmpty())
@@ -110,147 +84,75 @@ public class TestEnvironmentConfig {
                         String key = parts[0].trim();
                         String value = parts[1].trim();
 
-                        // Remove quotes if present
                         if ((value.startsWith("\"") && value.endsWith("\"")) ||
                             (value.startsWith("'") && value.endsWith("'"))) {
                             value = value.substring(1, value.length() - 1);
                         }
 
-                        // Normalize instance URL for consistency
                         if (SPELEODB_INSTANCE_URL.equals(key)) {
                             value = normalizeInstanceUrl(value);
                         }
 
-                        config.put(key, value);
+                        dotenvConfig.put(key, value);
                     }
                 });
 
             configLoaded = true;
-
-            // Validate critical configuration immediately
-            validateCriticalConfig();
+            System.out.println("OK: .env file loaded with " + dotenvConfig.size() + " entries");
 
         } catch (IOException e) {
-            String errorMessage = """
-
-                ❌ CRITICAL ERROR: Failed to read .env file!
-
-                File found at: %s
-                Error: %s
-
-                🔧 TO FIX THIS:
-
-                1. Check file permissions (should be readable)
-                2. Verify file is not corrupted
-                3. Ensure file uses proper format:
-                   KEY=value
-                   # Comments start with #
-
-                """.formatted(envFile, e.getMessage());
-
-            throw new RuntimeException(errorMessage, e);
+            envFileLoadError = "Failed to read .env file at " + envFile + ": " + e.getMessage();
+            configLoaded = true;
+            System.err.println("WARN: " + envFileLoadError);
         }
     }
 
     /**
-     * Validate that critical configuration is present
-     * FAILS IMMEDIATELY if required config is missing!
-     */
-    private static void validateCriticalConfig() {
-        StringBuilder errors = new StringBuilder();
-
-        // Check instance URL
-        String instanceUrl = get(SPELEODB_INSTANCE_URL);
-        if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
-            errors.append("• SPELEODB_INSTANCE_URL is required\n");
-        } else {
-            // Validate URL format - can be with or without protocol
-            String url = instanceUrl.trim();
-            if (!isValidInstanceUrl(url)) {
-                errors.append("• SPELEODB_INSTANCE_URL must be a valid hostname or URL (e.g., 'localhost:8000', '127.0.0.1:8000', or 'https://api.speleodb.org')\n");
-            }
-        }
-
-        // Check authentication credentials
-        String oauthToken = get(SPELEODB_OAUTH_TOKEN);
-        String email = get(SPELEODB_EMAIL);
-        String password = get(SPELEODB_PASSWORD);
-
-        boolean hasOAuth = oauthToken != null && !oauthToken.trim().isEmpty();
-        boolean hasEmailPassword = email != null && !email.trim().isEmpty() &&
-                                  password != null && !password.trim().isEmpty();
-
-        if (!hasOAuth && !hasEmailPassword) {
-            errors.append("• Authentication required: Either SPELEODB_OAUTH_TOKEN OR both SPELEODB_EMAIL and SPELEODB_PASSWORD\n");
-        }
-
-        // Check if API testing is disabled
-        if (!isApiTestEnabled()) {
-            errors.append("• API_TEST_ENABLED=false - tests will be skipped\n");
-        }
-
-        if (errors.length() > 0) {
-            String errorMessage = """
-
-                ❌ CRITICAL ERROR: Invalid .env configuration!
-
-                📍 Configuration file: %s
-
-                🔧 CONFIGURATION ERRORS:
-                %s
-
-                📋 EXAMPLE VALID .env FILE:
-
-                # SpeleoDB Instance (protocol is auto-detected)
-                SPELEODB_INSTANCE_URL=your-speleodb-instance.com
-                # OR for local development:
-                # SPELEODB_INSTANCE_URL=127.0.0.1:8000
-                # SPELEODB_INSTANCE_URL=localhost:8000
-
-                # Authentication (choose ONE method)
-                SPELEODB_OAUTH_TOKEN=your-oauth-token-here
-                # OR
-                SPELEODB_EMAIL=your-email@example.com
-                SPELEODB_PASSWORD=your-password
-
-                # Enable testing
-                API_TEST_ENABLED=true
-
-                # Optional settings
-                API_TIMEOUT_MS=10000
-                API_RETRY_COUNT=3
-
-                ⚠️  Fix these errors and try again!
-
-                """.formatted(envFilePath, errors.toString());
-
-            throw new RuntimeException(errorMessage);
-        }
-
-        System.out.println("✓ .env configuration validated successfully");
-    }
-
-    /**
-     * Get configuration value
+     * Resolve a value with fallback order: .env → env var → system property → null.
+     *
+     * <p>Env-var and sysprop values are trimmed of leading/trailing whitespace
+     * (including CR/LF) before being returned. GitHub Actions secrets pasted from
+     * a clipboard frequently carry a trailing newline, which would otherwise survive
+     * into HTTP headers and trip
+     * {@link java.net.http.HttpRequest.Builder#setHeader(String, String)}'s RFC 7230
+     * validation with a confusing {@code IllegalArgumentException}. Instance URL
+     * values are additionally normalized (lower-cased, protocol stripped, trailing
+     * slashes removed) the same way as .env-sourced values.
      */
     public static String get(String key) {
         if (!configLoaded) {
             loadConfiguration();
         }
-        return config.get(key);
+
+        String fromDotenv = dotenvConfig.get(key);
+        if (fromDotenv != null && !fromDotenv.isEmpty()) {
+            return fromDotenv;
+        }
+
+        String fromEnv = System.getenv(key);
+        if (fromEnv != null) {
+            String trimmed = fromEnv.trim();
+            if (!trimmed.isEmpty()) {
+                return SPELEODB_INSTANCE_URL.equals(key) ? normalizeInstanceUrl(trimmed) : trimmed;
+            }
+        }
+
+        String fromProp = System.getProperty(key);
+        if (fromProp != null) {
+            String trimmed = fromProp.trim();
+            if (!trimmed.isEmpty()) {
+                return SPELEODB_INSTANCE_URL.equals(key) ? normalizeInstanceUrl(trimmed) : trimmed;
+            }
+        }
+
+        return null;
     }
 
-    /**
-     * Get configuration value with default
-     */
     public static String get(String key, String defaultValue) {
         String value = get(key);
         return value != null ? value : defaultValue;
     }
 
-    /**
-     * Get integer configuration value
-     */
     public static int getInt(String key, int defaultValue) {
         String value = get(key);
         if (value == null) {
@@ -264,9 +166,6 @@ public class TestEnvironmentConfig {
         }
     }
 
-    /**
-     * Get boolean configuration value
-     */
     public static boolean getBoolean(String key, boolean defaultValue) {
         String value = get(key);
         if (value == null) {
@@ -275,9 +174,6 @@ public class TestEnvironmentConfig {
         return "true".equalsIgnoreCase(value.trim());
     }
 
-    /**
-     * Get double configuration value
-     */
     public static double getDouble(String key, double defaultValue) {
         String value = get(key);
         if (value == null) {
@@ -291,15 +187,70 @@ public class TestEnvironmentConfig {
         }
     }
 
-    /**
-     * Check if API testing is enabled
-     */
     public static boolean isApiTestEnabled() {
         return getBoolean(API_TEST_ENABLED, true);
     }
 
     /**
-     * Check if required configuration is present
+     * Validate that critical configuration is present somewhere in the resolution chain.
+     * Throws {@link RuntimeException} if {@code SPELEODB_INSTANCE_URL} or an auth method
+     * cannot be resolved from {@code .env}, env vars, or system properties.
+     */
+    public static void validateCriticalConfig() {
+        if (!configLoaded) {
+            loadConfiguration();
+        }
+
+        StringBuilder errors = new StringBuilder();
+
+        String instanceUrl = get(SPELEODB_INSTANCE_URL);
+        if (instanceUrl == null || instanceUrl.trim().isEmpty()) {
+            errors.append("• SPELEODB_INSTANCE_URL is required (set in .env or as env var)\n");
+        } else if (!isValidInstanceUrl(instanceUrl.trim())) {
+            errors.append("• SPELEODB_INSTANCE_URL must be a valid hostname or URL (got: '")
+                  .append(instanceUrl).append("')\n");
+        }
+
+        String oauthToken = get(SPELEODB_OAUTH_TOKEN);
+        String email = get(SPELEODB_EMAIL);
+        String password = get(SPELEODB_PASSWORD);
+
+        boolean hasOAuth = oauthToken != null && !oauthToken.trim().isEmpty();
+        boolean hasEmailPassword = email != null && !email.trim().isEmpty()
+                                && password != null && !password.trim().isEmpty();
+
+        if (!hasOAuth && !hasEmailPassword) {
+            errors.append("• Authentication required: set SPELEODB_OAUTH_TOKEN or both ")
+                  .append("SPELEODB_EMAIL and SPELEODB_PASSWORD (.env or env var)\n");
+        }
+
+        if (errors.length() > 0) {
+            String configSource = envFilePath != null
+                ? ".env at " + envFilePath
+                : "(no .env file -- " + (envFileLoadError != null ? envFileLoadError : "none provided") + ")";
+            String errorMessage = """
+
+                ERROR: Invalid SpeleoDB API test configuration
+
+                Source: %s
+
+                Errors:
+                %s
+                Resolution order for each key:
+                  1. .env file
+                  2. Process environment variable
+                  3. JVM system property (-DKEY=value)
+
+                In CI: set the values as job-level env or repository secrets.
+                Locally: copy env.dist to .env and fill in real values.
+                """.formatted(configSource, errors.toString());
+
+            throw new RuntimeException(errorMessage);
+        }
+    }
+
+    /**
+     * Convenience: returns true iff {@link #validateCriticalConfig()} would succeed.
      */
     public static boolean hasRequiredConfig() {
         try {
@@ -311,7 +262,8 @@ public class TestEnvironmentConfig {
     }
 
     /**
-     * Print configuration status (with masked credentials)
+     * Print configuration status with masked credentials. Records which source supplied
+     * each value so CI logs make troubleshooting credentials trivial.
      */
     public static void printConfigStatus() {
         if (!configLoaded) {
@@ -319,11 +271,15 @@ public class TestEnvironmentConfig {
         }
 
         System.out.println("=== SpeleoDB API Test Configuration ===");
-        System.out.println("Configuration file: " + (envFilePath != null ? envFilePath : "NOT FOUND"));
-        System.out.println("Instance URL: " + maskSensitive(get(SPELEODB_INSTANCE_URL)));
-        System.out.println("Has OAuth Token: " + (get(SPELEODB_OAUTH_TOKEN) != null && !get(SPELEODB_OAUTH_TOKEN).isEmpty()));
-        System.out.println("Has Email/Password: " + (get(SPELEODB_EMAIL) != null && !get(SPELEODB_EMAIL).isEmpty() &&
-                                                    get(SPELEODB_PASSWORD) != null && !get(SPELEODB_PASSWORD).isEmpty()));
+        System.out.println(".env file: " + (envFilePath != null ? envFilePath : "(none -- using env vars / system properties)"));
+        if (envFilePath == null && envFileLoadError != null) {
+            System.out.println("  reason: " + envFileLoadError);
+        }
+        System.out.println("Instance URL: " + maskSensitive(get(SPELEODB_INSTANCE_URL))
+                + sourceLabel(SPELEODB_INSTANCE_URL));
+        System.out.println("Has OAuth Token: " + hasNonEmpty(SPELEODB_OAUTH_TOKEN)
+                + sourceLabel(SPELEODB_OAUTH_TOKEN));
+        System.out.println("Has Email/Password: " + (hasNonEmpty(SPELEODB_EMAIL) && hasNonEmpty(SPELEODB_PASSWORD)));
         System.out.println("API Test Enabled: " + isApiTestEnabled());
         System.out.println("API Timeout: " + getInt(API_TIMEOUT_MS, 10000) + "ms");
         System.out.println("API Retry Count: " + getInt(API_RETRY_COUNT, 3));
@@ -332,38 +288,85 @@ public class TestEnvironmentConfig {
     }
 
     /**
-     * Normalize instance URL by removing protocol and trailing slashes
-     * This ensures consistent format that SpeleoDB service expects
+     * Reset cached state. Test-only helper used by {@link TestEnvironmentConfigEnvFallbackTest}
+     * to exercise different .env / env-var combinations without spawning a new JVM.
      */
+    static synchronized void resetForTest() {
+        dotenvConfig.clear();
+        configLoaded = false;
+        envFilePath = null;
+        envFileLoadError = null;
+    }
+
+    /**
+     * Test-only helper: pretend no {@code .env} file was found and freeze the cached state.
+     * Forces subsequent {@link #get(String)} calls to use only env-var / system-property
+     * fallback. Used to verify CI behaviour (no .env, secrets via env) without chdir hacks.
+     */
+    static synchronized void simulateNoDotenvForTest() {
+        dotenvConfig.clear();
+        envFilePath = null;
+        envFileLoadError = "(simulated absence for test)";
+        configLoaded = true;
+    }
+
+    /**
+     * Test-only helper: inject a synthetic {@code .env} entry without touching the filesystem.
+     * Always normalizes {@link #SPELEODB_INSTANCE_URL} the same way the real loader does.
+     */
+    static synchronized void putDotenvForTest(String key, String value) {
+        if (!configLoaded) {
+            loadConfiguration();
+        }
+        if (SPELEODB_INSTANCE_URL.equals(key) && value != null) {
+            value = normalizeInstanceUrl(value);
+        }
+        dotenvConfig.put(key, value);
+    }
+
+    private static boolean hasNonEmpty(String key) {
+        String v = get(key);
+        return v != null && !v.isEmpty();
+    }
+
+    private static String sourceLabel(String key) {
+        if (!configLoaded) {
+            loadConfiguration();
+        }
+        if (dotenvConfig.containsKey(key)) {
+            return "  [source: .env]";
+        }
+        if (System.getenv(key) != null && !System.getenv(key).isEmpty()) {
+            return "  [source: env var]";
+        }
+        if (System.getProperty(key) != null && !System.getProperty(key).isEmpty()) {
+            return "  [source: system property]";
+        }
+        return "  [source: (unset)]";
+    }
+
     private static String normalizeInstanceUrl(String url) {
         if (url == null) {
             return null;
         }
 
-        String normalized = url.trim();
+        // Per RFC 3986, scheme and host are case-insensitive: lowercase first so the
+        // protocol-stripping below correctly recognises uppercase variants like HTTPS://.
+        String normalized = url.trim().toLowerCase(Locale.ROOT);
 
-        // Remove http:// or https:// protocol
         if (normalized.startsWith("https://")) {
             normalized = normalized.substring(8);
         } else if (normalized.startsWith("http://")) {
             normalized = normalized.substring(7);
         }
 
-        // Remove trailing slash
         while (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
 
-        // RFC 2616/7230: hostnames are case-insensitive; normalize to lowercase
-        normalized = normalized.toLowerCase(Locale.ROOT);
-
         return normalized;
     }
 
-    /**
-     * Validate instance URL format
-     * Accepts URLs with or without protocol since SpeleoDB service handles protocol detection
-     */
     private static boolean isValidInstanceUrl(String url) {
         if (url == null || url.trim().isEmpty()) {
             return false;
@@ -371,24 +374,17 @@ public class TestEnvironmentConfig {
 
         String trimmed = url.trim();
 
-        // Allow URLs with http:// or https:// protocol
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
             return true;
         }
 
-        // Allow hostnames/IPs without protocol (e.g., "localhost:8000", "127.0.0.1:8000", "api.speleodb.org")
-        // Basic validation: should contain at least a hostname
         if (trimmed.contains(" ") || trimmed.contains("\t") || trimmed.contains("\n")) {
-            return false; // No whitespace allowed
+            return false;
         }
 
-        // Should have some basic hostname structure
-        return trimmed.length() > 0 && !trimmed.startsWith(".") && !trimmed.endsWith(".");
+        return !trimmed.startsWith(".") && !trimmed.endsWith(".");
     }
 
-    /**
-     * Mask sensitive information for logging
-     */
     private static String maskSensitive(String value) {
         if (value == null || value.isEmpty()) {
             return "(not set)";

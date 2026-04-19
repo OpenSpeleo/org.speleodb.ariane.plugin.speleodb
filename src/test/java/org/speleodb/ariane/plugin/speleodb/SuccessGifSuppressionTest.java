@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @DisplayName("Success GIF Suppression Preference Tests")
 class SuccessGifSuppressionTest {
@@ -37,6 +38,8 @@ class SuccessGifSuppressionTest {
 
     @Test
     @DisplayName("Setting suppression preference avoids dialog path")
+    @DisabledIfEnvironmentVariable(named = "CI", matches = "true",
+            disabledReason = "showSuccessCelebrationDialog -> SpeleoDBTooltips.showSuccess -> Platform.runLater blocks indefinitely on headless CI")
     void settingSuppressionAvoidsDialog() throws Exception {
         // Spy pattern: override tooltip class via reflection to detect call
         // We can't easily intercept the dialog, but we can set the pref and ensure code path reaches early-return.

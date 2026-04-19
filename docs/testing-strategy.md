@@ -105,4 +105,3 @@ The following areas have limited or no automated test coverage:
 - WebView integration: no automated testing of the in-plugin browser
 - Plugin self-update: JAR download/replacement tested via reflection but not end-to-end
 - `SpeleoDBPluginReleasesApiTest.successAndFiltering()` still depends on `SpeleoDBConstants.ARIANE_VERSION` being parseable as `x.y.z`; when the host reports a non-semver value, wrapper/error/header coverage still runs but the version-bounds filter test is skipped
-- Forced JUnit parallelism is currently unsafe for the WireMock suites: a temporary `junit-platform.properties` with concurrent class/test execution produced widespread cross-talk and 133 failures because `AbstractSpeleoDBServiceWireMockTest` shares one static `WireMockExtension` across subclasses
